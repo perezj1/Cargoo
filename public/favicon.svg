@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
+  <defs>
+    <linearGradient id="cargooGradient" x1="28" y1="28" x2="222" y2="222" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF9A6F"/>
+      <stop offset="0.45" stop-color="#FFB35F"/>
+      <stop offset="1" stop-color="#63CBB4"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="60" fill="url(#cargooGradient)"/>
+  <path
+    d="M168 66c-15-12-33-18-53-18-46 0-82 35-82 80s36 80 82 80c20 0 40-8 55-22"
+    stroke="white"
+    stroke-width="28"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <rect x="144" y="102" width="50" height="50" rx="14" fill="white"/>
+  <path d="M169 102v50" stroke="#FF9A6F" stroke-width="8" stroke-linecap="round"/>
+  <path d="M144 128h50" stroke="#FFB35F" stroke-width="8" stroke-linecap="round"/>
+ </svg>

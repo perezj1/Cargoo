@@ -1,759 +1,456 @@
-import { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { FormEvent, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, CalendarDays, CarFront, Clock3, MapPin, Package2, Search } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ChevronLeft, ChevronRight, Flame, Trophy, Zap, User, LogOut, Settings as SettingsIcon } from "lucide-react";
-import { getCategoryIcon, getCategoryColor, getCategoryName } from "@/lib/categories";
-import { toast } from "sonner";
-import BottomNav from "@/components/BottomNav";
-import { useI18n } from "@/contexts/I18nContext";
-import { shuffleTasks } from "@/lib/taskShuffler";
-import { getTaskTranslation } from "@/lib/taskTranslations";
-import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/contexts/AuthContext";
+import { getAppHomePath, getStoredAppRole, setStoredAppRole } from "@/lib/app-role";
+import { faqItems, trackingItems, trips } from "@/lib/cargoo-data";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  defaultMarketplaceFilters,
+  getMarketplaceUrl,
+  marketplaceDateLabels,
+  marketplaceSpaceLabels,
+  marketplaceTimeLabels,
+  type MarketplaceFilters,
+  storePendingMarketplaceFilters,
+} from "@/lib/marketplace-filters";
 
-/** ================================
- *  DIFFICULTY HELPERS (prefijos)
- *  ================================ */
-type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
-
-function difficultyFromUserLevel(level: number): Difficulty {
-  if (level >= 1 && level <= 3) return 'EASY';
-  if (level >= 4 && level <= 6) return 'MEDIUM';
-  return 'HARD'; // 7–10+
-}
-
-function parseDifficultyFromText(text?: string | null): Difficulty | null {
-  if (!text) return null;
-  if (/^EASY_/i.test(text)) return 'EASY';
-  if (/^MEDIUM_/i.test(text)) return 'MEDIUM';
-  if (/^HARD_/i.test(text)) return 'HARD';
-  return null;
-}
-
-function stripDifficultyPrefix(text?: string | null): string | undefined | null {
-  if (!text) return text;
-  return text.replace(/^(EASY_|MEDIUM_|HARD_)/i, '');
-}
-
-/** ================================
- *  TYPES
- *  ================================ */
-interface Task {
-  id: string;
-  category: string;
-  title: string;
-  description: string;
-  icon: string | null;
-}
+const landingExamples = [
+  {
+    title: "Ejemplo para emisor",
+    text: "Zurich -> Barcelona, salida esta semana, manana, espacio medio. Aparecen transportistas listos para contactar.",
+    tone: "peach-card",
+    icon: Search,
+  },
+  {
+    title: "Ejemplo para transportista",
+    text: "Entras y ves solicitudes nuevas, recogidas pendientes y codigos de seguimiento para compartir.",
+    tone: "mint-card",
+    icon: CarFront,
+  },
+  {
+    title: "Ejemplo de seguimiento",
+    text: "El envio pasa por reservado, recogido, en ruta y entregado con la ultima actualizacion siempre visible.",
+    tone: "sky-card",
+    icon: Package2,
+  },
+];
 
 const Home = () => {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const { t, locale } = useI18n();
-
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [stats, setStats] = useState({
-    totalXP: 0,
-    currentStreak: 0,
-    level: 1,
-    username: '',
-    avatarUrl: ''
+  const appEntry = user ? getAppHomePath(getStoredAppRole()) : "/auth";
+  const liveTrip = trips[0];
+  const liveTracking = trackingItems[0];
+  const originOptions = useMemo(() => [...new Set(trips.map((trip) => trip.originCity))], []);
+  const destinationOptions = useMemo(() => [...new Set(trips.map((trip) => trip.destinationCity))], []);
+  const [landingFilters, setLandingFilters] = useState<MarketplaceFilters>({
+    ...defaultMarketplaceFilters,
+    origin: liveTrip.originCity,
+    destination: liveTrip.destinationCity,
+    date: "this-week",
+    time: "morning",
+    space: "medium",
   });
 
-  /** ================================
-   *  INIT
-   *  ================================ */
-  useEffect(() => {
-    if (!user) {
-      navigate("/auth");
+  const handleLandingSearch = (event: FormEvent) => {
+    event.preventDefault();
+    setStoredAppRole("emitter");
+
+    if (user) {
+      navigate(getMarketplaceUrl(landingFilters));
       return;
     }
-    loadTasks();
-    loadUserStats();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, navigate]);
 
-  /** ================================
-   *  USER STATS / LEVEL
-   *  ================================ */
-  const loadUserStats = async () => {
-    try {
-      // Profile
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('username, avatar_url')
-        .eq('id', user?.id)
-        .single();
-
-      // Completed tasks → XP
-      const { data: completedTasks } = await supabase
-        .from('completed_tasks')
-        .select('completed_at')
-        .eq('user_id', user?.id)
-        .eq('skipped', false);
-
-      const totalXP = (completedTasks?.length || 0) * 10;
-      const level = Math.floor(totalXP / 100) + 1;
-
-      // Streak
-      let currentStreak = 0;
-      if (completedTasks && completedTasks.length > 0) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const dates = completedTasks.map(t => {
-          const d = new Date(t.completed_at);
-          d.setHours(0, 0, 0, 0);
-          return d.getTime();
-        });
-
-        const uniqueDates = [...new Set(dates)].sort((a, b) => b - a);
-
-        for (let i = 0; i < uniqueDates.length; i++) {
-          const daysDiff = Math.floor((today.getTime() - uniqueDates[i]) / (1000 * 60 * 60 * 24));
-          if (i === 0 && daysDiff <= 1) {
-            currentStreak = 1;
-          } else if (i > 0) {
-            const prevDaysDiff = Math.floor((today.getTime() - uniqueDates[i - 1]) / (1000 * 60 * 60 * 24));
-            if (daysDiff === prevDaysDiff + 1) {
-              currentStreak++;
-            } else {
-              break;
-            }
-          }
-        }
-      }
-
-      setStats({
-        totalXP,
-        currentStreak,
-        level,
-        username: profile?.username || user?.email?.split('@')[0] || 'Usuario',
-        avatarUrl: profile?.avatar_url || ''
-      });
-    } catch (error) {
-      console.error('Error loading stats:', error);
-    }
+    storePendingMarketplaceFilters(landingFilters);
+    navigate("/auth?role=emitter");
   };
 
-  /** ================================
-   *  LOAD TASKS (con dificultad)
-   *  ================================ */
-  const loadTasks = async () => {
-    try {
-      const { data: userCategories } = await supabase
-        .from("user_categories")
-        .select("category")
-        .eq("user_id", user?.id!)
-        .eq("active", true) as { data: { category: string }[] | null };
-
-      if (!userCategories || userCategories.length === 0) {
-        setTasks([]);
-        setLoading(false);
-        return;
-      }
-
-      const activeCategories = userCategories.map((uc) => uc.category);
-      const today = new Date().toISOString().split('T')[0];
-
-      // Dificultad del usuario según su nivel actual
-      // (usamos el nivel localmente; en el primer render puede ser 1. Se recalcula tras stats)
-      const userDifficulty = difficultyFromUserLevel(stats.level || 1);
-
-      // Ver si ya hay daily_tasks hoy
-      const { data: dailyTasksData } = await supabase
-        .from("daily_tasks")
-        .select("task_id")
-        .eq("user_id", user?.id!)
-        .eq("assigned_date", today) as { data: { task_id: string }[] | null };
-
-      if (dailyTasksData && dailyTasksData.length > 0) {
-        // Cargar tasks y filtrar por categoría activa + prefijo dificultad
-        const taskIds = dailyTasksData.map(dt => dt.task_id);
-        const { data: existingTasks } = await supabase
-          .from("tasks")
-          .select("*")
-          .in("id", taskIds);
-
-        const filteredExisting = (existingTasks || []).filter(t => {
-          const matchesCategory = activeCategories.includes(t.category);
-          const d = parseDifficultyFromText(t.title) || parseDifficultyFromText(t.id);
-          const matchesDifficulty = d === userDifficulty;
-          return matchesCategory && matchesDifficulty;
-        });
-
-        // Detectar categorías faltantes para esta dificultad
-        const categoriesWithTasks = new Set(filteredExisting.map(t => t.category));
-        const missingCategories = activeCategories.filter(cat => !categoriesWithTasks.has(cat));
-
-        // Eliminar de daily_tasks las que no coincidan con categoría activa o dificultad
-        const invalidTasks = (existingTasks || []).filter(t => {
-          const inActive = activeCategories.includes(t.category);
-          const d = parseDifficultyFromText(t.title) || parseDifficultyFromText(t.id);
-          const matchDiff = d === userDifficulty;
-          return !(inActive && matchDiff);
-        });
-
-        if (invalidTasks.length > 0) {
-          const idsToRemove = invalidTasks.map(t => t.id);
-          await supabase
-            .from("daily_tasks")
-            .delete()
-            .eq("user_id", user?.id!)
-            .eq("assigned_date", today)
-            .in("task_id", idsToRemove);
-        }
-
-        // Añadir tasks para categorías faltantes (solo de la dificultad del usuario)
-        let updatedTasks = [...filteredExisting];
-
-        if (missingCategories.length > 0) {
-          for (const category of missingCategories) {
-            const { data: categoryTasks } = await supabase
-              .from("tasks")
-              .select("*")
-              .eq("category", category);
-
-            const eligibleByPrefix = (categoryTasks || []).filter(t => {
-              const d = parseDifficultyFromText(t.title) || parseDifficultyFromText(t.id);
-              return d === userDifficulty;
-            });
-
-            if (eligibleByPrefix.length > 0) {
-              // Seleccionar 5 aleatorias de esta categoría y dificultad
-              const shuffled = [...eligibleByPrefix].sort(() => Math.random() - 0.5);
-              const selected = shuffled.slice(0, 5);
-
-              // Guardar en daily_tasks
-              const toInsert = selected.map(task => ({
-                user_id: user?.id!,
-                task_id: task.id,
-                assigned_date: today
-              }));
-              await supabase.from("daily_tasks").insert(toInsert as any);
-
-              updatedTasks = [...updatedTasks, ...selected];
-            }
-          }
-        }
-
-        // Mantener orden (primero las que ya existían en daily_tasks y son válidas)
-        const validIdsInDaily = dailyTasksData
-          .map(dt => dt.task_id)
-          .filter(id => updatedTasks.some(t => t.id === id));
-        const appended = updatedTasks.filter(t => !validIdsInDaily.includes(t.id)).map(t => t.id);
-        const finalTaskIds = [...validIdsInDaily, ...appended];
-
-        const orderedTasks = finalTaskIds
-          .map(id => updatedTasks.find(t => t.id === id))
-          .filter(Boolean) as Task[];
-
-        setTasks(orderedTasks);
-        setCurrentIndex(0);
-        setLoading(false);
-        return;
-      }
-
-      // No hay daily_tasks hoy → generar nuevas por categoría y dificultad del usuario
-      const { data: allTasks, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .in("category", activeCategories);
-
-      if (error) throw error;
-
-      // Filtrar por dificultad del usuario mediante prefijo
-      const eligibleAll = (allTasks || []).filter(t => {
-        const d = parseDifficultyFromText(t.title) || parseDifficultyFromText(t.id);
-        return d === userDifficulty;
-      });
-
-      // Agrupar por categoría
-      const tasksByCategory: Record<string, Task[]> = {};
-      eligibleAll.forEach(task => {
-        if (!tasksByCategory[task.category]) tasksByCategory[task.category] = [];
-        tasksByCategory[task.category].push(task);
-      });
-
-      // Seleccionar 5 por categoría
-      const selectedTasks: Task[] = [];
-      Object.keys(tasksByCategory).forEach(category => {
-        const categoryTasks = tasksByCategory[category];
-        const shuffled = [...categoryTasks].sort(() => Math.random() - 0.5);
-        selectedTasks.push(...shuffled.slice(0, 5));
-      });
-
-      // Mezclar entre categorías
-      const finalTasks = shuffleTasks(selectedTasks);
-
-      // Guardar daily_tasks
-      const dailyTasksToInsert = finalTasks.map(task => ({
-        user_id: user?.id!,
-        task_id: task.id,
-        assigned_date: today
-      }));
-      if (dailyTasksToInsert.length > 0) {
-        await supabase.from("daily_tasks").insert(dailyTasksToInsert as any);
-      }
-
-      setTasks(finalTasks);
-      setCurrentIndex(0);
-    } catch (error) {
-      console.error("Error loading tasks:", error);
-      toast.error(t("error_loading_tasks") || "Error al cargar tus tareas");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /** ================================
-   *  CURRENT TASK + TRANSLATIONS
-   *  ================================ */
-  const current = tasks[currentIndex];
-  const translatedTask = current ? getTaskTranslation(current.id, locale) : null;
-  const taskTitle = stripDifficultyPrefix(translatedTask?.title || current?.title);
-  const taskDescription = translatedTask?.description || current?.description;
-
-  /** ================================
-   *  COMPLETE / SKIP (respetando dificultad)
-   *  ================================ */
-  const handleComplete = useCallback(async () => {
-    if (!current) return;
-    try {
-      const today = new Date().toISOString().split('T')[0];
-
-      await supabase.from("completed_tasks").insert({
-        user_id: user?.id!,
-        task_id: current.id,
-        completed_at: new Date().toISOString(),
-        skipped: false,
-      } as any);
-
-      await supabase
-        .from("daily_tasks")
-        .delete()
-        .eq("user_id", user?.id!)
-        .eq("task_id", current.id)
-        .eq("assigned_date", today);
-
-      toast.success(t("task_completed") || "¡Tarea completada! 🎉");
-
-      // Preparar reemplazo desde misma categoría y misma dificultad del usuario
-      const userDifficulty = difficultyFromUserLevel(stats.level || 1);
-
-      const { data: categoryTasks } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("category", current.category);
-
-      const usedTaskIds = tasks.map(t => t.id);
-      const availableTasks = (categoryTasks || []).filter(task => {
-        const d = parseDifficultyFromText(task.title) || parseDifficultyFromText(task.id);
-        return d === userDifficulty && !usedTaskIds.includes(task.id);
-      });
-
-      const newTasks = [...tasks];
-      newTasks.splice(currentIndex, 1);
-
-      if (availableTasks.length > 0) {
-        const randomTask = availableTasks[Math.floor(Math.random() * availableTasks.length)];
-        const randomPosition = Math.floor(Math.random() * (newTasks.length + 1));
-        newTasks.splice(randomPosition, 0, randomTask);
-
-        await supabase.from("daily_tasks").insert({
-          user_id: user?.id!,
-          task_id: randomTask.id,
-          assigned_date: today
-        } as any);
-      }
-
-      // Reescribir daily_tasks con el nuevo orden
-      await supabase
-        .from("daily_tasks")
-        .delete()
-        .eq("user_id", user?.id!)
-        .eq("assigned_date", today);
-
-      const dailyTasksToInsert = newTasks.map(task => ({
-        user_id: user?.id!,
-        task_id: task.id,
-        assigned_date: today
-      }));
-      if (dailyTasksToInsert.length > 0) {
-        await supabase.from("daily_tasks").insert(dailyTasksToInsert as any);
-      }
-
-      setTasks(newTasks);
-      const newIndex = Math.min(currentIndex, newTasks.length - 1);
-      setCurrentIndex(newIndex >= 0 ? newIndex : 0);
-    } catch (e) {
-      console.error(e);
-      toast.error(t("error_complete") || "Error al completar la tarea");
-    }
-  }, [current, tasks, currentIndex, user?.id, t, stats.level]);
-
-  const handleSkip = useCallback(async () => {
-    if (!current) return;
-    try {
-      const today = new Date().toISOString().split('T')[0];
-
-      await supabase.from("completed_tasks").insert({
-        user_id: user?.id!,
-        task_id: current.id,
-        completed_at: new Date().toISOString(),
-        skipped: true,
-      } as any);
-
-      await supabase
-        .from("daily_tasks")
-        .delete()
-        .eq("user_id", user?.id!)
-        .eq("task_id", current.id)
-        .eq("assigned_date", today);
-
-      toast.info(t("task_skipped") || "Tarea omitida");
-
-      // Reemplazo misma categoría + dificultad del usuario
-      const userDifficulty = difficultyFromUserLevel(stats.level || 1);
-
-      const { data: categoryTasks } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("category", current.category);
-
-      const usedTaskIds = tasks.map(t => t.id);
-      const availableTasks = (categoryTasks || []).filter(task => {
-        const d = parseDifficultyFromText(task.title) || parseDifficultyFromText(task.id);
-        return d === userDifficulty && !usedTaskIds.includes(task.id);
-      });
-
-      const newTasks = [...tasks];
-      newTasks.splice(currentIndex, 1);
-
-      if (availableTasks.length > 0) {
-        const randomTask = availableTasks[Math.floor(Math.random() * availableTasks.length)];
-        const randomPosition = Math.floor(Math.random() * (newTasks.length + 1));
-        newTasks.splice(randomPosition, 0, randomTask);
-
-        await supabase.from("daily_tasks").insert({
-          user_id: user?.id!,
-          task_id: randomTask.id,
-          assigned_date: today
-        } as any);
-      }
-
-      // Reescribir daily_tasks con nuevo orden
-      await supabase
-        .from("daily_tasks")
-        .delete()
-        .eq("user_id", user?.id!)
-        .eq("assigned_date", today);
-
-      const dailyTasksToInsert = newTasks.map(task => ({
-        user_id: user?.id!,
-        task_id: task.id,
-        assigned_date: today
-      }));
-      if (dailyTasksToInsert.length > 0) {
-        await supabase.from("daily_tasks").insert(dailyTasksToInsert as any);
-      }
-
-      setTasks(newTasks);
-      const newIndex = Math.min(currentIndex, newTasks.length - 1);
-      setCurrentIndex(newIndex >= 0 ? newIndex : 0);
-    } catch (e) {
-      console.error(e);
-      toast.error(t("error_skip") || "Error al omitir la tarea");
-    }
-  }, [current, tasks, currentIndex, user?.id, t, stats.level]);
-
-  /** ================================
-   *  SWIPE / NAV
-   *  ================================ */
-  const prev = () => setCurrentIndex((i) => Math.max(i - 1, 0));
-  const next = () => setCurrentIndex((i) => Math.min(i + 1, tasks.length - 1));
-
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
-  const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
-  const minSwipeDistance = 50;
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart({
-      x: e.targetTouches[0].clientX,
-      y: e.targetTouches[0].clientY,
-    });
-  };
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd({
-      x: e.targetTouches[0].clientX,
-      y: e.targetTouches[0].clientY,
-    });
-  };
-
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-
-    const distanceX = touchStart.x - touchEnd.x;
-    const isLeftSwipe = distanceX > minSwipeDistance;
-    const isRightSwipe = distanceX < -minSwipeDistance;
-
-    if (isLeftSwipe) next();
-    if (isRightSwipe) prev();
-  };
-
-  /** ================================
-   *  LOADING / EMPTY
-   *  ================================ */
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (!current) {
-    const hasCompletedTasksToday = tasks.length === 0 && !loading;
-
-    return (
-      <div className="min-h-screen bg-background p-6 flex flex-col">
-        {/* Header */}
-        <div className="bg-gradient-hero text-white p-4 shadow-button">
-          <div className="max-w-2xl mx-auto flex justify-between items-center">
-            <h1 className="text-2xl font-black">{t("app_name")}</h1>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 rounded-full">
-                  <Avatar className="h-8 w-8 border-2 border-white">
-                    <AvatarImage src={stats.avatarUrl} />
-                    <AvatarFallback className="bg-white text-primary text-sm font-black">
-                      {stats.username.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => navigate("/profile")}>
-                  <User className="h-4 w-4 mr-2" />
-                  {t("profile")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/settings")}>
-                  <SettingsIcon className="h-4 w-4 mr-2" />
-                  {t("settings")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={signOut} className="text-destructive">
-                  <LogOut className="h-4 w-4 mr-2" />
-                  {t("logout")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center max-w-md px-4">
-            <div className="text-6xl mb-4">{hasCompletedTasksToday ? "🎉" : "🎯"}</div>
-            <h2 className="text-2xl font-bold mb-2">
-              {hasCompletedTasksToday ? t("all_done_title") : t("no_tasks_title")}
-            </h2>
-            <p className="text-muted-foreground mb-6">
-              {hasCompletedTasksToday ? t("all_done_desc") : t("no_tasks_desc")}
-            </p>
-            <Button onClick={() => navigate("/settings")}>{t("go_settings")}</Button>
-          </div>
-        </div>
-        <BottomNav />
-      </div>
-    );
-  }
-
-  /** ================================
-   *  LEVEL PROGRESS
-   *  ================================ */
-  const xpToNextLevel = stats.level * 100;
-  const currentLevelXP = stats.totalXP % 100;
-  const levelProgress = (currentLevelXP / 100) * 100;
-
-  /** ================================
-   *  RENDER
-   *  ================================ */
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-16">
-      {/* Header - Simplified */}
-      <div className="bg-gradient-hero text-white p-4 shadow-button">
-        <div className="max-w-2xl mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-black">{t("app_name")}</h1>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 rounded-full">
-                <Avatar className="h-8 w-8 border-2 border-white">
-                  <AvatarImage src={stats.avatarUrl} />
-                  <AvatarFallback className="bg-white text-primary text-sm font-black">
-                    {stats.username.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => navigate("/profile")}>
-                <User className="h-4 w-4 mr-2" />
-                {t("profile")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate("/settings")}>
-                <SettingsIcon className="h-4 w-4 mr-2" />
-                {t("settings")}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={signOut} className="text-destructive">
-                <LogOut className="h-4 w-4 mr-2" />
-                {t("logout")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+    <div className="relative min-h-screen overflow-x-hidden bg-background">
+      <div className="pointer-events-none absolute inset-0 hero-mesh opacity-90" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[26rem] bg-[radial-gradient(circle_at_top,rgba(255,122,48,0.12),transparent_58%)]" />
 
-      {/* Compact User Stats */}
-      <div className="bg-gradient-hero text-white px-4 pb-4">
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 shadow-button border border-white/20">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-yellow-300" />
-                  <span className="font-bold text-lg">{t("level")} {stats.level}</span>
-                </div>
-                <div className="h-4 w-px bg-white/30" />
-                <div className="flex items-center gap-2">
-                  <Flame className="h-5 w-5 text-orange-300" />
-                  <span className="font-bold">{stats.currentStreak}</span>
-                </div>
-                <div className="h-4 w-px bg-white/30" />
-                <div className="flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-yellow-300" />
-                  <span className="font-bold">{stats.totalXP}</span>
-                </div>
-              </div>
+      <header className="relative z-10 border-b border-black/5 bg-background/80 backdrop-blur-2xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 md:px-6">
+          <Link to="/home" className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-[1.45rem] bg-[#111111] text-white shadow-lg shadow-black/15">
+              <CarFront className="h-5 w-5" />
             </div>
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs opacity-80">
-                <span>{currentLevelXP} XP</span>
-                <span>{xpToNextLevel} XP</span>
+            <div>
+              <p className="font-heading text-lg font-bold tracking-tight text-foreground">Cargoo</p>
+              <p className="text-xs text-muted-foreground">buscar, contactar y seguir</p>
+            </div>
+          </Link>
+
+          <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
+            <a href="#como-funciona" className="transition-colors hover:text-foreground">
+              Como funciona
+            </a>
+            <a href="#ejemplos" className="transition-colors hover:text-foreground">
+              Ejemplos
+            </a>
+            <a href="#acceso" className="transition-colors hover:text-foreground">
+              Acceso
+            </a>
+          </nav>
+
+          <Button asChild size="sm">
+            <Link to={appEntry}>{user ? "Abrir app" : "Entrar"}</Link>
+          </Button>
+        </div>
+
+        <div className="mx-auto max-w-7xl px-4 pb-6 md:px-6">
+          <form
+            onSubmit={handleLandingSearch}
+            className="overflow-hidden rounded-[1.9rem] border border-white/10 bg-[#1a1a1a] p-2.5 shadow-[0_24px_60px_rgba(15,23,42,0.18)]"
+          >
+            <div className="grid gap-2 xl:grid-cols-[1fr_1.15fr_1fr_1.15fr_auto]">
+              <label className="rounded-[1.25rem] border border-white/5 bg-[#222222] px-4 py-3 text-white/85">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Salida</p>
+                <div className="mt-2 flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-primary">
+                    <MapPin className="h-4 w-4" />
+                  </div>
+                  <select
+                    value={landingFilters.origin}
+                    onChange={(event) => setLandingFilters((current) => ({ ...current, origin: event.target.value }))}
+                    className="w-full bg-transparent text-sm font-medium text-white outline-none"
+                  >
+                    {originOptions.map((option) => (
+                      <option key={option} value={option} className="text-foreground">
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </label>
+
+              <label className="rounded-[1.25rem] border border-white/5 bg-[#222222] px-4 py-3 text-white/85">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Destino</p>
+                <div className="mt-2 flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-primary">
+                    <MapPin className="h-4 w-4" />
+                  </div>
+                  <select
+                    value={landingFilters.destination}
+                    onChange={(event) => setLandingFilters((current) => ({ ...current, destination: event.target.value }))}
+                    className="w-full bg-transparent text-sm font-medium text-white outline-none"
+                  >
+                    {destinationOptions.map((option) => (
+                      <option key={option} value={option} className="text-foreground">
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </label>
+
+              <label className="rounded-[1.25rem] border border-white/5 bg-[#222222] px-4 py-3 text-white/85">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Fecha</p>
+                <div className="mt-2 flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-primary">
+                    <CalendarDays className="h-4 w-4" />
+                  </div>
+                  <select
+                    value={landingFilters.date}
+                    onChange={(event) => setLandingFilters((current) => ({ ...current, date: event.target.value as MarketplaceFilters["date"] }))}
+                    className="w-full bg-transparent text-sm font-medium text-white outline-none"
+                  >
+                    {Object.entries(marketplaceDateLabels).map(([value, label]) => (
+                      <option key={value} value={value} className="text-foreground">
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </label>
+
+              <div className="rounded-[1.25rem] border border-white/5 bg-[#222222] px-4 py-3 text-white/85">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Hora / Espacio</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <label className="rounded-[0.95rem] border border-white/5 bg-black/10 px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Clock3 className="h-4 w-4 text-primary" />
+                      <select
+                        value={landingFilters.time}
+                        onChange={(event) => setLandingFilters((current) => ({ ...current, time: event.target.value as MarketplaceFilters["time"] }))}
+                        className="w-full bg-transparent text-sm font-medium text-white outline-none"
+                      >
+                        {Object.entries(marketplaceTimeLabels).map(([value, label]) => (
+                          <option key={value} value={value} className="text-foreground">
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </label>
+
+                  <label className="rounded-[0.95rem] border border-white/5 bg-black/10 px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Package2 className="h-4 w-4 text-primary" />
+                      <select
+                        value={landingFilters.space}
+                        onChange={(event) => setLandingFilters((current) => ({ ...current, space: event.target.value as MarketplaceFilters["space"] }))}
+                        className="w-full bg-transparent text-sm font-medium text-white outline-none"
+                      >
+                        {Object.entries(marketplaceSpaceLabels).map(([value, label]) => (
+                          <option key={value} value={value} className="text-foreground">
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </label>
+                </div>
               </div>
-              <Progress value={levelProgress} className="h-2 bg-white/20" />
+
+              <Button type="submit" size="lg" className="h-auto rounded-[1.25rem] px-6 py-4 xl:min-w-[220px]">
+                <Search className="h-4 w-4" />
+                Buscar transportistas
+              </Button>
+            </div>
+          </form>
+        </div>
+      </header>
+
+      <main className="relative z-10">
+        <section className="mx-auto grid max-w-7xl gap-6 px-4 py-10 md:px-6 xl:grid-cols-[1fr_0.92fr] xl:py-14">
+          <div className="soft-panel relative overflow-hidden p-7 md:p-10">
+            <div className="absolute -left-10 top-12 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
+
+            <div className="relative">
+              <Badge className="rounded-full border-black/5 bg-white px-4 py-1.5 text-foreground shadow-sm">
+                PWA clara, explicativa y directa
+              </Badge>
+
+              <h1 className="mt-6 max-w-3xl font-heading text-4xl font-bold tracking-tight text-balance md:text-6xl">
+                Una app para encontrar transportistas y seguir el envio sin procesos innecesarios.
+              </h1>
+
+              <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
+                Cargoo separa muy bien dos momentos: primero una landing que explica como funciona y, despues, la app
+                real para cada perfil: emisor o transportista.
+              </p>
+
+              <div className="mt-7 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {[
+                  { label: "Salida", value: "Suiza" },
+                  { label: "Destino", value: "Espana, Portugal, Serbia, Albania" },
+                  { label: "Filtros", value: "Fecha, hora y espacio" },
+                  { label: "Seguimiento", value: "Reservado, recogido, en ruta, entregado" },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-[1.5rem] border border-black/5 bg-white p-4 shadow-sm">
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{item.label}</p>
+                    <p className="mt-3 text-sm font-medium text-foreground">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Button asChild size="lg">
+                  <a href="#como-funciona">
+                    Ver como funciona
+                    <ArrowRight className="h-4 w-4" />
+                  </a>
+                </Button>
+                <Button asChild size="lg" variant="dark">
+                  <Link to={appEntry}>{user ? "Entrar a la app" : "Acceder a Cargoo"}</Link>
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Task Card */}
-      <div className="flex-1 p-6 flex flex-col items-center justify-center gap-6">
-        <div className="w-full max-w-md">
-          <Card 
-            className="w-full shadow-hover" 
-            onTouchStart={onTouchStart}
-            onTouchMove={onTouchMove}
-            onTouchEnd={onTouchEnd}
-          >
-            <CardContent className="p-10 text-center relative">
-              {/* Category color indicator at top */}
-              <div 
-                className="absolute top-0 left-0 right-0 h-2 rounded-t-2xl"
-                style={{ backgroundColor: getCategoryColor(current.category) }}
-              />
-
-              <div className="mb-6 mt-2">
-                <div className="text-8xl mb-8 animate-scale-in">{current.icon || getCategoryIcon(current.category)}</div>
-                <div 
-                  className="inline-block px-5 py-2 rounded-full text-white text-sm font-black mb-6 uppercase tracking-wider shadow-button"
-                  style={{ backgroundColor: getCategoryColor(current.category) }}
-                >
-                  {getCategoryName(current.category, locale)}
+          <div className="phone-frame mx-auto w-full max-w-[420px] p-3">
+            <div className="phone-screen px-4 pb-4 pt-12">
+              <div className="rounded-[1.7rem] bg-white p-4 shadow-sm">
+                <p className="text-sm text-muted-foreground">Busqueda para un emisor</p>
+                <p className="mt-2 font-heading text-2xl font-semibold">
+                  {liveTrip.originCity} {"->"} {liveTrip.destinationCity}
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Badge className="rounded-full border-black/5 bg-[#faf7f2] px-3 py-1 text-foreground">Esta semana</Badge>
+                  <Badge className="rounded-full border-black/5 bg-[#faf7f2] px-3 py-1 text-foreground">Manana</Badge>
+                  <Badge className="rounded-full border-black/5 bg-[#faf7f2] px-3 py-1 text-foreground">Espacio medio</Badge>
                 </div>
-
-                {/* Badge de Dificultad (opcional, derivada del prefijo) */}
-                <div className="mb-2">
-                  <span className="text-xs font-bold uppercase opacity-70">
-                    {parseDifficultyFromText(current.title) || parseDifficultyFromText(current.id) || ''}
-                  </span>
-                </div>
-
-                <h2 className="text-3xl font-black mb-6 leading-tight text-foreground">
-                  {taskTitle}
-                </h2>
-                <p className="text-muted-foreground text-lg leading-relaxed">{taskDescription}</p>
               </div>
 
-              <div className="flex flex-col gap-4 mt-8">
-                <Button 
-                  className="w-full shadow-button hover:scale-[1.02] transition-transform" 
-                  size="lg" 
-                  onClick={handleComplete}
-                  variant="success"
-                >
-                  {t("complete")}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full hover:scale-[1.02] transition-transform" 
-                  size="lg" 
-                  onClick={handleSkip}
-                >
-                  {t("skip")}
-                </Button>
+              <div className="mt-4 space-y-3">
+                {trips.slice(0, 2).map((trip, index) => (
+                  <div key={trip.id} className={index === 0 ? "app-mini-card bg-[#fff9f3]" : "app-mini-card"}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#111111] text-white">
+                          <CarFront className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">{trip.travelerName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {trip.departureDay} - {trip.departureTime}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge className="rounded-full border-black/5 bg-white px-3 py-1 text-foreground">{trip.status}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 rounded-[1.75rem] bg-[#111111] p-4 text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                <p className="text-sm text-white/65">Seguimiento dentro de la app</p>
+                <p className="mt-2 font-heading text-2xl font-semibold">{liveTracking.status}</p>
+                <p className="mt-2 text-sm text-white/80">{liveTracking.statusDetail}</p>
+                <div className="mt-4 rounded-[1.4rem] bg-white/10 p-4 text-sm text-white/80">
+                  <p>{liveTracking.checkpoint}</p>
+                  <p className="mt-2">{liveTracking.contactLabel}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="como-funciona" className="mx-auto max-w-7xl px-4 py-4 md:px-6">
+          <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+            <Card>
+              <CardContent className="p-6 md:p-8">
+                <Badge className="rounded-full border-black/5 bg-white px-4 py-1 text-foreground">Como funciona</Badge>
+                <h2 className="mt-4 font-heading text-3xl font-semibold">La PWA explica primero y deja entrar despues</h2>
+
+                <div className="mt-6 space-y-4">
+                  {[
+                    {
+                      title: "1. Landing explicativa",
+                      text: "La portada explica Cargoo con ejemplos reales para que se entienda antes de entrar.",
+                    },
+                    {
+                      title: "2. Login o crear cuenta",
+                      text: "El acceso queda abajo en la landing y tambien en el boton Entrar de la cabecera.",
+                    },
+                    {
+                      title: "3. App segun la cuenta",
+                      text: "Al entrar, un emisor aterriza en su busqueda y seguimiento, y un transportista en solicitudes, recogidas y codigos.",
+                    },
+                  ].map((item, index) => (
+                    <div key={item.title} className={index === 1 ? "rounded-[1.75rem] border border-black/5 bg-[#faf7f2] p-5" : "rounded-[1.75rem] border border-black/5 bg-white p-5 shadow-sm"}>
+                      <p className="font-semibold text-foreground">{item.title}</p>
+                      <p className="mt-2 text-sm text-muted-foreground">{item.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <div id="ejemplos" className="grid gap-4 md:grid-cols-3">
+              {landingExamples.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <Card key={item.title} className={item.tone}>
+                    <CardContent className="p-6">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-[1.2rem] bg-white shadow-sm">
+                        <Icon className="h-5 w-5 text-primary" />
+                      </div>
+                      <h3 className="mt-4 font-heading text-2xl font-semibold">{item.title}</h3>
+                      <p className="mt-3 text-sm text-muted-foreground">{item.text}</p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card className="peach-card">
+              <CardContent className="p-6 md:p-8">
+                <h2 className="font-heading text-3xl font-semibold">Para un emisor</h2>
+                <p className="mt-3 text-muted-foreground">
+                  Entras, filtras transportistas, comparas horario, ruta, espacio y tiempo de respuesta, y abres el
+                  contacto.
+                </p>
+
+                <div className="mt-5 space-y-3">
+                  {[
+                    "Busca por salida, destino, fecha y hora.",
+                    "Elige el perfil que mejor encaja.",
+                    "Sigue el estado del envio dentro de la app.",
+                  ].map((item) => (
+                    <div key={item} className="rounded-[1.5rem] border border-black/5 bg-white p-4 shadow-sm">
+                      <p className="text-sm text-muted-foreground">{item}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="mint-card">
+              <CardContent className="p-6 md:p-8">
+                <h2 className="font-heading text-3xl font-semibold">Para un transportista</h2>
+                <p className="mt-3 text-muted-foreground">
+                  Entras y ves a quien responder, que recogidas tienes hoy y que codigos de seguimiento debes compartir
+                  durante el viaje.
+                </p>
+
+                <div className="mt-5 space-y-3">
+                  {[
+                    "Revisas solicitudes nuevas y respondes solo a las que te encajan.",
+                    "Confirmas recogida, sales de viaje y marcas cada etapa real.",
+                    "Compartes una pagina de seguimiento con codigo cuando cierras el acuerdo.",
+                  ].map((item) => (
+                    <div key={item} className="rounded-[1.5rem] border border-black/5 bg-white p-4 shadow-sm">
+                      <p className="text-sm text-muted-foreground">{item}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        <section id="acceso" className="mx-auto max-w-7xl px-4 pb-12 pt-4 md:px-6">
+          <Card className="ink-card text-white">
+            <CardContent className="p-6 md:p-10">
+              <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
+                <div>
+                  <Badge className="rounded-full border-white/10 bg-white/10 px-4 py-1 text-white">Acceso a la app</Badge>
+                  <h2 className="mt-4 font-heading text-3xl font-semibold md:text-5xl">
+                    Cuando ya entiendes Cargoo, entras a la app y sigues con tu flujo.
+                  </h2>
+                  <p className="mt-4 max-w-2xl text-sm text-white/75 md:text-base">
+                    Arriba tienes el boton Entrar y aqui abajo el acceso final. El login abre la app y el panel cambia
+                    segun si la cuenta es de emisor o de transportista.
+                  </p>
+
+                  <div className="mt-6 grid gap-4 md:grid-cols-2">
+                    {faqItems.slice(0, 2).map((item) => (
+                      <div key={item.question} className="rounded-[1.6rem] bg-white/10 p-4">
+                        <p className="font-medium text-white">{item.question}</p>
+                        <p className="mt-2 text-sm text-white/75">{item.answer}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <Button asChild size="lg" className="bg-white text-slate-950 hover:bg-white/90">
+                    <Link to={appEntry}>Entrar a Cargoo</Link>
+                  </Button>
+                  <Button asChild size="lg" variant="outline" className="border-white/15 bg-white/10 text-white hover:bg-white/15">
+                    <Link to={appEntry}>Crear cuenta o login</Link>
+                  </Button>
+                  <div className="rounded-[1.5rem] bg-white/10 p-4 text-sm text-white/75">
+                    La PWA funciona bien en movil para revisar seguimiento, mensajes y estado del envio.
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Navigation controls */}
-        <div className="flex items-center justify-center gap-6 text-base">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={prev} 
-            disabled={currentIndex === 0}
-            className="hover:scale-110 transition-transform rounded-full"
-          >
-            <ChevronLeft className="h-6 w-6" />
-          </Button>
-          <div className="flex items-center gap-2 font-bold text-muted-foreground">
-            <span className="text-xl text-primary">{currentIndex + 1}</span>
-            <span>/</span>
-            <span className="text-lg">{tasks.length}</span>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={next} 
-            disabled={currentIndex >= tasks.length - 1}
-            className="hover:scale-110 transition-transform rounded-full"
-          >
-            <ChevronRight className="h-6 w-6" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="p-4 bg-gradient-to-r from-primary/5 via-accent/5 to-mint/5 text-center text-xs text-muted-foreground">
-        <p>{t("interact_hint")}</p>
-      </div>
-
-      <BottomNav />
+        </section>
+      </main>
     </div>
   );
 };

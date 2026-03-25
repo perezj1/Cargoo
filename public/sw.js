@@ -1,83 +1,94 @@
-// Forzar activación inmediata al instalar
-self.addEventListener('install', (event) => {
-  self.skipWaiting();
+const CACHE_NAME = "cargoo-shell-v2";
+const APP_SHELL = ["/", "/home", "/manifest.webmanifest", "/icons/icon-192.png?v=2", "/icons/icon-512.png?v=2"];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()),
+  );
 });
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim()),
+  );
 });
 
-// Util: resolver una URL (relativa o absoluta) contra el scope del SW
-function resolveUrl(urlLike) {
-  try {
-    // Si ya es absoluta, new URL la aceptará; si es relativa, la resuelve vs scope
-    return new URL(urlLike || '/home', self.registration.scope).toString();
-  } catch {
-    // Fallback: raíz de la app (scope)
-    return self.registration.scope;
+self.addEventListener("fetch", (event) => {
+  if (event.request.method !== "GET") return;
+
+  const { request } = event;
+  const url = new URL(request.url);
+
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put("/home", copy));
+          return response;
+        })
+        .catch(async () => {
+          const cachedPage = await caches.match(request);
+          return cachedPage || caches.match("/home") || caches.match("/");
+        }),
+    );
+    return;
   }
-}
 
-// PUSH: espera payload JSON { title, body, url, tag }
-self.addEventListener('push', (event) => {
+  if (url.origin === self.location.origin) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        const networkFetch = fetch(request)
+          .then((response) => {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+            return response;
+          })
+          .catch(() => cached);
+
+        return cached || networkFetch;
+      }),
+    );
+  }
+});
+
+self.addEventListener("push", (event) => {
   let data = {};
-  try { data = event.data ? event.data.json() : {}; } catch {}
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (_error) {}
 
-  const title = data.title || 'REMI';
+  const title = data.title || "Cargoo";
   const options = {
-    body: data.body || 'Tienes tareas por completar 💪',
-    icon: '/icons/icon-192.png',
-    // Si tienes badge, descomenta:
-    // badge: '/icons/badge-72.png',
-    tag: data.tag || 'Remi-reminder',
-    renotify: false,
-    // Normalizamos aquí para que notificationclick no tenga que adivinar
-    data: { url: resolveUrl(data.url || '/home') }
+    body: data.body || "Tienes una actualizacion sobre una ruta o entrega.",
+    icon: "/icons/icon-192.png?v=2",
+    tag: data.tag || "cargoo-notification",
+    data: { url: data.url || "/home" },
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// CLICK: enfocar una ventana existente o abrir nueva en data.url
-self.addEventListener('notificationclick', (event) => {
+self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = resolveUrl(event.notification.data?.url || '/home');
+  const targetUrl = new URL(event.notification.data?.url || "/home", self.location.origin).toString();
 
-  event.waitUntil((async () => {
-    const all = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      const existing = clientList.find((client) => "focus" in client);
 
-    // 1) Busca una ventana del mismo origen (respecto al scope)
-    const scopeOrigin = new URL(self.registration.scope).origin;
-    const sameOrigin = all.find((c) => {
-      try { return new URL(c.url).origin === scopeOrigin; }
-      catch { return false; }
-    });
-
-    if (sameOrigin) {
-      // Android suele respetar mejor focus() antes de navigate()
-      await sameOrigin.focus();
-      if (sameOrigin.url !== targetUrl && 'navigate' in sameOrigin) {
-        try { await sameOrigin.navigate(targetUrl); } catch {}
-      } else {
-        // Plan B (opcional): si no navega, que la app lo haga
-        try { sameOrigin.postMessage({ type: 'OPEN_URL', url: targetUrl }); } catch {}
+      if (existing) {
+        existing.focus();
+        if ("navigate" in existing) {
+          return existing.navigate(targetUrl);
+        }
+        return existing;
       }
-      return;
-    }
 
-    // 2) Si no hay ventana, abrir nueva
-    await clients.openWindow(targetUrl);
-  })());
-});
-
-// Opcional: telemetría o limpieza
-self.addEventListener('notificationclose', (_event) => {
-  // console.log('Notificación cerrada', _event.notification?.tag);
-});
-
-// Opcional: si cambia la suscripción push (rotación de claves, etc.)
-self.addEventListener('pushsubscriptionchange', async (event) => {
-  // Aquí puedes re-suscribirte y enviar la nueva sub a tu backend.
-  // Por simplicidad, sólo log:
-  console.log('pushsubscriptionchange', event);
+      return clients.openWindow(targetUrl);
+    }),
+  );
 });
