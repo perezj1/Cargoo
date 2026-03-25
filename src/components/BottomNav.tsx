@@ -1,57 +1,34 @@
-import { NavLink } from "react-router-dom";
-import { Home, Target, TrendingUp } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useI18n } from "@/contexts/I18nContext";
+import { CarFront, Home, MessageSquare, Search, User } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 
-export const BottomNav = () => {
-  const { t } = useI18n();
-  const base = "flex flex-col items-center justify-center gap-1 text-xs";
-  const active = "text-primary";
-  const inactive = "text-muted-foreground";
+const items = [
+  { to: "/dashboard", icon: Home, label: "Inicio" },
+  { to: "/dashboard/trips", icon: CarFront, label: "Viajes" },
+  { to: "/search", icon: Search, label: "Buscar" },
+  { to: "/dashboard/messages", icon: MessageSquare, label: "Mensajes" },
+  { to: "/dashboard/profile", icon: User, label: "Perfil" },
+];
+
+const BottomNav = () => {
+  const { pathname } = useLocation();
 
   return (
-    <nav
-      className={cn(
-        "fixed bottom-0 inset-x-0",
-        // Fondo SOLIDO (sin /opacity ni blur)
-        "bg-background",
-        // Borde y sombra
-        "border-t border-border shadow-lg",
-        // En móviles con notch
-        "z-50"
-      )}
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-    >
-      <div className="max-w-2xl mx-auto grid grid-cols-3 py-3">
-        <NavLink
-          to="/home"
-          className={({ isActive }) =>
-            cn(base, isActive ? active : inactive, "transition-all hover:scale-105")
-          }
-        >
-          <Home className="h-6 w-6" />
-          <span className="font-bold">{t("home")}</span>
-        </NavLink>
+    <nav className="safe-area-bottom fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card">
+      <div className="mx-auto flex h-16 max-w-lg items-center justify-around">
+        {items.map((item) => {
+          const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
 
-        <NavLink
-          to="/goals"
-          className={({ isActive }) =>
-            cn(base, isActive ? active : inactive, "transition-all hover:scale-105")
-          }
-        >
-          <Target className="h-6 w-6" />
-          <span className="font-bold">{t("goals")}</span>
-        </NavLink>
-
-        <NavLink
-          to="/progress"
-          className={({ isActive }) =>
-            cn(base, isActive ? active : inactive, "transition-all hover:scale-105")
-          }
-        >
-          <TrendingUp className="h-6 w-6" />
-          <span className="font-bold">{t("growth")}</span>
-        </NavLink>
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1 transition-colors ${active ? "text-primary" : "text-muted-foreground"}`}
+            >
+              <item.icon className="h-5 w-5" />
+              <span className="text-[10px] font-medium">{item.label}</span>
+            </Link>
+          );
+        })}
       </div>
     </nav>
   );

@@ -1,456 +1,377 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, CalendarDays, CarFront, Clock3, MapPin, Package2, Search } from "lucide-react";
+import { ArrowRight, Globe, Package, Search, Shield, Users } from "lucide-react";
 
+import { LandingFooter } from "@/components/cargoo/LandingFooter";
+import { LandingNavbar } from "@/components/cargoo/LandingNavbar";
+import { TravelerCard } from "@/components/cargoo/TravelerCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAppHomePath, getStoredAppRole, setStoredAppRole } from "@/lib/app-role";
-import { faqItems, trackingItems, trips } from "@/lib/cargoo-data";
+import { trips } from "@/lib/cargoo-data";
+import { getAppHomePath, getStoredAppRole } from "@/lib/app-role";
 import {
   defaultMarketplaceFilters,
-  getMarketplaceUrl,
+  getTripDetailsUrl,
   marketplaceDateLabels,
   marketplaceSpaceLabels,
   marketplaceTimeLabels,
+  type MarketplaceDateFilter,
   type MarketplaceFilters,
-  storePendingMarketplaceFilters,
+  type MarketplaceSpaceFilter,
+  type MarketplaceTimeFilter,
 } from "@/lib/marketplace-filters";
 
-const landingExamples = [
+const quickRoutes = [
+  { origin: "Zurich", destination: "Barcelona" },
+  { origin: "Ginebra", destination: "Lisboa" },
+  { origin: "Basel", destination: "Belgrado" },
+  { origin: "Zurich", destination: "Tirana" },
+];
+
+const stats = [
+  { icon: Users, label: "Transportistas activos", value: "140+" },
+  { icon: Globe, label: "Rutas activas", value: "12" },
+  { icon: Package, label: "Seguimientos compartidos", value: "980+" },
+  { icon: Shield, label: "Perfiles claros", value: "100%" },
+];
+
+const steps = [
   {
-    title: "Ejemplo para emisor",
-    text: "Zurich -> Barcelona, salida esta semana, manana, espacio medio. Aparecen transportistas listos para contactar.",
-    tone: "peach-card",
     icon: Search,
+    title: "Busca un transportista",
+    description: "Filtra por salida, destino, fecha, hora y espacio disponible desde la landing.",
   },
   {
-    title: "Ejemplo para transportista",
-    text: "Entras y ves solicitudes nuevas, recogidas pendientes y codigos de seguimiento para compartir.",
-    tone: "mint-card",
-    icon: CarFront,
+    icon: Package,
+    title: "Habla y cierra el acuerdo",
+    description: "Eliges una ficha clara, entras en contacto y acordais el envio fuera de la app.",
   },
   {
-    title: "Ejemplo de seguimiento",
-    text: "El envio pasa por reservado, recogido, en ruta y entregado con la ultima actualizacion siempre visible.",
-    tone: "sky-card",
-    icon: Package2,
+    icon: Shield,
+    title: "Sigue el viaje",
+    description: "Cuando el transportista activa el codigo, puedes ver recogido, en ruta o entregado.",
   },
 ];
 
 const Home = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
-  const appEntry = user ? getAppHomePath(getStoredAppRole()) : "/auth";
-  const liveTrip = trips[0];
-  const liveTracking = trackingItems[0];
-  const originOptions = useMemo(() => [...new Set(trips.map((trip) => trip.originCity))], []);
-  const destinationOptions = useMemo(() => [...new Set(trips.map((trip) => trip.destinationCity))], []);
-  const [landingFilters, setLandingFilters] = useState<MarketplaceFilters>({
-    ...defaultMarketplaceFilters,
-    origin: liveTrip.originCity,
-    destination: liveTrip.destinationCity,
-    date: "this-week",
-    time: "morning",
-    space: "medium",
-  });
+  const { user } = useAuth();
+  const [landingFilters, setLandingFilters] = useState<MarketplaceFilters>(defaultMarketplaceFilters);
 
-  const handleLandingSearch = (event: FormEvent) => {
+  const originOptions = useMemo(() => ["all", ...new Set(trips.map((trip) => trip.originCity))], []);
+  const destinationOptions = useMemo(() => ["all", ...new Set(trips.map((trip) => trip.destinationCity))], []);
+  const appEntryPath = user ? getAppHomePath(getStoredAppRole()) : "/auth";
+
+  const filteredTrips = useMemo(() => {
+    return trips.filter((trip) => {
+      const matchesOrigin = landingFilters.origin === "all" || trip.originCity === landingFilters.origin;
+      const matchesDestination = landingFilters.destination === "all" || trip.destinationCity === landingFilters.destination;
+      const matchesDate = landingFilters.date === "all" || trip.dateBucket === landingFilters.date;
+      const matchesTime = landingFilters.time === "all" || trip.timeBucket === landingFilters.time;
+      const matchesSpace = landingFilters.space === "all" || trip.spaceCategory === landingFilters.space;
+
+      return matchesOrigin && matchesDestination && matchesDate && matchesTime && matchesSpace;
+    });
+  }, [landingFilters]);
+
+  const updateFilter = <K extends keyof MarketplaceFilters>(key: K, value: MarketplaceFilters[K]) => {
+    setLandingFilters((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  };
+
+  const applyQuickRoute = (origin: string, destination: string) => {
+    setLandingFilters((current) => ({
+      ...current,
+      origin,
+      destination,
+    }));
+  };
+
+  const resetFilters = () => {
+    setLandingFilters(defaultMarketplaceFilters);
+  };
+
+  const scrollToResults = () => {
+    document.getElementById("resultados")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleLandingSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setStoredAppRole("emitter");
+    scrollToResults();
+  };
 
-    if (user) {
-      navigate(getMarketplaceUrl(landingFilters));
-      return;
-    }
-
-    storePendingMarketplaceFilters(landingFilters);
-    navigate("/auth?role=emitter");
+  const openTripDetails = (tripId: string) => {
+    navigate(getTripDetailsUrl(tripId, landingFilters));
   };
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-background">
-      <div className="pointer-events-none absolute inset-0 hero-mesh opacity-90" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[26rem] bg-[radial-gradient(circle_at_top,rgba(255,122,48,0.12),transparent_58%)]" />
+    <div className="min-h-screen">
+      <LandingNavbar />
 
-      <header className="relative z-10 border-b border-black/5 bg-background/80 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 md:px-6">
-          <Link to="/home" className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-[1.45rem] bg-[#111111] text-white shadow-lg shadow-black/15">
-              <CarFront className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="font-heading text-lg font-bold tracking-tight text-foreground">Cargoo</p>
-              <p className="text-xs text-muted-foreground">buscar, contactar y seguir</p>
-            </div>
-          </Link>
+      <main className="pt-16">
+        <section className="relative overflow-hidden">
+          <div className="absolute inset-0 hero-mesh opacity-100" />
+          <div className="container relative py-16 md:py-24">
+            <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
+              <div className="max-w-2xl">
+                <Badge className="bg-primary/10 px-4 py-1.5 text-primary shadow-none">Landing clara para envios reales</Badge>
+                <h1 className="mt-6 text-4xl font-bold leading-tight text-foreground md:text-6xl">
+                  Encuentra a quien <span className="text-gradient-hero">ya va de viaje</span> y contactalo.
+                </h1>
+                <p className="mt-5 text-lg leading-8 text-muted-foreground">
+                  Cargoo conecta emisores con transportistas que ya salen hacia Espana, Portugal, Serbia o Albania. Sin pagos dentro de la app, sin pasos innecesarios.
+                </p>
 
-          <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
-            <a href="#como-funciona" className="transition-colors hover:text-foreground">
-              Como funciona
-            </a>
-            <a href="#ejemplos" className="transition-colors hover:text-foreground">
-              Ejemplos
-            </a>
-            <a href="#acceso" className="transition-colors hover:text-foreground">
-              Acceso
-            </a>
-          </nav>
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                  <Button variant="hero" size="lg" onClick={scrollToResults}>
+                    <Search className="h-4 w-4" />
+                    Buscar transportistas
+                  </Button>
+                  <Button variant="hero-outline" size="lg" asChild>
+                    <Link to={appEntryPath}>{user ? "Abrir mi cuenta" : "Entrar a la app"}</Link>
+                  </Button>
+                </div>
+              </div>
 
-          <Button asChild size="sm">
-            <Link to={appEntry}>{user ? "Abrir app" : "Entrar"}</Link>
-          </Button>
-        </div>
-
-        <div className="mx-auto max-w-7xl px-4 pb-6 md:px-6">
-          <form
-            onSubmit={handleLandingSearch}
-            className="overflow-hidden rounded-[1.9rem] border border-white/10 bg-[#1a1a1a] p-2.5 shadow-[0_24px_60px_rgba(15,23,42,0.18)]"
-          >
-            <div className="grid gap-2 xl:grid-cols-[1fr_1.15fr_1fr_1.15fr_auto]">
-              <label className="rounded-[1.25rem] border border-white/5 bg-[#222222] px-4 py-3 text-white/85">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Salida</p>
-                <div className="mt-2 flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-primary">
-                    <MapPin className="h-4 w-4" />
+              <div className="phone-frame mx-auto w-full max-w-[420px]">
+                <div className="phone-screen p-6 pt-12">
+                  <div className="rounded-[1.5rem] bg-white p-4 shadow-card">
+                    <p className="text-sm text-muted-foreground">Ruta activa</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-foreground">Basel {"->"} Belgrado</h2>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Badge variant="outline">Dom 30 Mar</Badge>
+                      <Badge variant="outline">21:00</Badge>
+                      <Badge variant="outline">3 bultos fragiles</Badge>
+                    </div>
                   </div>
+
+                  <div className="route-map relative mt-5 h-48 rounded-[1.7rem] border border-border bg-white">
+                    <div className="route-line route-line-main" />
+                    <div className="route-line route-line-alt" />
+                    <div className="route-stop route-stop-start" />
+                    <div className="route-stop route-stop-mid" />
+                    <div className="route-stop route-stop-end" />
+                    <div className="route-tag left-[12%] top-[13%]">Basel</div>
+                    <div className="route-tag left-[43%] top-[39%]">Ljubljana</div>
+                    <div className="route-tag left-[68%] top-[64%]">Belgrado</div>
+                  </div>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <div className="app-mini-card">
+                      <p className="text-sm text-muted-foreground">Estado</p>
+                      <p className="mt-2 font-semibold text-foreground">En ruta</p>
+                      <p className="mt-1 text-sm text-muted-foreground">Ultimo checkpoint en Zagreb</p>
+                    </div>
+                    <div className="app-mini-card">
+                      <p className="text-sm text-muted-foreground">Contacto</p>
+                      <p className="mt-2 font-semibold text-foreground">WhatsApp</p>
+                      <p className="mt-1 text-sm text-muted-foreground">Visible para usuarios con cuenta</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleLandingSearch} className="mt-12 rounded-[1.6rem] border border-border bg-card p-3 shadow-card-hover">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1.1fr_1.1fr_0.95fr_0.95fr_0.95fr_auto]">
+                <label className="rounded-xl border border-border bg-secondary px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Salida</p>
                   <select
                     value={landingFilters.origin}
-                    onChange={(event) => setLandingFilters((current) => ({ ...current, origin: event.target.value }))}
-                    className="w-full bg-transparent text-sm font-medium text-white outline-none"
+                    onChange={(event) => updateFilter("origin", event.target.value)}
+                    className="mt-2 w-full bg-transparent text-sm font-semibold text-foreground outline-none"
                   >
                     {originOptions.map((option) => (
-                      <option key={option} value={option} className="text-foreground">
-                        {option}
+                      <option key={option} value={option}>
+                        {option === "all" ? "Cualquier salida" : option}
                       </option>
                     ))}
                   </select>
-                </div>
-              </label>
+                </label>
 
-              <label className="rounded-[1.25rem] border border-white/5 bg-[#222222] px-4 py-3 text-white/85">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Destino</p>
-                <div className="mt-2 flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-primary">
-                    <MapPin className="h-4 w-4" />
-                  </div>
+                <label className="rounded-xl border border-border bg-secondary px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Destino</p>
                   <select
                     value={landingFilters.destination}
-                    onChange={(event) => setLandingFilters((current) => ({ ...current, destination: event.target.value }))}
-                    className="w-full bg-transparent text-sm font-medium text-white outline-none"
+                    onChange={(event) => updateFilter("destination", event.target.value)}
+                    className="mt-2 w-full bg-transparent text-sm font-semibold text-foreground outline-none"
                   >
                     {destinationOptions.map((option) => (
-                      <option key={option} value={option} className="text-foreground">
-                        {option}
+                      <option key={option} value={option}>
+                        {option === "all" ? "Cualquier destino" : option}
                       </option>
                     ))}
                   </select>
-                </div>
-              </label>
+                </label>
 
-              <label className="rounded-[1.25rem] border border-white/5 bg-[#222222] px-4 py-3 text-white/85">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Fecha</p>
-                <div className="mt-2 flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-primary">
-                    <CalendarDays className="h-4 w-4" />
-                  </div>
+                <label className="rounded-xl border border-border bg-secondary px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Fecha</p>
                   <select
                     value={landingFilters.date}
-                    onChange={(event) => setLandingFilters((current) => ({ ...current, date: event.target.value as MarketplaceFilters["date"] }))}
-                    className="w-full bg-transparent text-sm font-medium text-white outline-none"
+                    onChange={(event) => updateFilter("date", event.target.value as MarketplaceDateFilter)}
+                    className="mt-2 w-full bg-transparent text-sm font-semibold text-foreground outline-none"
                   >
                     {Object.entries(marketplaceDateLabels).map(([value, label]) => (
-                      <option key={value} value={value} className="text-foreground">
+                      <option key={value} value={value}>
                         {label}
                       </option>
                     ))}
                   </select>
-                </div>
-              </label>
+                </label>
 
-              <div className="rounded-[1.25rem] border border-white/5 bg-[#222222] px-4 py-3 text-white/85">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Hora / Espacio</p>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <label className="rounded-[0.95rem] border border-white/5 bg-black/10 px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <Clock3 className="h-4 w-4 text-primary" />
-                      <select
-                        value={landingFilters.time}
-                        onChange={(event) => setLandingFilters((current) => ({ ...current, time: event.target.value as MarketplaceFilters["time"] }))}
-                        className="w-full bg-transparent text-sm font-medium text-white outline-none"
-                      >
-                        {Object.entries(marketplaceTimeLabels).map(([value, label]) => (
-                          <option key={value} value={value} className="text-foreground">
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </label>
+                <label className="rounded-xl border border-border bg-secondary px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Hora</p>
+                  <select
+                    value={landingFilters.time}
+                    onChange={(event) => updateFilter("time", event.target.value as MarketplaceTimeFilter)}
+                    className="mt-2 w-full bg-transparent text-sm font-semibold text-foreground outline-none"
+                  >
+                    {Object.entries(marketplaceTimeLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-                  <label className="rounded-[0.95rem] border border-white/5 bg-black/10 px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <Package2 className="h-4 w-4 text-primary" />
-                      <select
-                        value={landingFilters.space}
-                        onChange={(event) => setLandingFilters((current) => ({ ...current, space: event.target.value as MarketplaceFilters["space"] }))}
-                        className="w-full bg-transparent text-sm font-medium text-white outline-none"
-                      >
-                        {Object.entries(marketplaceSpaceLabels).map(([value, label]) => (
-                          <option key={value} value={value} className="text-foreground">
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </label>
-                </div>
+                <label className="rounded-xl border border-border bg-secondary px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Espacio</p>
+                  <select
+                    value={landingFilters.space}
+                    onChange={(event) => updateFilter("space", event.target.value as MarketplaceSpaceFilter)}
+                    className="mt-2 w-full bg-transparent text-sm font-semibold text-foreground outline-none"
+                  >
+                    {Object.entries(marketplaceSpaceLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <Button type="submit" variant="hero" size="lg" className="h-auto min-h-[72px]">
+                  <Search className="h-5 w-5" />
+                  Buscar
+                </Button>
               </div>
 
-              <Button type="submit" size="lg" className="h-auto rounded-[1.25rem] px-6 py-4 xl:min-w-[220px]">
-                <Search className="h-4 w-4" />
-                Buscar transportistas
+              <div className="mt-3 flex flex-col gap-3 rounded-xl border border-border bg-secondary px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap gap-2">
+                  {quickRoutes.map((route) => (
+                    <button
+                      key={`${route.origin}-${route.destination}`}
+                      type="button"
+                      onClick={() => applyQuickRoute(route.origin, route.destination)}
+                      className="rounded-full border border-border bg-white px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-primary/5"
+                    >
+                      {route.origin} {"->"} {route.destination}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="text-left text-sm font-semibold text-primary transition-colors hover:text-primary/80"
+                >
+                  Limpiar filtros
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section id="resultados" className="py-20">
+          <div className="container">
+            <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <Badge className="bg-primary/10 px-4 py-1.5 text-primary shadow-none">Resultados en la landing</Badge>
+                <h2 className="mt-4 text-3xl font-bold text-foreground md:text-4xl">Transportistas disponibles</h2>
+                <p className="mt-2 max-w-2xl text-muted-foreground">
+                  Buscas desde arriba y los perfiles aparecen aqui. Entras en la ficha y pasas al contacto.
+                </p>
+              </div>
+              <Badge className="bg-white px-4 py-2 text-foreground shadow-card">{filteredTrips.length} visibles</Badge>
+            </div>
+
+            {filteredTrips.length === 0 ? (
+              <div className="rounded-[1.4rem] border border-border bg-card p-8 text-center shadow-card">
+                <p className="text-2xl font-semibold text-foreground">No hay resultados con esos filtros</p>
+                <p className="mt-3 text-muted-foreground">Prueba otra fecha, otra hora o un espacio distinto.</p>
+              </div>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {filteredTrips.map((trip) => (
+                  <TravelerCard key={trip.id} trip={trip} onSelect={() => openTripDetails(trip.id)} />
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section id="como-funciona" className="bg-secondary py-20">
+          <div className="container">
+            <div className="mx-auto max-w-2xl text-center">
+              <Badge className="bg-white px-4 py-1.5 text-primary shadow-none">Como funciona</Badge>
+              <h2 className="mt-4 text-3xl font-bold text-foreground md:text-4xl">Tres pasos y nada mas</h2>
+              <p className="mt-3 text-muted-foreground">
+                Cargoo no intenta hacer de todo. Solo te ayuda a encontrar, contactar y seguir.
+              </p>
+            </div>
+
+            <div className="mt-12 grid gap-6 md:grid-cols-3">
+              {steps.map((step) => (
+                <div key={step.title} className="rounded-[1.4rem] border border-border bg-card p-8 text-center shadow-card">
+                  <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <step.icon className="h-7 w-7" />
+                  </div>
+                  <h3 className="text-2xl font-semibold text-foreground">{step.title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-muted-foreground">{step.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-primary py-16 text-primary-foreground">
+          <div className="container">
+            <div className="grid grid-cols-2 gap-8 text-center md:grid-cols-4">
+              {stats.map((stat) => (
+                <div key={stat.label}>
+                  <stat.icon className="mx-auto mb-3 h-8 w-8 opacity-80" />
+                  <div className="text-2xl font-bold md:text-3xl">{stat.value}</div>
+                  <div className="text-sm opacity-80">{stat.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="py-20">
+          <div className="container text-center">
+            <h2 className="text-3xl font-bold text-foreground md:text-4xl">Viajas pronto y te sobra espacio?</h2>
+            <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
+              Entra como transportista, publica tu ficha y decide si quieres que tu contacto sea publico o solo visible para usuarios con cuenta.
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <Button variant="hero" size="lg" asChild>
+                <Link to="/auth">Crear cuenta</Link>
+              </Button>
+              <Button variant="hero-outline" size="lg" asChild>
+                <Link to="/auth?role=traveler">
+                  Ver app de transportista
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
               </Button>
             </div>
-          </form>
-        </div>
-      </header>
-
-      <main className="relative z-10">
-        <section className="mx-auto grid max-w-7xl gap-6 px-4 py-10 md:px-6 xl:grid-cols-[1fr_0.92fr] xl:py-14">
-          <div className="soft-panel relative overflow-hidden p-7 md:p-10">
-            <div className="absolute -left-10 top-12 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
-
-            <div className="relative">
-              <Badge className="rounded-full border-black/5 bg-white px-4 py-1.5 text-foreground shadow-sm">
-                PWA clara, explicativa y directa
-              </Badge>
-
-              <h1 className="mt-6 max-w-3xl font-heading text-4xl font-bold tracking-tight text-balance md:text-6xl">
-                Una app para encontrar transportistas y seguir el envio sin procesos innecesarios.
-              </h1>
-
-              <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
-                Cargoo separa muy bien dos momentos: primero una landing que explica como funciona y, despues, la app
-                real para cada perfil: emisor o transportista.
-              </p>
-
-              <div className="mt-7 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {[
-                  { label: "Salida", value: "Suiza" },
-                  { label: "Destino", value: "Espana, Portugal, Serbia, Albania" },
-                  { label: "Filtros", value: "Fecha, hora y espacio" },
-                  { label: "Seguimiento", value: "Reservado, recogido, en ruta, entregado" },
-                ].map((item) => (
-                  <div key={item.label} className="rounded-[1.5rem] border border-black/5 bg-white p-4 shadow-sm">
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{item.label}</p>
-                    <p className="mt-3 text-sm font-medium text-foreground">{item.value}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Button asChild size="lg">
-                  <a href="#como-funciona">
-                    Ver como funciona
-                    <ArrowRight className="h-4 w-4" />
-                  </a>
-                </Button>
-                <Button asChild size="lg" variant="dark">
-                  <Link to={appEntry}>{user ? "Entrar a la app" : "Acceder a Cargoo"}</Link>
-                </Button>
-              </div>
-            </div>
           </div>
-
-          <div className="phone-frame mx-auto w-full max-w-[420px] p-3">
-            <div className="phone-screen px-4 pb-4 pt-12">
-              <div className="rounded-[1.7rem] bg-white p-4 shadow-sm">
-                <p className="text-sm text-muted-foreground">Busqueda para un emisor</p>
-                <p className="mt-2 font-heading text-2xl font-semibold">
-                  {liveTrip.originCity} {"->"} {liveTrip.destinationCity}
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Badge className="rounded-full border-black/5 bg-[#faf7f2] px-3 py-1 text-foreground">Esta semana</Badge>
-                  <Badge className="rounded-full border-black/5 bg-[#faf7f2] px-3 py-1 text-foreground">Manana</Badge>
-                  <Badge className="rounded-full border-black/5 bg-[#faf7f2] px-3 py-1 text-foreground">Espacio medio</Badge>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                {trips.slice(0, 2).map((trip, index) => (
-                  <div key={trip.id} className={index === 0 ? "app-mini-card bg-[#fff9f3]" : "app-mini-card"}>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#111111] text-white">
-                          <CarFront className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">{trip.travelerName}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {trip.departureDay} - {trip.departureTime}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge className="rounded-full border-black/5 bg-white px-3 py-1 text-foreground">{trip.status}</Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-4 rounded-[1.75rem] bg-[#111111] p-4 text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
-                <p className="text-sm text-white/65">Seguimiento dentro de la app</p>
-                <p className="mt-2 font-heading text-2xl font-semibold">{liveTracking.status}</p>
-                <p className="mt-2 text-sm text-white/80">{liveTracking.statusDetail}</p>
-                <div className="mt-4 rounded-[1.4rem] bg-white/10 p-4 text-sm text-white/80">
-                  <p>{liveTracking.checkpoint}</p>
-                  <p className="mt-2">{liveTracking.contactLabel}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="como-funciona" className="mx-auto max-w-7xl px-4 py-4 md:px-6">
-          <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-            <Card>
-              <CardContent className="p-6 md:p-8">
-                <Badge className="rounded-full border-black/5 bg-white px-4 py-1 text-foreground">Como funciona</Badge>
-                <h2 className="mt-4 font-heading text-3xl font-semibold">La PWA explica primero y deja entrar despues</h2>
-
-                <div className="mt-6 space-y-4">
-                  {[
-                    {
-                      title: "1. Landing explicativa",
-                      text: "La portada explica Cargoo con ejemplos reales para que se entienda antes de entrar.",
-                    },
-                    {
-                      title: "2. Login o crear cuenta",
-                      text: "El acceso queda abajo en la landing y tambien en el boton Entrar de la cabecera.",
-                    },
-                    {
-                      title: "3. App segun la cuenta",
-                      text: "Al entrar, un emisor aterriza en su busqueda y seguimiento, y un transportista en solicitudes, recogidas y codigos.",
-                    },
-                  ].map((item, index) => (
-                    <div key={item.title} className={index === 1 ? "rounded-[1.75rem] border border-black/5 bg-[#faf7f2] p-5" : "rounded-[1.75rem] border border-black/5 bg-white p-5 shadow-sm"}>
-                      <p className="font-semibold text-foreground">{item.title}</p>
-                      <p className="mt-2 text-sm text-muted-foreground">{item.text}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <div id="ejemplos" className="grid gap-4 md:grid-cols-3">
-              {landingExamples.map((item) => {
-                const Icon = item.icon;
-
-                return (
-                  <Card key={item.title} className={item.tone}>
-                    <CardContent className="p-6">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-[1.2rem] bg-white shadow-sm">
-                        <Icon className="h-5 w-5 text-primary" />
-                      </div>
-                      <h3 className="mt-4 font-heading text-2xl font-semibold">{item.title}</h3>
-                      <p className="mt-3 text-sm text-muted-foreground">{item.text}</p>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-7xl px-4 py-8 md:px-6">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card className="peach-card">
-              <CardContent className="p-6 md:p-8">
-                <h2 className="font-heading text-3xl font-semibold">Para un emisor</h2>
-                <p className="mt-3 text-muted-foreground">
-                  Entras, filtras transportistas, comparas horario, ruta, espacio y tiempo de respuesta, y abres el
-                  contacto.
-                </p>
-
-                <div className="mt-5 space-y-3">
-                  {[
-                    "Busca por salida, destino, fecha y hora.",
-                    "Elige el perfil que mejor encaja.",
-                    "Sigue el estado del envio dentro de la app.",
-                  ].map((item) => (
-                    <div key={item} className="rounded-[1.5rem] border border-black/5 bg-white p-4 shadow-sm">
-                      <p className="text-sm text-muted-foreground">{item}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="mint-card">
-              <CardContent className="p-6 md:p-8">
-                <h2 className="font-heading text-3xl font-semibold">Para un transportista</h2>
-                <p className="mt-3 text-muted-foreground">
-                  Entras y ves a quien responder, que recogidas tienes hoy y que codigos de seguimiento debes compartir
-                  durante el viaje.
-                </p>
-
-                <div className="mt-5 space-y-3">
-                  {[
-                    "Revisas solicitudes nuevas y respondes solo a las que te encajan.",
-                    "Confirmas recogida, sales de viaje y marcas cada etapa real.",
-                    "Compartes una pagina de seguimiento con codigo cuando cierras el acuerdo.",
-                  ].map((item) => (
-                    <div key={item} className="rounded-[1.5rem] border border-black/5 bg-white p-4 shadow-sm">
-                      <p className="text-sm text-muted-foreground">{item}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-
-        <section id="acceso" className="mx-auto max-w-7xl px-4 pb-12 pt-4 md:px-6">
-          <Card className="ink-card text-white">
-            <CardContent className="p-6 md:p-10">
-              <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
-                <div>
-                  <Badge className="rounded-full border-white/10 bg-white/10 px-4 py-1 text-white">Acceso a la app</Badge>
-                  <h2 className="mt-4 font-heading text-3xl font-semibold md:text-5xl">
-                    Cuando ya entiendes Cargoo, entras a la app y sigues con tu flujo.
-                  </h2>
-                  <p className="mt-4 max-w-2xl text-sm text-white/75 md:text-base">
-                    Arriba tienes el boton Entrar y aqui abajo el acceso final. El login abre la app y el panel cambia
-                    segun si la cuenta es de emisor o de transportista.
-                  </p>
-
-                  <div className="mt-6 grid gap-4 md:grid-cols-2">
-                    {faqItems.slice(0, 2).map((item) => (
-                      <div key={item.question} className="rounded-[1.6rem] bg-white/10 p-4">
-                        <p className="font-medium text-white">{item.question}</p>
-                        <p className="mt-2 text-sm text-white/75">{item.answer}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <Button asChild size="lg" className="bg-white text-slate-950 hover:bg-white/90">
-                    <Link to={appEntry}>Entrar a Cargoo</Link>
-                  </Button>
-                  <Button asChild size="lg" variant="outline" className="border-white/15 bg-white/10 text-white hover:bg-white/15">
-                    <Link to={appEntry}>Crear cuenta o login</Link>
-                  </Button>
-                  <div className="rounded-[1.5rem] bg-white/10 p-4 text-sm text-white/75">
-                    La PWA funciona bien en movil para revisar seguimiento, mensajes y estado del envio.
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </section>
       </main>
+
+      <LandingFooter />
     </div>
   );
 };

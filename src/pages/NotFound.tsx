@@ -1,24 +1,26 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 
-import { Button } from "@/components/ui/button";
+import BrandLogo from "@/components/BrandLogo";
 
 const NotFound = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+  }, [location.pathname]);
+
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="soft-panel max-w-xl p-8 text-center md:p-12">
-        <p className="text-sm uppercase tracking-[0.3em] text-primary">404</p>
-        <h1 className="mt-4 font-heading text-4xl font-bold md:text-5xl">Esta ruta no existe en Cargoo</h1>
-        <p className="mt-4 text-muted-foreground">
-          La pagina que intentaste abrir no esta disponible. Puedes volver al inicio o abrir la busqueda de transportistas.
-        </p>
-        <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-          <Button asChild>
-            <Link to="/home">Ir al inicio</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link to="/marketplace">Buscar transportistas</Link>
-          </Button>
+    <div className="flex min-h-screen items-center justify-center bg-muted px-4">
+      <div className="text-center">
+        <div className="mb-6 flex justify-center">
+          <BrandLogo />
         </div>
+        <h1 className="mb-4 text-4xl font-bold">404</h1>
+        <p className="mb-4 text-xl text-muted-foreground">Esta pagina no existe en Cargoo.</p>
+        <Link to="/" className="text-primary underline hover:text-primary/90">
+          Volver al inicio
+        </Link>
       </div>
     </div>
   );

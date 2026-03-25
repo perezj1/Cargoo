@@ -1,26 +1,12 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
-import { BellRing, CarFront, CheckCircle2, Clock3, Link2, MapPinned, MessageCircle, Package2, PhoneCall, Route, Send } from "lucide-react";
+import { ArrowRight, CarFront, Clock3, Link2, MapPinned, MessageCircle, Package2, Route } from "lucide-react";
 
 import { PlatformLayout } from "@/components/cargoo/PlatformLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  carrierChecklist,
-  carrierMetrics,
-  carrierRequests,
-  carrierShipments,
-  carrierStageFlow,
-  type CarrierShipmentStage,
-  trips,
-} from "@/lib/cargoo-data";
-
-const requestTone = {
-  Alta: "bg-[#fff1e6] text-[#b45d35]",
-  Media: "bg-[#eef7ec] text-[#4f7854]",
-  Flexible: "bg-[#e8eef7] text-[#486589]",
-} as const;
+import { carrierMetrics, carrierRequests, carrierShipments, trips } from "@/lib/cargoo-data";
+import { readStoredCarrierProfileForm, readStoredCarrierStages } from "@/lib/carrier-workspace";
 
 const stageTone = {
   Acordado: "bg-[#fff3e8] text-[#b45d35]",
@@ -29,332 +15,238 @@ const stageTone = {
   Entregado: "bg-[#111111] text-white",
 } as const;
 
-const stageCopy: Record<CarrierShipmentStage, { label: string; hint: string }> = {
-  Acordado: {
-    label: "Codigo listo para compartir",
-    hint: "Ya cerraste el acuerdo. El siguiente paso es recoger el paquete.",
-  },
-  Recogido: {
-    label: "Paquete en tu poder",
-    hint: "Todo esta cargado. Marca en ruta cuando empieces el viaje.",
-  },
-  "En ruta": {
-    label: "Viaje en marcha",
-    hint: "El emisor puede seguir el checkpoint sin escribirte para preguntar.",
-  },
-  Entregado: {
-    label: "Envio cerrado",
-    hint: "Marca entregado cuando confirmes la ultima parada con el receptor.",
-  },
-};
-
-const initialStages = Object.fromEntries(carrierShipments.map((item) => [item.id, item.stage])) as Record<string, CarrierShipmentStage>;
-
 const CarrierHub = () => {
-  const [selectedRequestId, setSelectedRequestId] = useState(carrierRequests[0]?.id ?? "");
-  const [stageByShipment, setStageByShipment] = useState<Record<string, CarrierShipmentStage>>(initialStages);
-
   const todayTrip = trips[0];
-  const selectedRequest = carrierRequests.find((request) => request.id === selectedRequestId) ?? carrierRequests[0];
+  const profile = readStoredCarrierProfileForm();
+  const stageByShipment = readStoredCarrierStages();
   const shipments = carrierShipments.map((shipment) => ({
     ...shipment,
     stage: stageByShipment[shipment.id] ?? shipment.stage,
   }));
-  const activeShipment = shipments.find((shipment) => shipment.stage !== "Entregado") ?? shipments[0];
-
-  const updateShipmentStage = (shipmentId: string, nextStage: CarrierShipmentStage) => {
-    setStageByShipment((current) => ({
-      ...current,
-      [shipmentId]: nextStage,
-    }));
-  };
+  const nextRequests = carrierRequests.slice(0, 3);
+  const highlightedShipments = shipments.slice(0, 3);
 
   return (
     <PlatformLayout
-      title="Centro del transportista"
-      subtitle="Aqui entras para ver quien te ha escrito, preparar recogidas, salir de viaje y marcar cada etapa del envio."
-      action={<Badge className="hidden rounded-full bg-accent/10 px-3 py-1 text-accent md:inline-flex">Modo transportista</Badge>}
+      title="Panel del transportista"
+      subtitle="Tu parte de Cargoo se divide en cuatro zonas claras: solicitudes, viaje, seguimiento y ficha publica."
+      action={<Badge className="hidden rounded-full bg-accent/10 px-3 py-1 text-accent md:inline-flex">Vista transportista</Badge>}
     >
-      <section className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
-        <div className="space-y-6">
-          <Card>
-            <CardContent className="p-6 md:p-8">
-              <div className="flex items-center gap-3">
-                <div className="rounded-2xl bg-accent/10 p-3 text-accent">
-                  <BellRing className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="font-heading text-3xl font-semibold">Lo importante nada mas entrar</h2>
-                  <p className="text-muted-foreground">Solicitudes nuevas, recogidas pendientes y seguimiento activo.</p>
-                </div>
-              </div>
+      <section className="grid gap-5 lg:grid-cols-[1.08fr_0.92fr]">
+        <div className="space-y-5">
+          <div className="soft-panel p-5 md:p-7">
+            <Badge className="rounded-full border-primary/10 bg-primary/5 px-4 py-1.5 text-primary shadow-none">
+              Panel rapido
+            </Badge>
+            <h2 className="mt-5 font-heading text-3xl font-bold tracking-tight text-foreground md:text-5xl">
+              Todo lo importante del viaje, sin meterlo en una sola pagina.
+            </h2>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
+              Entra, revisa quien te ha escrito, prepara la salida, comparte el seguimiento y ajusta tu ficha publica.
+            </p>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-3">
-                {carrierMetrics.map((metric, index) => (
-                  <div
-                    key={metric.label}
-                    className={index === 1 ? "rounded-3xl border border-black/5 bg-[#faf7f2] p-4" : "rounded-3xl border border-black/5 bg-white p-4 shadow-sm"}
-                  >
-                    <p className="text-sm text-muted-foreground">{metric.label}</p>
-                    <p className="mt-2 font-heading text-3xl font-bold">{metric.value}</p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              {carrierMetrics.map((metric) => (
+                <div key={metric.label} className="rounded-[1.7rem] border border-primary/10 bg-white px-4 py-4 shadow-[0_16px_36px_rgba(255,122,48,0.05)]">
+                  <p className="text-sm text-muted-foreground">{metric.label}</p>
+                  <p className="mt-2 font-heading text-2xl font-bold text-foreground md:text-3xl">{metric.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Button asChild className="sm:min-w-[190px]">
+                <Link to="/carrier/requests">
+                  Abrir solicitudes
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="sm:min-w-[190px]">
+                <Link to="/carrier/trip">Ir al viaje</Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-5 xl:grid-cols-2">
+            <Card className="border-primary/10 bg-white">
+              <CardContent className="p-5 md:p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm text-muted-foreground">Solicitudes</p>
+                    <h3 className="font-heading text-2xl font-semibold text-foreground">Quien quiere enviarte algo</h3>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6 md:p-8">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="font-heading text-3xl font-semibold">Solicitudes recibidas</h2>
-                  <p className="mt-2 text-muted-foreground">Aqui ves quien quiere mandarte algo y decides si te encaja.</p>
+                  <Badge className="rounded-full border-primary/10 bg-primary/5 px-3 py-1 text-primary shadow-none">
+                    {carrierRequests.length}
+                  </Badge>
                 </div>
-                <Badge className="rounded-full border-black/5 bg-white px-3 py-1 text-foreground">
-                  {carrierRequests.length} abiertas
-                </Badge>
-              </div>
 
-              <div className="mt-6 grid gap-4 lg:grid-cols-[0.98fr_1.02fr]">
-                <div className="space-y-3">
-                  {carrierRequests.map((request) => (
-                    <button
-                      key={request.id}
-                      type="button"
-                      onClick={() => setSelectedRequestId(request.id)}
-                      className={selectedRequest.id === request.id ? "w-full rounded-[1.75rem] border border-black/5 bg-[#fff9f3] p-4 text-left shadow-sm" : "w-full rounded-[1.75rem] border border-black/5 bg-white p-4 text-left shadow-sm transition-transform hover:-translate-y-0.5"}
-                    >
+                <div className="mt-5 space-y-3">
+                  {nextRequests.map((request) => (
+                    <div key={request.id} className="rounded-[1.5rem] border border-primary/10 bg-[#fffaf6] px-4 py-4">
                       <div className="flex items-start justify-between gap-3">
-                        <div>
+                        <div className="min-w-0">
                           <p className="font-medium text-foreground">{request.senderName}</p>
                           <p className="mt-1 text-sm text-muted-foreground">{request.item}</p>
                         </div>
-                        <Badge className={`rounded-full px-3 py-1 ${requestTone[request.urgency]}`}>{request.urgency}</Badge>
+                        <Badge className="rounded-full border-primary/10 bg-white px-3 py-1 text-foreground shadow-none">
+                          {request.urgency}
+                        </Badge>
                       </div>
-                      <p className="mt-3 text-sm text-muted-foreground">{request.route}</p>
+                      <p className="mt-3 text-sm text-foreground">{request.route}</p>
                       <p className="mt-1 text-sm text-muted-foreground">{request.pickupWindow}</p>
-                    </button>
+                    </div>
                   ))}
                 </div>
 
-                <div className="rounded-[1.9rem] border border-black/5 bg-white p-5 shadow-sm">
-                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    <MessageCircle className="h-4 w-4 text-primary" />
-                    Solicitud seleccionada
-                  </div>
-                  <h3 className="mt-4 font-heading text-3xl font-semibold">{selectedRequest.senderName}</h3>
-                  <p className="mt-2 text-muted-foreground">{selectedRequest.item}</p>
-
-                  <div className="mt-5 grid gap-3 md:grid-cols-2">
-                    <div className="rounded-2xl bg-[#faf7f2] p-4">
-                      <p className="text-sm text-muted-foreground">Ruta</p>
-                      <p className="mt-1 font-medium text-foreground">{selectedRequest.route}</p>
-                    </div>
-                    <div className="rounded-2xl bg-[#faf7f2] p-4">
-                      <p className="text-sm text-muted-foreground">Espacio pedido</p>
-                      <p className="mt-1 font-medium text-foreground">{selectedRequest.requestedSpace}</p>
-                    </div>
-                    <div className="rounded-2xl bg-[#faf7f2] p-4">
-                      <p className="text-sm text-muted-foreground">Ventana de recogida</p>
-                      <p className="mt-1 font-medium text-foreground">{selectedRequest.pickupWindow}</p>
-                    </div>
-                    <div className="rounded-2xl bg-[#faf7f2] p-4">
-                      <p className="text-sm text-muted-foreground">Contacto preferido</p>
-                      <p className="mt-1 font-medium text-foreground">{selectedRequest.preferredContact}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 rounded-[1.5rem] border border-black/5 bg-[#fff9f3] p-4">
-                    <p className="text-sm text-muted-foreground">Nota del emisor</p>
-                    <p className="mt-2 text-sm text-foreground">{selectedRequest.note}</p>
-                  </div>
-
-                  <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                    <Button className="flex-1">
-                      <Send className="h-4 w-4" />
-                      Responder
-                    </Button>
-                    <Button variant="outline" className="flex-1">
-                      <PhoneCall className="h-4 w-4" />
-                      Llamar
-                    </Button>
-                    <Button variant="outline" className="flex-1">
-                      <Link2 className="h-4 w-4" />
-                      Crear codigo
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6 md:p-8">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="font-heading text-3xl font-semibold">Envios que llevas contigo</h2>
-                  <p className="mt-2 text-muted-foreground">Marca cada etapa y el seguimiento se actualiza para el emisor.</p>
-                </div>
-                <Badge className="rounded-full border-black/5 bg-white px-3 py-1 text-foreground">Control manual</Badge>
-              </div>
-
-              <div className="mt-6 space-y-4">
-                {shipments.map((shipment, index) => (
-                  <div
-                    key={shipment.id}
-                    className={index === 0 ? "rounded-[1.9rem] border border-black/5 bg-[#fff9f3] p-5" : "rounded-[1.9rem] border border-black/5 bg-white p-5 shadow-sm"}
-                  >
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge className={`rounded-full px-3 py-1 ${stageTone[shipment.stage]}`}>{shipment.stage}</Badge>
-                          <Badge className="rounded-full border-black/5 bg-white px-3 py-1 text-foreground">{shipment.trackingCode}</Badge>
-                        </div>
-
-                        <h3 className="mt-4 font-heading text-2xl font-semibold">{shipment.item}</h3>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {shipment.senderName} - {shipment.route}
-                        </p>
-                        <p className="mt-1 text-sm text-muted-foreground">{shipment.summary}</p>
-
-                        <div className="mt-5 flex flex-wrap gap-2">
-                          {carrierStageFlow.map((stage) => (
-                            <button
-                              key={stage}
-                              type="button"
-                              onClick={() => updateShipmentStage(shipment.id, stage)}
-                              className={stage === shipment.stage ? `rounded-full px-3 py-2 text-sm font-medium ${stageTone[stage]}` : "rounded-full border border-black/10 bg-white px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-black/20 hover:text-foreground"}
-                            >
-                              {stage}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="w-full max-w-sm rounded-[1.75rem] border border-black/5 bg-white p-5 shadow-sm">
-                        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                          <Package2 className="h-4 w-4 text-primary" />
-                          {stageCopy[shipment.stage].label}
-                        </div>
-
-                        <div className="mt-4 space-y-3 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <MapPinned className="h-4 w-4 text-primary" />
-                            {shipment.checkpoint}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Clock3 className="h-4 w-4 text-primary" />
-                            ETA {shipment.eta}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Route className="h-4 w-4 text-primary" />
-                            {stageCopy[shipment.stage].hint}
-                          </div>
-                        </div>
-
-                        <div className="mt-5 flex gap-2">
-                          <Button asChild className="flex-1">
-                            <Link to={shipment.shareUrl}>Abrir seguimiento</Link>
-                          </Button>
-                          <Button variant="outline" className="flex-1">
-                            Compartir codigo
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          <Card className="ink-card text-white">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <CarFront className="h-5 w-5 text-amber-300" />
-                <div>
-                  <h2 className="font-heading text-2xl font-semibold">Tu salida de hoy</h2>
-                  <p className="mt-1 text-sm text-slate-300">Lo practico: donde empiezas, que recoges y que compartes.</p>
-                </div>
-              </div>
-
-              <div className="mt-6 rounded-[1.75rem] bg-white/10 p-5">
-                <p className="text-sm text-white/65">{todayTrip.role}</p>
-                <h3 className="mt-2 font-heading text-3xl font-semibold">
-                  {todayTrip.originCity} {"->"} {todayTrip.destinationCity}
-                </h3>
-                <p className="mt-2 text-sm text-white/75">
-                  {todayTrip.departureDay} - {todayTrip.departureTime} - {todayTrip.vehicle}
-                </p>
-              </div>
-
-              <div className="mt-5 space-y-3">
-                {carrierChecklist.map((item) => (
-                  <div key={item} className="flex gap-3 rounded-[1.5rem] bg-white/10 p-4 text-sm text-slate-200">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-amber-300" />
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {activeShipment ? (
-            <Card className="peach-card">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-2">
-                  <Link2 className="h-5 w-5 text-primary" />
-                  <h2 className="font-heading text-2xl font-semibold">Codigo listo para compartir</h2>
-                </div>
-
-                <div className="mt-5 rounded-[1.6rem] border border-black/5 bg-white p-5 shadow-sm">
-                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Codigo</p>
-                  <p className="mt-2 font-heading text-3xl font-semibold">{activeShipment.trackingCode}</p>
-                  <p className="mt-3 text-sm text-muted-foreground">{activeShipment.senderName}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{activeShipment.route}</p>
-                </div>
-
-                <div className="mt-5 rounded-[1.6rem] border border-black/5 bg-white/80 p-4">
-                  <p className="text-sm text-muted-foreground">URL de seguimiento</p>
-                  <p className="mt-2 break-all text-sm font-medium text-foreground">{`${window.location.origin}${activeShipment.shareUrl}`}</p>
-                </div>
-
-                <Button asChild className="mt-6 w-full">
-                  <Link to={activeShipment.shareUrl}>Abrir pagina de seguimiento</Link>
+                <Button asChild variant="outline" className="mt-5 w-full">
+                  <Link to="/carrier/requests">Ver todas las solicitudes</Link>
                 </Button>
               </CardContent>
             </Card>
-          ) : null}
 
-          <Card className="mint-card">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2">
-                <MapPinned className="h-5 w-5 text-primary" />
-                <h2 className="font-heading text-2xl font-semibold">Siguiente recogida</h2>
-              </div>
+            <Card className="border-primary/10 bg-white">
+              <CardContent className="p-5 md:p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm text-muted-foreground">Seguimiento</p>
+                    <h3 className="font-heading text-2xl font-semibold text-foreground">Envios activos</h3>
+                  </div>
+                  <Badge className="rounded-full border-primary/10 bg-primary/5 px-3 py-1 text-primary shadow-none">
+                    {highlightedShipments.length}
+                  </Badge>
+                </div>
 
-              <div className="mt-5 rounded-[1.6rem] border border-black/5 bg-white p-5 shadow-sm">
-                <p className="font-medium text-foreground">{selectedRequest.senderName}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{selectedRequest.item}</p>
-                <p className="mt-3 text-sm text-muted-foreground">{selectedRequest.pickupWindow}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{selectedRequest.route}</p>
-                <p className="mt-3 text-sm text-muted-foreground">{selectedRequest.note}</p>
-              </div>
+                <div className="mt-5 space-y-3">
+                  {highlightedShipments.map((shipment) => (
+                    <div key={shipment.id} className="rounded-[1.5rem] border border-primary/10 bg-[#fffaf6] px-4 py-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className={`rounded-full px-3 py-1 ${stageTone[shipment.stage]}`}>{shipment.stage}</Badge>
+                        <Badge className="rounded-full border-primary/10 bg-white px-3 py-1 text-foreground shadow-none">
+                          {shipment.trackingCode}
+                        </Badge>
+                      </div>
+                      <p className="mt-3 font-medium text-foreground">{shipment.item}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{shipment.route}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{shipment.checkpoint}</p>
+                    </div>
+                  ))}
+                </div>
 
-              <div className="mt-5 flex gap-2">
-                <Button className="flex-1">
-                  <MessageCircle className="h-4 w-4" />
-                  Escribir
+                <Button asChild variant="outline" className="mt-5 w-full">
+                  <Link to="/carrier/trip">Abrir viaje y seguimiento</Link>
                 </Button>
-                <Button variant="outline" className="flex-1">
-                  <PhoneCall className="h-4 w-4" />
-                  Llamar
-                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <div className="space-y-5">
+          <Card className="border-primary/10 bg-white">
+            <CardContent className="p-5 md:p-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-[1.25rem] bg-primary/10 text-primary">
+                  <CarFront className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-muted-foreground">Proxima salida</p>
+                  <h3 className="font-heading text-2xl font-semibold text-foreground">
+                    {todayTrip.originCity} {"->"} {todayTrip.destinationCity}
+                  </h3>
+                </div>
               </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-[1.5rem] border border-primary/10 bg-[#fffaf6] px-4 py-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <Clock3 className="h-4 w-4 text-primary" />
+                    Salida
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {todayTrip.departureDay} a las {todayTrip.departureTime}
+                  </p>
+                </div>
+                <div className="rounded-[1.5rem] border border-primary/10 bg-[#fffaf6] px-4 py-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <MapPinned className="h-4 w-4 text-primary" />
+                    Recogida
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">{todayTrip.meetingPoint}</p>
+                </div>
+                <div className="rounded-[1.5rem] border border-primary/10 bg-[#fffaf6] px-4 py-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <Package2 className="h-4 w-4 text-primary" />
+                    Espacio
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">{todayTrip.availableSpace}</p>
+                </div>
+                <div className="rounded-[1.5rem] border border-primary/10 bg-[#fffaf6] px-4 py-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <Route className="h-4 w-4 text-primary" />
+                    Vehiculo
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">{todayTrip.vehicle}</p>
+                </div>
+              </div>
+
+              <Button asChild className="mt-5 w-full">
+                <Link to="/carrier/trip">Preparar viaje</Link>
+              </Button>
             </CardContent>
           </Card>
+
+          <Card className="border-primary/10 bg-white">
+            <CardContent className="p-5 md:p-6">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm text-muted-foreground">Ficha publica</p>
+                  <h3 className="font-heading text-2xl font-semibold text-foreground">{profile.displayName}</h3>
+                </div>
+                <Badge className="rounded-full border-primary/10 bg-primary/5 px-3 py-1 text-primary shadow-none">
+                  {profile.contactVisibility === "public" ? "Contacto publico" : "Solo usuarios"}
+                </Badge>
+              </div>
+
+              <p className="mt-3 text-sm leading-7 text-muted-foreground">{profile.bio}</p>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Badge variant="outline" className="rounded-full bg-white">
+                  {profile.originCity} {"->"} {profile.destinationCity}
+                </Badge>
+                <Badge variant="outline" className="rounded-full bg-white">
+                  {profile.departureTime}
+                </Badge>
+                <Badge variant="outline" className="rounded-full bg-white">
+                  {profile.availableSpace}
+                </Badge>
+              </div>
+
+              <div className="mt-5 rounded-[1.5rem] border border-primary/10 bg-[#fffaf6] px-4 py-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Link2 className="h-4 w-4 text-primary" />
+                  Contacto visible
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">{profile.contactPreference}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{profile.contactValue}</p>
+              </div>
+
+              <Button asChild variant="outline" className="mt-5 w-full">
+                <Link to="/carrier/profile">Editar ficha publica</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <div className="rounded-[2rem] border border-primary/10 bg-white px-5 py-5 shadow-[0_18px_45px_rgba(255,122,48,0.06)]">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <MessageCircle className="h-4 w-4 text-primary" />
+              Como queda ahora la app del transportista
+            </div>
+            <div className="mt-4 space-y-3 text-sm text-muted-foreground">
+              <p>Panel para ver el resumen del dia.</p>
+              <p>Solicitudes para contestar y cerrar acuerdos.</p>
+              <p>Viaje para mover estados y compartir seguimiento.</p>
+              <p>Ficha para editar lo que vera el emisor.</p>
+            </div>
+          </div>
         </div>
       </section>
     </PlatformLayout>

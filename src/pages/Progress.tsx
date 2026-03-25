@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -194,12 +194,14 @@ const Progress = () => {
                       {stat.percentage.toFixed(0)}%
                     </span>
                   </div>
-                  <ProgressBar 
-                    value={stat.percentage} 
+                  <ProgressBar
+                    value={stat.percentage}
                     className="h-2"
-                    style={{ 
-                      ['--progress-background' as any]: category?.color 
-                    }}
+                    style={
+                      category?.color
+                        ? ({ ["--progress-background" as string]: category.color } as CSSProperties)
+                        : undefined
+                    }
                   />
                 </div>
               );

@@ -10,7 +10,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { clearPendingMarketplaceFilters, getMarketplaceUrl, readPendingMarketplaceFilters, takePendingMarketplaceFilters } from "@/lib/marketplace-filters";
+import {
+  clearPendingMarketplaceFilters,
+  clearPendingSelectedTripId,
+  defaultMarketplaceFilters,
+  getMarketplaceUrl,
+  readPendingMarketplaceFilters,
+  readPendingSelectedTripId,
+  takePendingMarketplaceFilters,
+  takePendingSelectedTripId,
+} from "@/lib/marketplace-filters";
 
 const authSlides = [
   {
@@ -42,9 +51,14 @@ const authSlides = [
 const getPostAuthPath = (role: AppRole, consumePending = false) => {
   if (role === "emitter") {
     const pendingFilters = consumePending ? takePendingMarketplaceFilters() : readPendingMarketplaceFilters();
-    if (pendingFilters) return getMarketplaceUrl(pendingFilters);
+    const pendingSelectedTripId = consumePending ? takePendingSelectedTripId() : readPendingSelectedTripId();
+
+    if (pendingFilters || pendingSelectedTripId) {
+      return getMarketplaceUrl(pendingFilters ?? defaultMarketplaceFilters, pendingSelectedTripId ?? undefined);
+    }
   } else {
     clearPendingMarketplaceFilters();
+    clearPendingSelectedTripId();
   }
 
   return getAppHomePath(role);
@@ -60,12 +74,13 @@ const Auth = () => {
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const nextPath = searchParams.get("next");
 
   useEffect(() => {
     if (user) {
-      navigate(getPostAuthPath(getStoredAppRole(), true), { replace: true });
+      navigate(nextPath ?? getPostAuthPath(getStoredAppRole(), true), { replace: true });
     }
-  }, [navigate, user]);
+  }, [navigate, nextPath, user]);
 
   useEffect(() => {
     const requestedRole = searchParams.get("role");
@@ -113,7 +128,7 @@ const Auth = () => {
         toast.success("Cuenta creada. Ya puedes entrar a la app.");
       }
 
-      navigate(getPostAuthPath(accountMode), { replace: true });
+      navigate(nextPath ?? getPostAuthPath(accountMode), { replace: true });
     } catch (_error) {
       toast.error("No se pudo completar la autenticacion.");
     } finally {

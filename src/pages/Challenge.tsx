@@ -12,13 +12,33 @@ import BottomNav from '@/components/BottomNav';
 import { useI18n } from '@/contexts/I18nContext';
 import { getTaskTranslation } from '@/lib/taskTranslations';
 
+interface ChallengeRecord {
+  id: string;
+  text: string;
+  minutes: number;
+  kind: string;
+}
+
+interface TaskRecord {
+  id: string;
+  title: string;
+  description: string;
+}
+
+interface GoalRecord {
+  id: string;
+  xp: number;
+  streak: number;
+  hearts: number;
+}
+
 const Challenge = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { locale } = useI18n();
-  const [challenge, setChallenge] = useState<any>(null);
-  const [task, setTask] = useState<any>(null);
-  const [goal, setGoal] = useState<any>(null);
+  const [challenge, setChallenge] = useState<ChallengeRecord | null>(null);
+  const [task, setTask] = useState<TaskRecord | null>(null);
+  const [goal, setGoal] = useState<GoalRecord | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
