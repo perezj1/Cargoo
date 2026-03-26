@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import ShipmentReviewDialog from "@/components/ShipmentReviewDialog";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -286,6 +286,7 @@ const ConversationPage = () => {
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <Avatar className="h-11 w-11">
+              <AvatarImage src={conversation.otherUserAvatarUrl} alt={conversation.otherUserName} />
               <AvatarFallback className="bg-primary/10 font-semibold text-primary">
                 {conversation.otherUserName
                   .split(" ")

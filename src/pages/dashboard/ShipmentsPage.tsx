@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Calendar, MessageSquare, Package, Star, Truck } from "lucide-react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import ShipmentReviewDialog from "@/components/ShipmentReviewDialog";
@@ -24,11 +24,20 @@ const statusConfig = {
   delivered: { label: "Entregado", className: "border-success/20 bg-success/10 text-success" },
 } as const;
 
+const normalizeTab = (value: string | null) => {
+  if (value === "active" || value === "delivered" || value === "all") {
+    return value;
+  }
+
+  return "active";
+};
+
 const ShipmentsPage = () => {
   const { loading: authLoading, profile, profileLoading } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [shipments, setShipments] = useState<ShipmentSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("active");
+  const [tab, setTab] = useState(() => normalizeTab(searchParams.get("tab")));
   const [reviewingShipment, setReviewingShipment] = useState<ShipmentSummary | null>(null);
   const [savingReview, setSavingReview] = useState(false);
   const [loadingConversationId, setLoadingConversationId] = useState<string | null>(null);
@@ -46,6 +55,10 @@ const ShipmentsPage = () => {
   useEffect(() => {
     void loadShipments();
   }, []);
+
+  useEffect(() => {
+    setTab(normalizeTab(searchParams.get("tab")));
+  }, [searchParams]);
 
   useEffect(() => {
     const channel = supabase
@@ -131,6 +144,12 @@ const ShipmentsPage = () => {
     return <Navigate to="/app" replace />;
   }
 
+  const handleTabChange = (nextTab: string) => {
+    const normalizedTab = normalizeTab(nextTab);
+    setTab(normalizedTab);
+    setSearchParams(normalizedTab === "active" ? {} : { tab: normalizedTab });
+  };
+
   return (
     <div className="mx-auto max-w-lg px-4 pt-6">
       <div className="mb-2 flex items-center justify-between">
@@ -143,7 +162,7 @@ const ShipmentsPage = () => {
         Aqui ves los transportes que ya has elegido, los que ya estan en ruta y los que ya han sido entregados.
       </p>
 
-      <Tabs value={tab} onValueChange={setTab} className="mb-6">
+      <Tabs value={tab} onValueChange={handleTabChange} className="mb-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="active">Activos {counts.active}</TabsTrigger>
           <TabsTrigger value="delivered">Finalizados {counts.delivered}</TabsTrigger>

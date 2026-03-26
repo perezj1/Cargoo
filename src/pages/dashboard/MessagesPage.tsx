@@ -3,7 +3,7 @@ import { MessageSquare, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
@@ -104,6 +104,7 @@ const MessagesPage = () => {
             >
               <div className="relative">
                 <Avatar className="h-12 w-12">
+                  <AvatarImage src={conversation.otherUserAvatarUrl} alt={conversation.otherUserName} />
                   <AvatarFallback className="bg-primary/10 font-medium text-primary">
                     {conversation.otherUserName
                       .split(" ")

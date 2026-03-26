@@ -106,6 +106,7 @@ export interface ConversationSummary {
   tripId: string | null;
   otherUserId: string;
   otherUserName: string;
+  otherUserAvatarUrl: string;
   otherUserIsTraveler: boolean;
   routeOrigin: string;
   routeDestination: string;
@@ -182,6 +183,14 @@ const isMissingCargooTable = (error: { message?: string; code?: string } | null)
     /Could not find the table/i.test(error.message ?? "") ||
     /relation .* does not exist/i.test(error.message ?? "")
   );
+};
+
+const isMissingProfileAvatarColumn = (error: { message?: string; code?: string } | null) => {
+  if (!error) {
+    return false;
+  }
+
+  return /avatar_url/i.test(error.message ?? "") && /cargoo_profiles/i.test(error.message ?? "");
 };
 
 const mapSupabaseError = (error: { message?: string } | null) => {
@@ -468,19 +477,20 @@ const mapProfileRow = (
     name: string;
     is_traveler: boolean;
     is_public: boolean;
-    avatar_url: string | null;
-    phone: string | null;
-    location: string | null;
-    bio: string | null;
+    avatar_url?: string | null;
+    phone?: string | null;
+    location?: string | null;
+    bio?: string | null;
   },
   email: string,
+  fallbackAvatarUrl = "",
 ): CargooUser => ({
   userId: row.user_id,
   name: row.name,
   email,
   isTraveler: row.is_traveler,
   isPublic: row.is_public,
-  avatarUrl: row.avatar_url ?? "",
+  avatarUrl: row.avatar_url ?? fallbackAvatarUrl,
   phone: row.phone ?? "",
   location: row.location ?? DEFAULT_LOCATION,
   bio: row.bio ?? DEFAULT_BIO,
@@ -631,6 +641,7 @@ const mapConversationRow = (
   currentUserId: string,
   unreadCount = 0,
   shipment: Pick<ShipmentRow, "id" | "status"> | null = null,
+  otherUserAvatarUrl = "",
 ): ConversationSummary => {
   const isParticipantOne = row.participant_one_id === currentUserId;
 
@@ -639,6 +650,7 @@ const mapConversationRow = (
     tripId: row.trip_id,
     otherUserId: isParticipantOne ? row.participant_two_id : row.participant_one_id,
     otherUserName: isParticipantOne ? row.participant_two_name : row.participant_one_name,
+    otherUserAvatarUrl,
     otherUserIsTraveler: isParticipantOne ? row.participant_two_is_traveler : row.participant_one_is_traveler,
     routeOrigin: row.route_origin ?? "",
     routeDestination: row.route_destination ?? "",
@@ -685,6 +697,33 @@ const buildShipmentSummary = (
   reviewedAt: row.reviewed_at,
 });
 
+const getProfileAvatarUrlsByUserIds = async (userIds: string[]) => {
+  if (!userIds.length) {
+    return new Map<string, string>();
+  }
+
+  const uniqueUserIds = Array.from(new Set(userIds));
+  const { data, error } = await supabase
+    .from("cargoo_profiles")
+    .select("user_id, avatar_url")
+    .in("user_id", uniqueUserIds);
+
+  if (isMissingCargooTable(error) || isMissingProfileAvatarColumn(error)) {
+    return new Map<string, string>();
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  return new Map(
+    (data ?? [])
+      .filter((profile) => Boolean(profile.avatar_url))
+      .map((profile) => [profile.user_id, profile.avatar_url ?? ""] as const),
+  );
+};
+
 const buildProfilePayload = (user: User) => {
   const profile = buildProfileFromMetadata(user);
 
@@ -698,6 +737,17 @@ const buildProfilePayload = (user: User) => {
     location: profile.location,
     bio: profile.bio,
   };
+};
+
+const upsertProfilePayload = async (payload: ReturnType<typeof buildProfilePayload>) => {
+  const result = await supabase.from("cargoo_profiles").upsert(payload, { onConflict: "user_id" }).select("*").single();
+
+  if (!isMissingProfileAvatarColumn(result.error)) {
+    return result;
+  }
+
+  const { avatar_url: _avatarUrl, ...payloadWithoutAvatar } = payload;
+  return supabase.from("cargoo_profiles").upsert(payloadWithoutAvatar, { onConflict: "user_id" }).select("*").single();
 };
 
 const ensureProfile = async (user: User) => {
@@ -714,15 +764,16 @@ const ensureProfile = async (user: User) => {
   }
 
   if (data) {
-    return mapProfileRow(data, user.email ?? "");
+    const metadataProfile = buildProfileFromMetadata(user);
+    if (metadataProfile.avatarUrl && !data.avatar_url) {
+      await upsertProfilePayload(buildProfilePayload(user));
+    }
+
+    return mapProfileRow(data, user.email ?? "", buildProfileFromMetadata(user).avatarUrl);
   }
 
   const payload = buildProfilePayload(user);
-  const { data: createdProfile, error: createError } = await supabase
-    .from("cargoo_profiles")
-    .upsert(payload, { onConflict: "user_id" })
-    .select("*")
-    .single();
+  const { data: createdProfile, error: createError } = await upsertProfilePayload(payload);
 
   if (isMissingCargooTable(createError)) {
     const nextUser = await updateUserMetadata(profileToMetadata(buildProfileFromMetadata(user)));
@@ -734,7 +785,7 @@ const ensureProfile = async (user: User) => {
     throw mappedCreateError;
   }
 
-  return mapProfileRow(createdProfile, user.email ?? "");
+  return mapProfileRow(createdProfile, user.email ?? "", buildProfileFromMetadata(user).avatarUrl);
 };
 
 export const loginUser = async (email: string, password: string) => {
@@ -827,7 +878,7 @@ export const updateCurrentUser = async (updates: Partial<CargooUser>) => {
     bio: nextProfile.bio,
   };
 
-  const { data, error } = await supabase.from("cargoo_profiles").upsert(payload, { onConflict: "user_id" }).select("*").single();
+  const { data, error } = await upsertProfilePayload(payload);
 
   if (isMissingCargooTable(error)) {
     return buildProfileFromMetadata(nextUser);
@@ -838,7 +889,7 @@ export const updateCurrentUser = async (updates: Partial<CargooUser>) => {
     throw mappedError;
   }
 
-  return mapProfileRow(data, nextProfile.email);
+  return mapProfileRow(data, nextProfile.email, nextProfile.avatarUrl);
 };
 
 export const uploadCurrentUserAvatar = async (file: File) => {
@@ -869,7 +920,7 @@ export const uploadCurrentUserAvatar = async (file: File) => {
   const nextUser = await updateUserMetadata({ avatar_url: avatarUrl });
   const payload = buildProfilePayload(nextUser);
 
-  const { data, error } = await supabase.from("cargoo_profiles").upsert(payload, { onConflict: "user_id" }).select("*").single();
+  const { data, error } = await upsertProfilePayload(payload);
 
   if (isMissingCargooTable(error)) {
     return buildProfileFromMetadata(nextUser);
@@ -880,7 +931,7 @@ export const uploadCurrentUserAvatar = async (file: File) => {
     throw mappedError;
   }
 
-  return mapProfileRow(data, nextUser.email ?? "");
+  return mapProfileRow(data, nextUser.email ?? "", avatarUrl);
 };
 
 export const logoutUser = async () => {
@@ -1882,7 +1933,11 @@ export const getConversations = async () => {
   }
 
   const conversationIds = conversations.map((conversation) => conversation.id);
+  const otherUserIds = conversations.map((conversation) =>
+    conversation.participant_one_id === user.id ? conversation.participant_two_id : conversation.participant_one_id,
+  );
   const shipmentByConversationId = await getShipmentsByConversationIds(conversationIds);
+  const avatarUrlByUserId = await getProfileAvatarUrlsByUserIds(otherUserIds);
   const { data: unreadMessages, error: unreadMessagesError } = await supabase
     .from("cargoo_messages")
     .select("conversation_id")
@@ -1911,6 +1966,7 @@ export const getConversations = async () => {
       user.id,
       unreadCountByConversationId[conversation.id] ?? 0,
       shipmentByConversationId.get(conversation.id) ?? null,
+      avatarUrlByUserId.get(conversation.participant_one_id === user.id ? conversation.participant_two_id : conversation.participant_one_id) ?? "",
     ),
   );
 };
@@ -1963,9 +2019,17 @@ export const getConversationMessages = async (conversationId: string) => {
   const shipmentByConversationId = await getShipmentsByConversationIds([conversationId]);
   const shipmentRow = shipmentByConversationId.get(conversationId) ?? null;
   const shipment = shipmentRow ? (await buildShipmentSummaries([shipmentRow]))[0] ?? null : null;
+  const otherUserId = conversation.participant_one_id === user.id ? conversation.participant_two_id : conversation.participant_one_id;
+  const avatarUrlByUserId = await getProfileAvatarUrlsByUserIds([otherUserId]);
 
   return {
-    conversation: mapConversationRow(conversation, user.id, unreadCount, shipmentRow),
+    conversation: mapConversationRow(
+      conversation,
+      user.id,
+      unreadCount,
+      shipmentRow,
+      avatarUrlByUserId.get(otherUserId) ?? "",
+    ),
     messages: (messages ?? []).map(mapMessageRow),
     shipment,
   };

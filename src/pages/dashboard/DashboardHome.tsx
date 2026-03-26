@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import {
   advanceTripToNextStop,
   getConversations,
@@ -88,6 +89,29 @@ const DashboardHome = () => {
     void loadDashboardData();
   }, [profile]);
 
+  useEffect(() => {
+    if (!profile) {
+      return;
+    }
+
+    const reloadDashboard = () => {
+      void loadDashboardData();
+    };
+
+    const channel = supabase
+      .channel(`dashboard-home-${profile.userId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_conversations" }, reloadDashboard)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_messages" }, reloadDashboard)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_shipments" }, reloadDashboard)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_trip_stops" }, reloadDashboard)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_trips" }, reloadDashboard)
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [profile]);
+
   const unreadMessages = useMemo(
     () => conversations.reduce((sum, conversation) => sum + conversation.unreadCount, 0),
     [conversations],
@@ -130,9 +154,9 @@ const DashboardHome = () => {
         { label: "Valoracion", value: ratingValue, icon: Star, color: "text-warning", to: "/app/profile" },
       ]
     : [
-        { label: "En ruta", value: String(shipmentCounts.accepted), icon: Truck, color: "text-primary", to: "/app/shipments" },
-        { label: "Entregados", value: String(shipmentCounts.delivered), icon: CheckCircle2, color: "text-success", to: "/app/shipments" },
-        { label: "Por valorar", value: String(shipmentCounts.reviewPending), icon: Star, color: "text-warning", to: "/app/shipments" },
+        { label: "En ruta", value: String(shipmentCounts.accepted), icon: Truck, color: "text-primary", to: "/app/shipments?tab=active" },
+        { label: "Entregados", value: String(shipmentCounts.delivered), icon: CheckCircle2, color: "text-success", to: "/app/shipments?tab=delivered" },
+        { label: "Por valorar", value: String(shipmentCounts.reviewPending), icon: Star, color: "text-warning", to: "/app/shipments?tab=delivered" },
         { label: "Mensajes", value: String(unreadMessages), icon: MessageSquare, color: "text-accent", to: "/app/messages" },
       ];
 
@@ -271,6 +295,7 @@ const DashboardHome = () => {
                   className="flex items-center gap-3 rounded-xl bg-card p-4 shadow-card"
                 >
                   <Avatar className="h-10 w-10">
+                    <AvatarImage src={conversation.otherUserAvatarUrl} alt={conversation.otherUserName} />
                     <AvatarFallback className="bg-secondary text-sm font-medium text-foreground">
                       {conversation.otherUserName
                         .split(" ")

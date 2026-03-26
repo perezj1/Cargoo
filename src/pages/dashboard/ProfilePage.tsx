@@ -40,13 +40,15 @@ const ProfilePage = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [profile, userTrips] = await Promise.all([getCurrentUser(), getTrips()]);
+        const profile = await getCurrentUser();
         setUser(profile);
-        setTrips(userTrips);
 
         if (profile.isTraveler) {
+          const userTrips = await getTrips();
+          setTrips(userTrips);
           setRatingSummary(await getTravelerRatingSummary(profile.userId));
         } else {
+          setTrips([]);
           setRatingSummary({
             averageRating: null,
             reviewsCount: 0,
@@ -133,16 +135,13 @@ const ProfilePage = () => {
     .join("")
     .slice(0, 2);
 
-  const menuItems = [
-    { label: "Editar perfil", to: "/app/profile/edit", icon: Settings },
-    { label: "Mensajes", to: "/app/messages", icon: MessageSquare },
-    ...(user.isTraveler
-      ? [{ label: "Mis viajes", to: "/app/trips", icon: Package }]
-      : [
-          { label: "Mis envios", to: "/app/shipments", icon: Package },
-          { label: "Buscar transportistas", to: "/app/search", icon: Globe },
-        ]),
-  ];
+  const menuItems = user.isTraveler
+    ? [
+        { label: "Editar perfil", to: "/app/profile/edit", icon: Settings },
+        { label: "Mensajes", to: "/app/messages", icon: MessageSquare },
+        { label: "Mis viajes", to: "/app/trips", icon: Package },
+      ]
+    : [{ label: "Editar perfil", to: "/app/profile/edit", icon: Settings }];
   const ratingLabel =
     ratingSummary.averageRating !== null ? String(ratingSummary.averageRating.toFixed(1)).replace(".", ",") : "Nueva";
   const ratingCaption =
@@ -180,46 +179,66 @@ const ProfilePage = () => {
         <p className="mt-1 flex items-center justify-center gap-1 text-sm text-muted-foreground">
           <MapPin className="h-3 w-3" /> {user.location}
         </p>
-        <div className="mt-3 flex items-center justify-center gap-4">
-          <div className="text-center">
-            <p className="text-lg font-bold">{stats.totalTrips}</p>
-            <p className="text-[10px] text-muted-foreground">Viajes</p>
-          </div>
-          <Separator orientation="vertical" className="h-8" />
-          <div className="text-center">
-            <p className="flex items-center gap-1 text-lg font-bold">
-              {ratingLabel} <Star className="h-3 w-3 fill-warning text-warning" />
-            </p>
-            <p className="text-[10px] text-muted-foreground">{ratingCaption}</p>
-          </div>
-          <Separator orientation="vertical" className="h-8" />
-          <div className="text-center">
-            <p className="text-lg font-bold">{stats.pendingRequests}</p>
-            <p className="text-[10px] text-muted-foreground">Solicitudes</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-4 rounded-xl bg-card p-4 shadow-card">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {user.isPublic ? <Globe className="h-5 w-5 text-primary" /> : <EyeOff className="h-5 w-5 text-muted-foreground" />}
-            <div>
-              <p className="text-sm font-medium">Perfil {user.isPublic ? "publico" : "privado"}</p>
-              <p className="text-xs text-muted-foreground">{user.isPublic ? "Visible para todos" : "Solo usuarios registrados"}</p>
+        {user.isTraveler ? (
+          <div className="mt-3 flex items-center justify-center gap-4">
+            <div className="text-center">
+              <p className="text-lg font-bold">{stats.totalTrips}</p>
+              <p className="text-[10px] text-muted-foreground">Viajes</p>
+            </div>
+            <Separator orientation="vertical" className="h-8" />
+            <div className="text-center">
+              <p className="flex items-center gap-1 text-lg font-bold">
+                {ratingLabel} <Star className="h-3 w-3 fill-warning text-warning" />
+              </p>
+              <p className="text-[10px] text-muted-foreground">{ratingCaption}</p>
+            </div>
+            <Separator orientation="vertical" className="h-8" />
+            <div className="text-center">
+              <p className="text-lg font-bold">{stats.pendingRequests}</p>
+              <p className="text-[10px] text-muted-foreground">Solicitudes</p>
             </div>
           </div>
-          <Switch checked={user.isPublic} onCheckedChange={handleVisibilityChange} disabled={savingVisibility} />
-        </div>
+        ) : null}
       </div>
+
+      {user.isTraveler ? (
+        <div className="mb-4 rounded-xl bg-card p-4 shadow-card">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {user.isPublic ? <Globe className="h-5 w-5 text-primary" /> : <EyeOff className="h-5 w-5 text-muted-foreground" />}
+              <div>
+                <p className="text-sm font-medium">Perfil {user.isPublic ? "publico" : "privado"}</p>
+                <p className="text-xs text-muted-foreground">{user.isPublic ? "Visible para todos" : "Solo usuarios registrados"}</p>
+              </div>
+            </div>
+            <Switch checked={user.isPublic} onCheckedChange={handleVisibilityChange} disabled={savingVisibility} />
+          </div>
+        </div>
+      ) : (
+        <div className="mb-4 rounded-xl bg-card p-4 shadow-card">
+          <div className="flex items-center gap-3">
+            <Settings className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-sm font-medium">Ajustes de cuenta</p>
+              <p className="text-xs text-muted-foreground">
+                Aqui puedes cambiar tu foto de perfil y editar la informacion de tu cuenta.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mb-4 flex items-center gap-3 rounded-xl bg-card p-4 shadow-card">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-success/10">
           <Badge className="bg-success px-2 text-[10px] text-success-foreground">OK</Badge>
         </div>
         <div>
-          <p className="text-sm font-medium">Identidad verificada</p>
-          <p className="text-xs text-muted-foreground">Cuenta conectada a Supabase y datos guardados en la base</p>
+          <p className="text-sm font-medium">{user.isTraveler ? "Identidad verificada" : "Cuenta activa"}</p>
+          <p className="text-xs text-muted-foreground">
+            {user.isTraveler
+              ? "Cuenta conectada a Supabase y datos guardados en la base"
+              : "Tu cuenta esta conectada y lista para usar la app con normalidad."}
+          </p>
         </div>
       </div>
 
