@@ -170,6 +170,7 @@ const DashboardHome = () => {
   const sectionTitle = profile.isTraveler ? "Contactos recientes" : "Mis envios recientes";
   const sectionLink = profile.isTraveler ? "/app/messages" : "/app/shipments";
   const activeRouteSummary = activeTripDetails?.stops.map((stop) => stop.city).join(" -> ") ?? "";
+  const shouldOpenPendingPackages = profile.isTraveler && activeTripDetails && !activeTripDetails.nextStop && activeTripDetails.status === "active";
   const searchPageParams = new URLSearchParams();
 
   if (searchOrigin.trim()) {
@@ -297,20 +298,24 @@ const DashboardHome = () => {
             <span className="font-medium">Ruta publicada</span>
           </div>
           <p className="mt-3 text-sm text-muted-foreground">{activeRouteSummary}</p>
-          <Button
-            className="mt-4 w-full"
-            size="lg"
-            onClick={() => void handleAdvanceActiveTrip()}
-            disabled={advancingTrip || !activeTripDetails.nextStop || !activeTripDetails.trackingAvailable}
-          >
-            {advancingTrip
-              ? "Guardando checkpoint..."
-              : activeTripDetails.nextStop
-                ? `Llegue a ${activeTripDetails.nextStop.city}`
-                : activeTripDetails.status === "completed"
-                  ? "No quedan ciudades pendientes"
-                  : "Entrega los paquetes pendientes"}
-          </Button>
+          {shouldOpenPendingPackages ? (
+            <Button asChild className="mt-4 w-full" size="lg">
+              <Link to={`/app/trips/${activeTripDetails.id}#paquetes-pendientes`}>Entrega los paquetes pendientes</Link>
+            </Button>
+          ) : (
+            <Button
+              className="mt-4 w-full"
+              size="lg"
+              onClick={() => void handleAdvanceActiveTrip()}
+              disabled={advancingTrip || !activeTripDetails.nextStop || !activeTripDetails.trackingAvailable}
+            >
+              {advancingTrip
+                ? "Guardando checkpoint..."
+                : activeTripDetails.nextStop
+                  ? `Llegue a ${activeTripDetails.nextStop.city}`
+                  : "No quedan ciudades pendientes"}
+            </Button>
+          )}
           {!activeTripDetails.trackingAvailable ? (
             <p className="mt-3 text-xs text-muted-foreground">
               El seguimiento por ciudades necesita la migracion nueva de Supabase para activarse.

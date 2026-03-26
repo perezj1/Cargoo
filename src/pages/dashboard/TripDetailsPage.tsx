@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, Calendar, CheckCircle2, Clock3, MapPin, MessageSquare, Package, Route, ShieldCheck, Truck, Users } from "lucide-react";
-import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +54,7 @@ const formatCheckpointDate = (value: string | null) => {
 
 const TripDetailsPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { loading: authLoading, profile, profileLoading } = useAuth();
   const { tripId = "" } = useParams();
   const [trip, setTrip] = useState<CargooTripDetails | null>(null);
@@ -97,6 +98,18 @@ const TripDetailsPage = () => {
       void supabase.removeChannel(channel);
     };
   }, [tripId]);
+
+  useEffect(() => {
+    if (loading || location.hash !== "#paquetes-pendientes") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      document.getElementById("paquetes-pendientes")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loading, location.hash, shipments.length, tripConversations.length]);
 
   const handleAdvance = async () => {
     if (!trip?.nextStop) {
@@ -192,6 +205,11 @@ const TripDetailsPage = () => {
     accepted: shipments.filter((shipment) => shipment.status === "accepted").length,
     delivered: shipments.filter((shipment) => shipment.status === "delivered").length,
   };
+  const shouldOpenPendingPackages = !trip.nextStop && trip.status === "active";
+
+  const openPendingPackagesSection = () => {
+    document.getElementById("paquetes-pendientes")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <div className="mx-auto max-w-lg px-4 pt-6">
@@ -284,20 +302,24 @@ const TripDetailsPage = () => {
               <span className="font-medium">Ruta publicada</span>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">{routeSummary}</p>
-            <Button
-              className="mt-4 w-full"
-              size="lg"
-              onClick={handleAdvance}
-              disabled={advancing || !trip.nextStop || !trip.trackingAvailable}
-            >
-              {advancing
-                ? "Guardando checkpoint..."
-                : trip.nextStop
-                  ? `Llegue a ${trip.nextStop.city}`
-                  : trip.status === "completed"
-                    ? "No quedan ciudades pendientes"
-                    : "Entrega los paquetes pendientes"}
-            </Button>
+            {shouldOpenPendingPackages ? (
+              <Button className="mt-4 w-full" size="lg" onClick={openPendingPackagesSection}>
+                Entrega los paquetes pendientes
+              </Button>
+            ) : (
+              <Button
+                className="mt-4 w-full"
+                size="lg"
+                onClick={handleAdvance}
+                disabled={advancing || !trip.nextStop || !trip.trackingAvailable}
+              >
+                {advancing
+                  ? "Guardando checkpoint..."
+                  : trip.nextStop
+                    ? `Llegue a ${trip.nextStop.city}`
+                    : "No quedan ciudades pendientes"}
+              </Button>
+            )}
             {!trip.trackingAvailable ? (
               <p className="mt-3 text-xs text-muted-foreground">
                 El viaje existe, pero el seguimiento por ciudades necesita la migracion nueva de Supabase para activarse.
@@ -311,7 +333,7 @@ const TripDetailsPage = () => {
         </CardContent>
       </Card>
 
-      <Card className="mb-4 shadow-card">
+      <Card id="paquetes-pendientes" className="mb-4 scroll-mt-24 shadow-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Users className="h-5 w-5 text-primary" />
