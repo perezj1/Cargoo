@@ -1,5 +1,5 @@
-const CACHE_NAME = "cargoo-shell-v2";
-const APP_SHELL = ["/", "/home", "/manifest.webmanifest", "/icons/icon-192.png?v=2", "/icons/icon-512.png?v=2"];
+const CACHE_NAME = "cargoo-shell-v3";
+const APP_SHELL = ["/", "/home", "/manifest.webmanifest", "/favicon.svg?v=4", "/icons/icon-192.png?v=3", "/icons/icon-512.png?v=3"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -64,7 +64,7 @@ self.addEventListener("push", (event) => {
   const title = data.title || "Cargoo";
   const options = {
     body: data.body || "Tienes una actualizacion sobre una ruta o entrega.",
-    icon: "/icons/icon-192.png?v=2",
+    icon: "/icons/icon-192.png?v=3",
     tag: data.tag || "cargoo-notification",
     data: { url: data.url || "/home" },
   };

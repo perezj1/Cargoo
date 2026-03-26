@@ -344,7 +344,7 @@ const ConversationPage = () => {
           ) : null}
 
           {canAdvanceTrip ? (
-            <Button type="button" size="sm" onClick={() => void handleAdvanceTrip()} disabled={acting !== null}>
+            <Button type="button" size="sm" className="ml-auto" onClick={() => void handleAdvanceTrip()} disabled={acting !== null}>
               {acting === "checkpoint" ? "Guardando..." : `Estoy en ${travelerTrip?.nextStop?.city}`}
             </Button>
           ) : null}
