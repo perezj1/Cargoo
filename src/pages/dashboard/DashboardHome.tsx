@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, CarFront, CheckCircle2, MessageSquare, Package, Plus, Route, Search, Star, Truck } from "lucide-react";
+import { ArrowRight, CarFront, CheckCircle2, MapPin, MessageSquare, Package, Plus, Route, Search, Star, Truck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -44,6 +45,8 @@ const DashboardHome = () => {
   const [loading, setLoading] = useState(true);
   const [advancingTrip, setAdvancingTrip] = useState(false);
   const [loadingShipmentConversationId, setLoadingShipmentConversationId] = useState<string | null>(null);
+  const [searchOrigin, setSearchOrigin] = useState("");
+  const [searchDestination, setSearchDestination] = useState("");
 
   const loadDashboardData = async () => {
     if (!profile) {
@@ -167,6 +170,17 @@ const DashboardHome = () => {
   const sectionTitle = profile.isTraveler ? "Contactos recientes" : "Mis envios recientes";
   const sectionLink = profile.isTraveler ? "/app/messages" : "/app/shipments";
   const activeRouteSummary = activeTripDetails?.stops.map((stop) => stop.city).join(" -> ") ?? "";
+  const searchPageParams = new URLSearchParams();
+
+  if (searchOrigin.trim()) {
+    searchPageParams.set("origin", searchOrigin.trim());
+  }
+
+  if (searchDestination.trim()) {
+    searchPageParams.set("destination", searchDestination.trim());
+  }
+
+  const emitterSearchLink = searchPageParams.toString() ? `/app/search?${searchPageParams.toString()}` : "/app/search";
 
   const handleAdvanceActiveTrip = async () => {
     if (!activeTripDetails?.nextStop) {
@@ -227,12 +241,42 @@ const DashboardHome = () => {
         </Link>
       </div>
 
-      <Button asChild className="mb-6 w-full gap-2" size="lg">
-        <Link to={primaryAction.to}>
-          <PrimaryActionIcon className="h-4 w-4" />
-          {primaryAction.label}
-        </Link>
-      </Button>
+      {!profile.isTraveler ? (
+        <div className="mb-6 space-y-3">
+          <h2 className="text-xl font-display font-semibold">Buscar transportistas</h2>
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3">
+            <MapPin className="h-4 w-4 shrink-0 text-primary" />
+            <Input
+              placeholder="Origen"
+              className="border-0 bg-transparent shadow-none focus-visible:ring-0"
+              value={searchOrigin}
+              onChange={(event) => setSearchOrigin(event.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3">
+            <MapPin className="h-4 w-4 shrink-0 text-accent" />
+            <Input
+              placeholder="Destino"
+              className="border-0 bg-transparent shadow-none focus-visible:ring-0"
+              value={searchDestination}
+              onChange={(event) => setSearchDestination(event.target.value)}
+            />
+          </div>
+          <Button asChild className="w-full gap-2" size="lg">
+            <Link to={emitterSearchLink}>
+              <Search className="h-4 w-4" />
+              Buscar
+            </Link>
+          </Button>
+        </div>
+      ) : (
+        <Button asChild className="mb-6 w-full gap-2" size="lg">
+          <Link to={primaryAction.to}>
+            <PrimaryActionIcon className="h-4 w-4" />
+            {primaryAction.label}
+          </Link>
+        </Button>
+      )}
 
       <div className="mb-8 grid grid-cols-2 gap-3">
         {cards.map((card) => (

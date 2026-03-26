@@ -1,4 +1,4 @@
-import { CarFront, Home, MessageSquare, Package, Search, User } from "lucide-react";
+import { CarFront, Home, MessageSquare, Package, User } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -19,7 +19,6 @@ const BottomNav = () => {
       ]
     : [
         { to: "/app", icon: Home, label: "Inicio" },
-        { to: "/app/search", icon: Search, label: "Buscar" },
         { to: "/app/shipments", icon: Package, label: "Envios" },
         { to: "/app/messages", icon: MessageSquare, label: "Mensajes" },
         { to: "/app/profile", icon: User, label: "Perfil" },
