@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Calendar, ChevronRight, MapPin, Package, Plus } from "lucide-react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ const statusConfig = {
 } as const;
 
 const TripsPage = () => {
+  const navigate = useNavigate();
   const { loading: authLoading, profile, profileLoading } = useAuth();
   const [tab, setTab] = useState("active");
   const [trips, setTrips] = useState<CargooTrip[]>([]);
@@ -90,39 +91,51 @@ const TripsPage = () => {
             });
 
             return (
-              <Link
-                key={trip.id}
-                to={`/app/trips/${trip.id}`}
-                className="block rounded-xl bg-card p-4 shadow-card transition-shadow hover:shadow-card-hover"
-              >
-                <div className="mb-3 flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 shrink-0 text-primary" />
-                    <span className="text-sm font-medium">
-                      {trip.origin} → {trip.destination}
+              <div key={trip.id} className="rounded-xl bg-card p-4 shadow-card transition-shadow hover:shadow-card-hover">
+                <Link to={`/app/trips/${trip.id}`} className="block">
+                  <div className="mb-3 flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="text-sm font-medium">
+                        {trip.origin} {"->"} {trip.destination}
+                      </span>
+                    </div>
+                    <Badge variant="outline" className={status.className}>
+                      {status.label}
+                    </Badge>
+                  </div>
+                  <div className="mb-3 flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {formattedDate}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Package className="h-3 w-3" />
+                      {trip.usedKg}/{trip.capacityKg} kg
                     </span>
                   </div>
-                  <Badge variant="outline" className={status.className}>
-                    {status.label}
-                  </Badge>
-                </div>
-                <div className="mb-3 flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {formattedDate}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Package className="h-3 w-3" />
-                    {trip.usedKg}/{trip.capacityKg} kg
-                  </span>
-                </div>
-                {trip.status === "active" && trip.requests > 0 ? (
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-accent">{trip.requests} solicitud(es) pendientes</span>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
+                  {trip.status === "active" && trip.requests > 0 ? (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-accent">{trip.requests} solicitud(es) pendientes</span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  ) : trip.status === "completed" ? (
+                    <p className="text-xs text-muted-foreground">Este trayecto ya termino, pero puedes reutilizarlo con otra fecha.</p>
+                  ) : null}
+                </Link>
+
+                {trip.status === "completed" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 w-full"
+                    onClick={() => navigate(`/app/trips/new?reuseTrip=${encodeURIComponent(trip.id)}`)}
+                  >
+                    Reutilizar trayecto
+                  </Button>
                 ) : null}
-              </Link>
+              </div>
             );
           })}
           {filteredTrips.length === 0 ? (

@@ -1,4 +1,4 @@
-import { CarFront, Home, MessageSquare, Search, User } from "lucide-react";
+import { CarFront, Home, MessageSquare, Package, Search, User } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -20,6 +20,7 @@ const BottomNav = () => {
     : [
         { to: "/app", icon: Home, label: "Inicio" },
         { to: "/app/search", icon: Search, label: "Buscar" },
+        { to: "/app/shipments", icon: Package, label: "Envios" },
         { to: "/app/messages", icon: MessageSquare, label: "Mensajes" },
         { to: "/app/profile", icon: User, label: "Perfil" },
       ];
@@ -71,7 +72,8 @@ const BottomNav = () => {
     <nav className="safe-area-bottom fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card">
       <div className="mx-auto flex h-16 max-w-lg items-center justify-around">
         {itemsWithIndicators.map((item) => {
-          const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
+          const active =
+            item.to === "/app" ? pathname === item.to : pathname === item.to || pathname.startsWith(`${item.to}/`);
 
           return (
             <Link

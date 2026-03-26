@@ -15,7 +15,15 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const AUTH_CONTEXT_KEY = "__cargoo_auth_context__";
+const globalWithAuthContext = globalThis as typeof globalThis & {
+  [AUTH_CONTEXT_KEY]?: ReturnType<typeof createContext<AuthContextValue | undefined>>;
+};
+
+const AuthContext =
+  globalWithAuthContext[AUTH_CONTEXT_KEY] ?? createContext<AuthContextValue | undefined>(undefined);
+
+globalWithAuthContext[AUTH_CONTEXT_KEY] = AuthContext;
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);

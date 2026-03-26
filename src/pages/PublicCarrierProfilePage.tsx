@@ -9,7 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
-import { getFriendlyErrorMessage, getOrCreateConversation, getPublicCarrierProfile, type PublicCarrierProfile } from "@/lib/cargoo-store";
+import {
+  createShipmentRequest,
+  getFriendlyErrorMessage,
+  getOrCreateConversation,
+  getPublicCarrierProfile,
+  type PublicCarrierProfile,
+} from "@/lib/cargoo-store";
 
 const PublicCarrierProfilePage = () => {
   const navigate = useNavigate();
@@ -19,10 +25,12 @@ const PublicCarrierProfilePage = () => {
   const [searchParams] = useSearchParams();
   const selectedTripId = searchParams.get("trip") ?? "";
   const shouldAutoOpenChat = searchParams.get("openChat") === "1";
+  const shouldAutoChooseTransport = searchParams.get("chooseTransport") === "1";
   const autoOpenRef = useRef(false);
   const [profile, setProfile] = useState<PublicCarrierProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [startingChat, setStartingChat] = useState(false);
+  const [selectingTripId, setSelectingTripId] = useState("");
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -66,10 +74,12 @@ const PublicCarrierProfilePage = () => {
   const digitsOnlyPhone = profile?.phone.replace(/[^\d+]/g, "") ?? "";
   const whatsappPhone = profile?.phone.replace(/[^\d]/g, "") ?? "";
 
-  const handleStartChat = async () => {
+  const handleStartChat = async (tripId?: string) => {
     if (!profile) {
       return;
     }
+
+    const tripToUse = orderedTrips.find((trip) => trip.id === tripId) ?? activeTrip;
 
     if (isOwnProfile) {
       toast.error("No puedes abrir un chat contigo mismo.");
@@ -80,8 +90,8 @@ const PublicCarrierProfilePage = () => {
       const nextParams = new URLSearchParams(searchParams);
       nextParams.set("openChat", "1");
 
-      if (activeTrip?.id) {
-        nextParams.set("trip", activeTrip.id);
+      if (tripToUse?.id) {
+        nextParams.set("trip", tripToUse.id);
       }
 
       navigate(`/login?next=${encodeURIComponent(`${location.pathname}?${nextParams.toString()}`)}`);
@@ -94,9 +104,9 @@ const PublicCarrierProfilePage = () => {
         otherUserId: profile.userId,
         otherUserName: profile.name,
         otherUserIsTraveler: profile.isTraveler,
-        tripId: activeTrip?.id ?? null,
-        routeOrigin: activeTrip?.origin ?? null,
-        routeDestination: activeTrip?.destination ?? null,
+        tripId: tripToUse?.id ?? null,
+        routeOrigin: tripToUse?.origin ?? null,
+        routeDestination: tripToUse?.destination ?? null,
       });
 
       navigate(`/app/messages/${conversation.id}`);
@@ -107,14 +117,67 @@ const PublicCarrierProfilePage = () => {
     }
   };
 
-  useEffect(() => {
-    if (!shouldAutoOpenChat || !user || !profile || autoOpenRef.current) {
+  const handleChooseTransport = async (tripId?: string) => {
+    if (!profile) {
       return;
     }
 
-    autoOpenRef.current = true;
-    void handleStartChat();
-  }, [isOwnProfile, profile, shouldAutoOpenChat, user]);
+    const tripToUse = orderedTrips.find((trip) => trip.id === tripId) ?? activeTrip;
+    if (!tripToUse) {
+      toast.error("Selecciona primero una ruta visible.");
+      return;
+    }
+
+    if (isOwnProfile) {
+      toast.error("No puedes elegir tu propio transporte.");
+      return;
+    }
+
+    if (!user) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set("chooseTransport", "1");
+      nextParams.set("trip", tripToUse.id);
+      navigate(`/login?next=${encodeURIComponent(`${location.pathname}?${nextParams.toString()}`)}`);
+      return;
+    }
+
+    setSelectingTripId(tripToUse.id);
+    try {
+      const conversation = await getOrCreateConversation({
+        otherUserId: profile.userId,
+        otherUserName: profile.name,
+        otherUserIsTraveler: profile.isTraveler,
+        tripId: tripToUse.id,
+        routeOrigin: tripToUse.origin,
+        routeDestination: tripToUse.destination,
+      });
+
+      await createShipmentRequest(conversation.id);
+      toast.success("Transporte elegido. Cuando cargueis el paquete, podras confirmarlo desde el chat.");
+      navigate(`/app/messages/${conversation.id}`);
+    } catch (error) {
+      toast.error(getFriendlyErrorMessage(error));
+    } finally {
+      setSelectingTripId("");
+    }
+  };
+
+  useEffect(() => {
+    if (autoOpenRef.current || !user || !profile) {
+      return;
+    }
+
+    if (shouldAutoChooseTransport) {
+      autoOpenRef.current = true;
+      void handleChooseTransport(selectedTripId || activeTrip?.id);
+      return;
+    }
+
+    if (shouldAutoOpenChat) {
+      autoOpenRef.current = true;
+      void handleStartChat();
+    }
+  }, [activeTrip?.id, isOwnProfile, profile, selectedTripId, shouldAutoChooseTransport, shouldAutoOpenChat, user]);
 
   if (loading) {
     return (
@@ -272,7 +335,41 @@ const PublicCarrierProfilePage = () => {
                       </span>
                     </div>
 
+                    {trip.stopCities.length > 0 ? (
+                      <div className="mb-3 rounded-xl bg-secondary p-3 text-sm text-muted-foreground">
+                        <span className="font-medium text-foreground">Paradas disponibles:</span> {trip.stopCities.join(", ")}
+                      </div>
+                    ) : null}
+
                     {trip.notes ? <p className="text-sm text-muted-foreground">{trip.notes}</p> : null}
+
+                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        type="button"
+                        variant={isSelected ? "default" : "outline"}
+                        className="flex-1"
+                        onClick={() => void handleChooseTransport(trip.id)}
+                        disabled={startingChat || Boolean(selectingTripId) || isOwnProfile}
+                      >
+                        {isOwnProfile
+                          ? "Es tu ruta"
+                          : selectingTripId === trip.id
+                            ? "Guardando..."
+                            : "Elegir este transporte"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() =>
+                          isSelected
+                            ? void handleStartChat(trip.id)
+                            : navigate(`/transportistas/${profile.userId}?trip=${encodeURIComponent(trip.id)}`)
+                        }
+                      >
+                        {isSelected ? "Escribir por la app" : "Ver esta ruta"}
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               );

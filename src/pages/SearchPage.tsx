@@ -8,14 +8,8 @@ import Navbar from "@/components/Navbar";
 import PublicTripCard from "@/components/PublicTripCard";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { matchesPublicTripRoute } from "@/lib/public-trip-search";
 import { getFriendlyErrorMessage, getPublicTripListings, type PublicTripListing } from "@/lib/cargoo-store";
-
-const normalizeSearchText = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
 
 const SearchPage = () => {
   const [searchParams] = useSearchParams();
@@ -40,16 +34,8 @@ const SearchPage = () => {
   }, []);
 
   const filtered = useMemo(() => {
-    const normalizedOrigin = normalizeSearchText(origin);
-    const normalizedDestination = normalizeSearchText(destination);
-
     return trips
-      .filter((trip) => {
-        const matchOrigin = !normalizedOrigin || normalizeSearchText(trip.origin).includes(normalizedOrigin);
-        const matchDestination = !normalizedDestination || normalizeSearchText(trip.destination).includes(normalizedDestination);
-
-        return matchOrigin && matchDestination;
-      })
+      .filter((trip) => matchesPublicTripRoute(trip, origin, destination))
       .sort((left, right) => {
         if (sortBy === "capacity") {
           return right.availableKg - left.availableKg;
@@ -107,6 +93,9 @@ const SearchPage = () => {
         <div className="container py-8">
           <p className="mb-6 text-sm text-muted-foreground">
             {loading ? "Buscando conductores..." : `${filtered.length} conductores encontrados`}
+          </p>
+          <p className="-mt-3 mb-6 text-xs text-muted-foreground">
+            El buscador tambien tiene en cuenta ciudades intermedias donde el transportista ha indicado que puede parar.
           </p>
           {loading ? (
             <div className="flex min-h-[40vh] items-center justify-center">

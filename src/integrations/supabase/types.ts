@@ -86,6 +86,7 @@ export type Database = {
       };
       cargoo_profiles: {
         Row: {
+          avatar_url: string | null;
           bio: string | null;
           created_at: string | null;
           is_public: boolean;
@@ -97,6 +98,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          avatar_url?: string | null;
           bio?: string | null;
           created_at?: string | null;
           is_public?: boolean;
@@ -108,6 +110,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          avatar_url?: string | null;
           bio?: string | null;
           created_at?: string | null;
           is_public?: boolean;
@@ -117,6 +120,66 @@ export type Database = {
           phone?: string | null;
           updated_at?: string | null;
           user_id?: string;
+        };
+        Relationships: [];
+      };
+      cargoo_shipments: {
+        Row: {
+          accepted_at: string | null;
+          conversation_id: string;
+          created_at: string | null;
+          delivered_at: string | null;
+          id: string;
+          review_comment: string | null;
+          review_rating: number | null;
+          reviewed_at: string | null;
+          route_destination: string;
+          route_origin: string;
+          sender_id: string;
+          sender_name: string;
+          status: "pending" | "accepted" | "delivered";
+          traveler_id: string;
+          traveler_name: string;
+          trip_id: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          accepted_at?: string | null;
+          conversation_id: string;
+          created_at?: string | null;
+          delivered_at?: string | null;
+          id?: string;
+          review_comment?: string | null;
+          review_rating?: number | null;
+          reviewed_at?: string | null;
+          route_destination: string;
+          route_origin: string;
+          sender_id: string;
+          sender_name: string;
+          status?: "pending" | "accepted" | "delivered";
+          traveler_id: string;
+          traveler_name: string;
+          trip_id: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          accepted_at?: string | null;
+          conversation_id?: string;
+          created_at?: string | null;
+          delivered_at?: string | null;
+          id?: string;
+          review_comment?: string | null;
+          review_rating?: number | null;
+          reviewed_at?: string | null;
+          route_destination?: string;
+          route_origin?: string;
+          sender_id?: string;
+          sender_name?: string;
+          status?: "pending" | "accepted" | "delivered";
+          traveler_id?: string;
+          traveler_name?: string;
+          trip_id?: string;
+          updated_at?: string | null;
         };
         Relationships: [];
       };

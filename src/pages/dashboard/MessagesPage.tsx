@@ -4,10 +4,17 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { getConversations, getFriendlyErrorMessage, type ConversationSummary } from "@/lib/cargoo-store";
+
+const shipmentStatusConfig = {
+  pending: { label: "Por cargar", className: "border-warning/20 bg-warning/10 text-warning" },
+  accepted: { label: "En ruta", className: "border-primary/20 bg-primary/10 text-primary" },
+  delivered: { label: "Entregado", className: "border-success/20 bg-success/10 text-success" },
+} as const;
 
 const formatConversationTime = (value: string) => {
   const date = new Date(value);
@@ -51,6 +58,7 @@ const MessagesPage = () => {
       .channel("conversations-list")
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_conversations" }, () => void loadConversations())
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_messages" }, () => void loadConversations())
+      .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_shipments" }, () => void loadConversations())
       .subscribe();
 
     return () => {
@@ -111,18 +119,25 @@ const MessagesPage = () => {
                 ) : null}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <p className="truncate text-sm font-medium">{conversation.otherUserName}</p>
                   <span className="ml-2 whitespace-nowrap text-[10px] text-muted-foreground">
                     {formatConversationTime(conversation.lastMessageAt)}
                   </span>
                 </div>
                 <p className="truncate text-xs text-muted-foreground">{conversation.lastMessageText}</p>
-                <p className="mt-0.5 text-[10px] text-primary/70">
-                  {conversation.routeOrigin && conversation.routeDestination
-                    ? `${conversation.routeOrigin} -> ${conversation.routeDestination}`
-                    : "Chat directo"}
-                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <p className="text-[10px] text-primary/70">
+                    {conversation.routeOrigin && conversation.routeDestination
+                      ? `${conversation.routeOrigin} -> ${conversation.routeDestination}`
+                      : "Chat directo"}
+                  </p>
+                  {conversation.shipmentStatus ? (
+                    <Badge variant="outline" className={`text-[10px] ${shipmentStatusConfig[conversation.shipmentStatus].className}`}>
+                      {shipmentStatusConfig[conversation.shipmentStatus].label}
+                    </Badge>
+                  ) : null}
+                </div>
               </div>
             </Link>
           ))}

@@ -20,6 +20,7 @@ import EditProfilePage from "./pages/dashboard/EditProfilePage.tsx";
 import MessagesPage from "./pages/dashboard/MessagesPage.tsx";
 import NewTripPage from "./pages/dashboard/NewTripPage.tsx";
 import ProfilePage from "./pages/dashboard/ProfilePage.tsx";
+import ShipmentsPage from "./pages/dashboard/ShipmentsPage.tsx";
 import TripDetailsPage from "./pages/dashboard/TripDetailsPage.tsx";
 import TripsPage from "./pages/dashboard/TripsPage.tsx";
 
@@ -44,6 +45,7 @@ const App = () => (
             <Route path="/app" element={<DashboardLayout />}>
               <Route index element={<DashboardHome />} />
               <Route path="search" element={<AppSearchPage />} />
+              <Route path="shipments" element={<ShipmentsPage />} />
               <Route path="trips" element={<TripsPage />} />
               <Route path="trips/new" element={<NewTripPage />} />
               <Route path="trips/:tripId" element={<TripDetailsPage />} />

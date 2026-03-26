@@ -58,6 +58,11 @@ const PublicTripCard = ({ trip }: { trip: PublicTripListing }) => {
           <Package className="h-4 w-4" />
           <span>Capacidad total: {trip.capacityKg} kg</span>
         </div>
+        {trip.stopCities.length > 0 ? (
+          <div className="rounded-lg bg-secondary/80 px-3 py-2 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Tambien pasa por:</span> {trip.stopCities.join(", ")}
+          </div>
+        ) : null}
         {trip.notes ? <p className="line-clamp-2 text-sm text-muted-foreground">{trip.notes}</p> : null}
       </div>
     </Link>

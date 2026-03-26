@@ -7,14 +7,8 @@ import PublicTripCard from "@/components/PublicTripCard";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
+import { matchesPublicTripRoute } from "@/lib/public-trip-search";
 import { getFriendlyErrorMessage, getPublicTripListings, type PublicTripListing } from "@/lib/cargoo-store";
-
-const normalizeSearchText = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
 
 const AppSearchPage = () => {
   const { loading: authLoading, profile, profileLoading } = useAuth();
@@ -40,16 +34,8 @@ const AppSearchPage = () => {
   }, []);
 
   const filtered = useMemo(() => {
-    const normalizedOrigin = normalizeSearchText(origin);
-    const normalizedDestination = normalizeSearchText(destination);
-
     return trips
-      .filter((trip) => {
-        const matchOrigin = !normalizedOrigin || normalizeSearchText(trip.origin).includes(normalizedOrigin);
-        const matchDestination = !normalizedDestination || normalizeSearchText(trip.destination).includes(normalizedDestination);
-
-        return matchOrigin && matchDestination;
-      })
+      .filter((trip) => matchesPublicTripRoute(trip, origin, destination))
       .sort((left, right) => {
         if (sortBy === "capacity") {
           return right.availableKg - left.availableKg;
@@ -113,6 +99,9 @@ const AppSearchPage = () => {
 
       <p className="mb-6 text-sm text-muted-foreground">
         {loading ? "Buscando transportistas..." : `${filtered.length} transportistas encontrados`}
+      </p>
+      <p className="-mt-3 mb-6 text-xs text-muted-foreground">
+        Tambien se buscan rutas por ciudades intermedias donde el conductor puede recoger o entregar.
       </p>
 
       {loading ? (

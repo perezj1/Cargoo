@@ -9,6 +9,7 @@ export interface CargooUser {
   email: string;
   isTraveler: boolean;
   isPublic: boolean;
+  avatarUrl: string;
   phone: string;
   location: string;
   bio: string;
@@ -56,6 +57,8 @@ export interface PublicTripListing {
   availableKg: number;
   notes: string;
   tripsCount: number;
+  routeCities: string[];
+  stopCities: string[];
 }
 
 export interface PublicCarrierProfile {
@@ -66,6 +69,36 @@ export interface PublicCarrierProfile {
   phone: string;
   isTraveler: boolean;
   trips: PublicTripListing[];
+}
+
+export type ShipmentStatus = "pending" | "accepted" | "delivered";
+
+export interface ShipmentSummary {
+  id: string;
+  tripId: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  travelerId: string;
+  travelerName: string;
+  routeOrigin: string;
+  routeDestination: string;
+  tripDate: string;
+  status: ShipmentStatus;
+  createdAt: string;
+  acceptedAt: string | null;
+  deliveredAt: string | null;
+  currentCheckpointCity: string;
+  nextCheckpointCity: string | null;
+  trackingProgressPercent: number;
+  reviewRating: number | null;
+  reviewComment: string;
+  reviewedAt: string | null;
+}
+
+export interface TravelerRatingSummary {
+  averageRating: number | null;
+  reviewsCount: number;
 }
 
 export interface ConversationSummary {
@@ -79,6 +112,8 @@ export interface ConversationSummary {
   lastMessageText: string;
   lastMessageAt: string;
   unreadCount: number;
+  shipmentId: string | null;
+  shipmentStatus: ShipmentStatus | null;
 }
 
 export interface ChatMessage {
@@ -88,6 +123,12 @@ export interface ChatMessage {
   content: string;
   createdAt: string;
   readAt: string | null;
+}
+
+interface SubmitShipmentReviewInput {
+  shipmentId: string;
+  rating: number;
+  comment: string;
 }
 
 interface CreateConversationInput {
@@ -121,6 +162,7 @@ type MetadataRecord = Record<string, unknown>;
 const DEFAULT_LOCATION = "Madrid, Espana";
 const DEFAULT_BIO = "Conductor habitual con espacio disponible para mover paquetes entre ciudades.";
 let chatFeatureAvailable: boolean | null = null;
+let shipmentFeatureAvailable: boolean | null = null;
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -191,6 +233,16 @@ const normalizeSearchText = (value: string) =>
 
 const normalizeStopName = (value: string) => value.replace(/\s+/g, " ").trim();
 
+const markShipmentFeatureUnavailable = () => {
+  shipmentFeatureAvailable = false;
+};
+
+const markShipmentFeatureAvailable = () => {
+  shipmentFeatureAvailable = true;
+};
+
+const isShipmentFeatureUnavailable = () => shipmentFeatureAvailable === false;
+
 const buildRouteCities = (origin: string, destination: string, routeStops: string[] = []) => {
   const routeCityCandidates = [origin, ...routeStops, destination];
   const normalizedCities: string[] = [];
@@ -228,6 +280,10 @@ const resolveTripStatus = (
     return "completed";
   }
 
+  if (persistedStatus === "active") {
+    return "active";
+  }
+
   return parseDateInput(date) < parseDateInput(getTodayDateString()) ? "completed" : "active";
 };
 
@@ -258,6 +314,7 @@ const buildProfileFromMetadata = (user: User): CargooUser => {
     email: user.email ?? "",
     isTraveler: Boolean(metadata.is_traveler),
     isPublic: metadata.is_public === false ? false : true,
+    avatarUrl: typeof metadata.avatar_url === "string" ? metadata.avatar_url : "",
     phone: typeof metadata.phone === "string" ? metadata.phone : "",
     location: typeof metadata.location === "string" && metadata.location.trim() ? metadata.location : DEFAULT_LOCATION,
     bio: typeof metadata.bio === "string" && metadata.bio.trim() ? metadata.bio : DEFAULT_BIO,
@@ -268,6 +325,7 @@ const profileToMetadata = (profile: CargooUser) => ({
   name: profile.name,
   is_traveler: profile.isTraveler,
   is_public: profile.isPublic,
+  avatar_url: profile.avatarUrl,
   phone: profile.phone,
   location: profile.location,
   bio: profile.bio,
@@ -357,7 +415,7 @@ const advanceMetadataTripToNextStop = async (user: User, tripDetails: CargooTrip
     return {
       ...tripRecord,
       currentStopIndex: nextCurrentStopIndex,
-      status: nextCurrentStopIndex >= tripDetails.stops.length - 1 ? "completed" : tripRecord.status,
+      status: tripRecord.status,
     };
   });
 
@@ -410,6 +468,7 @@ const mapProfileRow = (
     name: string;
     is_traveler: boolean;
     is_public: boolean;
+    avatar_url: string | null;
     phone: string | null;
     location: string | null;
     bio: string | null;
@@ -421,6 +480,7 @@ const mapProfileRow = (
   email,
   isTraveler: row.is_traveler,
   isPublic: row.is_public,
+  avatarUrl: row.avatar_url ?? "",
   phone: row.phone ?? "",
   location: row.location ?? DEFAULT_LOCATION,
   bio: row.bio ?? DEFAULT_BIO,
@@ -452,6 +512,7 @@ const mapTripRow = (row: {
 
 type ConversationRow = Database["public"]["Tables"]["cargoo_conversations"]["Row"];
 type MessageRow = Database["public"]["Tables"]["cargoo_messages"]["Row"];
+type ShipmentRow = Database["public"]["Tables"]["cargoo_shipments"]["Row"];
 type TripStopRow = Database["public"]["Tables"]["cargoo_trip_stops"]["Row"];
 
 const mapTripStopRow = (row: TripStopRow): CargooTripStop => ({
@@ -460,6 +521,75 @@ const mapTripStopRow = (row: TripStopRow): CargooTripStop => ({
   order: row.stop_order,
   reachedAt: row.reached_at,
 });
+
+const getGroupedTripStopsFromRows = (rows: Pick<TripStopRow, "trip_id" | "city" | "stop_order" | "reached_at">[]) => {
+  const stopsByTripId = new Map<string, CargooTripStop[]>();
+
+  rows.forEach((row) => {
+    const currentStops = stopsByTripId.get(row.trip_id) ?? [];
+    currentStops.push({
+      id: `${row.trip_id}-${row.stop_order}`,
+      city: row.city,
+      order: row.stop_order,
+      reachedAt: row.reached_at,
+    });
+    stopsByTripId.set(row.trip_id, currentStops);
+  });
+
+  return stopsByTripId;
+};
+
+const getPublicRouteCities = (trip: {
+  id: string;
+  origin: string;
+  destination: string;
+}, stopsByTripId: Map<string, CargooTripStop[]>) => {
+  const storedStops = stopsByTripId.get(trip.id) ?? [];
+  return buildRouteCities(
+    trip.origin,
+    trip.destination,
+    storedStops
+      .slice(1, -1)
+      .map((stop) => stop.city),
+  );
+};
+
+const buildPublicTripListing = (
+  trip: {
+    id: string;
+    user_id: string;
+    origin: string;
+    destination: string;
+    trip_date: string;
+    capacity_kg: number;
+    used_kg: number;
+    notes: string | null;
+  },
+  profile: {
+    name: string;
+    location: string;
+  } | undefined,
+  tripsCount: number,
+  stopsByTripId: Map<string, CargooTripStop[]>,
+): PublicTripListing => {
+  const routeCities = getPublicRouteCities(trip, stopsByTripId);
+
+  return {
+    id: trip.id,
+    userId: trip.user_id,
+    carrierName: profile?.name ?? "Conductor Cargoo",
+    carrierLocation: profile?.location ?? DEFAULT_LOCATION,
+    origin: trip.origin,
+    destination: trip.destination,
+    date: trip.trip_date,
+    capacityKg: trip.capacity_kg,
+    availableKg: Math.max(trip.capacity_kg - trip.used_kg, 0),
+    notes: trip.notes ?? "",
+    tripsCount,
+    routeCities,
+    stopCities: routeCities.slice(1, -1),
+  } satisfies PublicTripListing;
+};
 
 const buildDefaultTripStops = (trip: CargooTrip): CargooTripStop[] =>
   buildRouteCities(trip.origin, trip.destination).map((city, index) => ({
@@ -485,7 +615,7 @@ const buildTripDetails = (
 
   return {
     ...trip,
-    status: nextStop ? trip.status : "completed",
+    status: trip.status,
     stops: resolvedStops,
     currentStopIndex,
     lastCheckpointCity: currentStop?.city ?? trip.origin,
@@ -496,7 +626,12 @@ const buildTripDetails = (
   };
 };
 
-const mapConversationRow = (row: ConversationRow, currentUserId: string, unreadCount = 0): ConversationSummary => {
+const mapConversationRow = (
+  row: ConversationRow,
+  currentUserId: string,
+  unreadCount = 0,
+  shipment: Pick<ShipmentRow, "id" | "status"> | null = null,
+): ConversationSummary => {
   const isParticipantOne = row.participant_one_id === currentUserId;
 
   return {
@@ -510,6 +645,8 @@ const mapConversationRow = (row: ConversationRow, currentUserId: string, unreadC
     lastMessageText: row.last_message_text ?? "Sin mensajes todavia.",
     lastMessageAt: row.last_message_at ?? row.created_at ?? new Date().toISOString(),
     unreadCount,
+    shipmentId: shipment?.id ?? null,
+    shipmentStatus: shipment?.status ?? null,
   };
 };
 
@@ -522,6 +659,32 @@ const mapMessageRow = (row: MessageRow): ChatMessage => ({
   readAt: row.read_at,
 });
 
+const buildShipmentSummary = (
+  row: ShipmentRow,
+  tripDetails: CargooTripDetails | null,
+): ShipmentSummary => ({
+  id: row.id,
+  tripId: row.trip_id,
+  conversationId: row.conversation_id,
+  senderId: row.sender_id,
+  senderName: row.sender_name,
+  travelerId: row.traveler_id,
+  travelerName: row.traveler_name,
+  routeOrigin: row.route_origin,
+  routeDestination: row.route_destination,
+  tripDate: tripDetails?.date ?? "",
+  status: row.status,
+  createdAt: row.created_at ?? new Date().toISOString(),
+  acceptedAt: row.accepted_at,
+  deliveredAt: row.delivered_at,
+  currentCheckpointCity: tripDetails?.lastCheckpointCity ?? row.route_origin,
+  nextCheckpointCity: tripDetails?.nextStop?.city ?? null,
+  trackingProgressPercent: tripDetails?.progressPercent ?? 0,
+  reviewRating: row.review_rating,
+  reviewComment: row.review_comment ?? "",
+  reviewedAt: row.reviewed_at,
+});
+
 const buildProfilePayload = (user: User) => {
   const profile = buildProfileFromMetadata(user);
 
@@ -530,6 +693,7 @@ const buildProfilePayload = (user: User) => {
     name: profile.name,
     is_traveler: profile.isTraveler,
     is_public: profile.isPublic,
+    avatar_url: profile.avatarUrl,
     phone: profile.phone,
     location: profile.location,
     bio: profile.bio,
@@ -657,6 +821,7 @@ export const updateCurrentUser = async (updates: Partial<CargooUser>) => {
     name: nextProfile.name,
     is_traveler: nextProfile.isTraveler,
     is_public: nextProfile.isPublic,
+    avatar_url: nextProfile.avatarUrl,
     phone: nextProfile.phone,
     location: nextProfile.location,
     bio: nextProfile.bio,
@@ -674,6 +839,48 @@ export const updateCurrentUser = async (updates: Partial<CargooUser>) => {
   }
 
   return mapProfileRow(data, nextProfile.email);
+};
+
+export const uploadCurrentUserAvatar = async (file: File) => {
+  const user = await requireUser();
+
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Solo se permiten imagenes.");
+  }
+
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error("La imagen debe ser menor a 2 MB.");
+  }
+
+  const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const filePath = `${user.id}/avatar.${fileExt}`;
+  const cacheBuster = Date.now();
+
+  const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, file, { upsert: true });
+
+  if (uploadError) {
+    throw new Error(uploadError.message);
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("avatars").getPublicUrl(filePath);
+  const avatarUrl = `${publicUrl}?t=${cacheBuster}`;
+  const nextUser = await updateUserMetadata({ avatar_url: avatarUrl });
+  const payload = buildProfilePayload(nextUser);
+
+  const { data, error } = await supabase.from("cargoo_profiles").upsert(payload, { onConflict: "user_id" }).select("*").single();
+
+  if (isMissingCargooTable(error)) {
+    return buildProfileFromMetadata(nextUser);
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  return mapProfileRow(data, nextUser.email ?? "");
 };
 
 export const logoutUser = async () => {
@@ -727,6 +934,141 @@ const getTripStopsFromSupabase = async (tripId: string) => {
     stops: (data ?? []).map(mapTripStopRow),
     trackingAvailable: true,
   };
+};
+
+const getTripStopsByTripIds = async (tripIds: string[]) => {
+  if (!tripIds.length) {
+    return new Map<string, CargooTripStop[]>();
+  }
+
+  const { data, error } = await supabase
+    .from("cargoo_trip_stops")
+    .select("*")
+    .in("trip_id", tripIds)
+    .order("stop_order", { ascending: true });
+
+  if (isMissingCargooTable(error)) {
+    return null as Map<string, CargooTripStop[]> | null;
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  const stopsByTripId = new Map<string, CargooTripStop[]>();
+
+  (data ?? []).forEach((row) => {
+    const currentStops = stopsByTripId.get(row.trip_id) ?? [];
+    currentStops.push(mapTripStopRow(row));
+    stopsByTripId.set(row.trip_id, currentStops);
+  });
+
+  return stopsByTripId;
+};
+
+const getAccessibleTripDetailsByIds = async (tripIds: string[]) => {
+  if (!tripIds.length) {
+    return new Map<string, CargooTripDetails>();
+  }
+
+  const { data: trips, error: tripsError } = await supabase.from("cargoo_trips").select("*").in("id", tripIds);
+
+  if (isMissingCargooTable(tripsError)) {
+    return new Map<string, CargooTripDetails>();
+  }
+
+  const mappedTripsError = mapSupabaseError(tripsError);
+  if (mappedTripsError) {
+    throw mappedTripsError;
+  }
+
+  const tripRows = trips ?? [];
+  const stopsByTripId = await getTripStopsByTripIds(tripRows.map((trip) => trip.id));
+  const tripDetailsById = new Map<string, CargooTripDetails>();
+
+  tripRows.forEach((tripRow) => {
+    const trip = mapTripRow(tripRow);
+    const tripDetails = buildTripDetails(trip, stopsByTripId?.get(trip.id) ?? buildDefaultTripStops(trip), Boolean(stopsByTripId));
+    tripDetailsById.set(trip.id, tripDetails);
+  });
+
+  return tripDetailsById;
+};
+
+const getPublicTripStopsByTripIds = async (tripIds: string[]) => {
+  if (!tripIds.length) {
+    return new Map<string, CargooTripStop[]>();
+  }
+
+  const { data, error } = await supabase
+    .from("cargoo_trip_stops")
+    .select("trip_id, city, stop_order, reached_at")
+    .in("trip_id", tripIds)
+    .order("stop_order", { ascending: true });
+
+  if (isMissingCargooTable(error)) {
+    return new Map<string, CargooTripStop[]>();
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  return getGroupedTripStopsFromRows(data ?? []);
+};
+
+const countUndeliveredTripShipments = async (tripId: string) => {
+  if (isShipmentFeatureUnavailable()) {
+    return 0;
+  }
+
+  const { count, error } = await supabase
+    .from("cargoo_shipments")
+    .select("id", { count: "exact", head: true })
+    .eq("trip_id", tripId)
+    .neq("status", "delivered");
+
+  if (isMissingCargooTable(error)) {
+    markShipmentFeatureUnavailable();
+    return 0;
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  markShipmentFeatureAvailable();
+  return count ?? 0;
+};
+
+const syncTripCompletionState = async (userId: string, tripId: string) => {
+  const tripDetails = await getTripById(tripId);
+  if (!tripDetails) {
+    return null as CargooTripDetails | null;
+  }
+
+  const shouldBeCompleted = !tripDetails.nextStop && (await countUndeliveredTripShipments(tripId)) === 0;
+  const nextStatus: CargooTrip["status"] = shouldBeCompleted ? "completed" : "active";
+
+  if (tripDetails.status === nextStatus) {
+    return tripDetails;
+  }
+
+  const { error } = await supabase
+    .from("cargoo_trips")
+    .update({ status: nextStatus })
+    .eq("id", tripId)
+    .eq("user_id", userId);
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  return getTripById(tripId);
 };
 
 export const createTrip = async (trip: CreateTripInput) => {
@@ -882,20 +1224,7 @@ export const advanceTripToNextStop = async (tripId: string) => {
 
   const isLastStop = nextStop.order === tripDetails.stops[tripDetails.stops.length - 1]?.order;
 
-  if (isLastStop) {
-    const { error: tripUpdateError } = await supabase
-      .from("cargoo_trips")
-      .update({ status: "completed" })
-      .eq("id", tripId)
-      .eq("user_id", user.id);
-
-    const mappedTripUpdateError = mapSupabaseError(tripUpdateError);
-    if (mappedTripUpdateError) {
-      throw mappedTripUpdateError;
-    }
-  }
-
-  const updatedTripDetails = await getTripById(tripId);
+  const updatedTripDetails = isLastStop ? await syncTripCompletionState(user.id, tripId) : await getTripById(tripId);
   if (!updatedTripDetails) {
     throw new Error("No pudimos recargar el viaje despues del checkpoint.");
   }
@@ -937,6 +1266,7 @@ export const getPublicTripListings = async () => {
     .from("cargoo_trips")
     .select("*")
     .in("user_id", userIds)
+    .eq("status", "active")
     .gte("trip_date", getTodayDateString())
     .order("trip_date", { ascending: true });
 
@@ -950,28 +1280,20 @@ export const getPublicTripListings = async () => {
   }
 
   const publicTrips = (trips ?? []).filter((trip) => profileByUserId.has(trip.user_id));
-  const tripCountByUserId = publicTrips.reduce<Record<string, number>>((counts, trip) => {
+  const stopsByTripId = await getPublicTripStopsByTripIds(publicTrips.map((trip) => trip.id));
+  const visibleTrips = publicTrips.filter((tripRow) => {
+    const trip = mapTripRow(tripRow);
+    const tripDetails = buildTripDetails(trip, stopsByTripId.get(trip.id) ?? buildDefaultTripStops(trip), true);
+    return Boolean(tripDetails.nextStop);
+  });
+  const tripCountByUserId = visibleTrips.reduce<Record<string, number>>((counts, trip) => {
     counts[trip.user_id] = (counts[trip.user_id] ?? 0) + 1;
     return counts;
   }, {});
 
-  return publicTrips.map((trip) => {
-    const profile = profileByUserId.get(trip.user_id);
-
-    return {
-      id: trip.id,
-      userId: trip.user_id,
-      carrierName: profile?.name ?? "Conductor Cargoo",
-      carrierLocation: profile?.location ?? DEFAULT_LOCATION,
-      origin: trip.origin,
-      destination: trip.destination,
-      date: trip.trip_date,
-      capacityKg: trip.capacity_kg,
-      availableKg: Math.max(trip.capacity_kg - trip.used_kg, 0),
-      notes: trip.notes ?? "",
-      tripsCount: tripCountByUserId[trip.user_id] ?? 1,
-    } satisfies PublicTripListing;
-  });
+  return visibleTrips.map((trip) =>
+    buildPublicTripListing(trip, profileByUserId.get(trip.user_id), tripCountByUserId[trip.user_id] ?? 1, stopsByTripId),
+  );
 };
 
 export const getPublicCarrierProfile = async (userId: string) => {
@@ -999,6 +1321,7 @@ export const getPublicCarrierProfile = async (userId: string) => {
     .from("cargoo_trips")
     .select("*")
     .eq("user_id", userId)
+    .eq("status", "active")
     .gte("trip_date", getTodayDateString())
     .order("trip_date", { ascending: true });
 
@@ -1012,7 +1335,13 @@ export const getPublicCarrierProfile = async (userId: string) => {
   }
 
   const upcomingTrips = trips ?? [];
-  const tripsCount = upcomingTrips.length;
+  const stopsByTripId = await getPublicTripStopsByTripIds(upcomingTrips.map((trip) => trip.id));
+  const visibleTrips = upcomingTrips.filter((tripRow) => {
+    const trip = mapTripRow(tripRow);
+    const tripDetails = buildTripDetails(trip, stopsByTripId.get(trip.id) ?? buildDefaultTripStops(trip), true);
+    return Boolean(tripDetails.nextStop);
+  });
+  const tripsCount = visibleTrips.length;
 
   return {
     userId: profile.user_id,
@@ -1021,20 +1350,507 @@ export const getPublicCarrierProfile = async (userId: string) => {
     bio: profile.bio ?? DEFAULT_BIO,
     phone: profile.phone ?? "",
     isTraveler: profile.is_traveler,
-    trips: upcomingTrips.map((trip) => ({
-      id: trip.id,
-      userId: trip.user_id,
-      carrierName: profile.name,
-      carrierLocation: profile.location ?? DEFAULT_LOCATION,
-      origin: trip.origin,
-      destination: trip.destination,
-      date: trip.trip_date,
-      capacityKg: trip.capacity_kg,
-      availableKg: Math.max(trip.capacity_kg - trip.used_kg, 0),
-      notes: trip.notes ?? "",
-      tripsCount,
-    })),
+    trips: visibleTrips.map((trip) =>
+      buildPublicTripListing(
+        trip,
+        {
+          name: profile.name,
+          location: profile.location ?? DEFAULT_LOCATION,
+        },
+        tripsCount,
+        stopsByTripId,
+      ),
+    ),
   } satisfies PublicCarrierProfile;
+};
+
+const getShipmentsByConversationIds = async (conversationIds: string[]) => {
+  if (isShipmentFeatureUnavailable()) {
+    return new Map<string, ShipmentRow>();
+  }
+
+  if (!conversationIds.length) {
+    return new Map<string, ShipmentRow>();
+  }
+
+  const { data, error } = await supabase
+    .from("cargoo_shipments")
+    .select("*")
+    .in("conversation_id", conversationIds);
+
+  if (isMissingCargooTable(error)) {
+    markShipmentFeatureUnavailable();
+    return new Map<string, ShipmentRow>();
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  markShipmentFeatureAvailable();
+  return new Map((data ?? []).map((shipment) => [shipment.conversation_id, shipment] as const));
+};
+
+const buildShipmentSummaries = async (rows: ShipmentRow[]) => {
+  const tripDetailsById = await getAccessibleTripDetailsByIds(Array.from(new Set(rows.map((row) => row.trip_id))));
+  return rows.map((row) => buildShipmentSummary(row, tripDetailsById.get(row.trip_id) ?? null));
+};
+
+const getShipmentByIdInternal = async (shipmentId: string) => {
+  if (isShipmentFeatureUnavailable()) {
+    return null as ShipmentSummary | null;
+  }
+
+  const { data, error } = await supabase.from("cargoo_shipments").select("*").eq("id", shipmentId).maybeSingle();
+
+  if (isMissingCargooTable(error)) {
+    markShipmentFeatureUnavailable();
+    return null as ShipmentSummary | null;
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  markShipmentFeatureAvailable();
+
+  if (!data) {
+    return null;
+  }
+
+  const [shipment] = await buildShipmentSummaries([data]);
+  return shipment ?? null;
+};
+
+export const getMyShipments = async () => {
+  if (isShipmentFeatureUnavailable()) {
+    return [] as ShipmentSummary[];
+  }
+
+  const user = await requireUser();
+  const { data, error } = await supabase
+    .from("cargoo_shipments")
+    .select("*")
+    .eq("sender_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (isMissingCargooTable(error)) {
+    markShipmentFeatureUnavailable();
+    return [] as ShipmentSummary[];
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  markShipmentFeatureAvailable();
+  return buildShipmentSummaries(data ?? []);
+};
+
+export const getTripShipments = async (tripId: string) => {
+  if (isShipmentFeatureUnavailable()) {
+    return [] as ShipmentSummary[];
+  }
+
+  const { data, error } = await supabase
+    .from("cargoo_shipments")
+    .select("*")
+    .eq("trip_id", tripId)
+    .order("created_at", { ascending: false });
+
+  if (isMissingCargooTable(error)) {
+    markShipmentFeatureUnavailable();
+    return [] as ShipmentSummary[];
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  markShipmentFeatureAvailable();
+  return buildShipmentSummaries(data ?? []);
+};
+
+export const createShipmentRequest = async (conversationId: string) => {
+  if (isShipmentFeatureUnavailable()) {
+    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+  }
+
+  const user = await requireUser();
+  const profile = await ensureProfile(user);
+  const { data: conversation, error: conversationError } = await supabase
+    .from("cargoo_conversations")
+    .select("*")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (isMissingCargooTable(conversationError)) {
+    markShipmentFeatureUnavailable();
+    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+  }
+
+  const mappedConversationError = mapSupabaseError(conversationError);
+  if (mappedConversationError) {
+    throw mappedConversationError;
+  }
+
+  if (!conversation?.trip_id) {
+    throw new Error("Este chat no esta vinculado a un viaje publicado.");
+  }
+
+  if (conversation.participant_one_is_traveler && conversation.participant_one_id === user.id) {
+    throw new Error("Solo el emisor puede elegir este transporte desde el chat.");
+  }
+
+  if (conversation.participant_two_is_traveler && conversation.participant_two_id === user.id) {
+    throw new Error("Solo el emisor puede elegir este transporte desde el chat.");
+  }
+
+  const { data: existingShipment, error: existingShipmentError } = await supabase
+    .from("cargoo_shipments")
+    .select("id")
+    .eq("conversation_id", conversationId)
+    .maybeSingle();
+
+  if (!isMissingCargooTable(existingShipmentError)) {
+    const mappedExistingShipmentError = mapSupabaseError(existingShipmentError);
+    if (mappedExistingShipmentError) {
+      throw mappedExistingShipmentError;
+    }
+  } else {
+    markShipmentFeatureUnavailable();
+    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+  }
+
+  if (existingShipment?.id) {
+    const shipment = await getShipmentByIdInternal(existingShipment.id);
+    if (!shipment) {
+      throw new Error("No pudimos recuperar el envio ya creado.");
+    }
+
+    return shipment;
+  }
+
+  const isParticipantOneSender = conversation.participant_one_id === user.id;
+  const travelerId = isParticipantOneSender ? conversation.participant_two_id : conversation.participant_one_id;
+  const travelerName = isParticipantOneSender ? conversation.participant_two_name : conversation.participant_one_name;
+
+  const { data, error } = await supabase
+    .from("cargoo_shipments")
+    .insert({
+      trip_id: conversation.trip_id,
+      conversation_id: conversation.id,
+      sender_id: user.id,
+      sender_name: profile.name,
+      traveler_id: travelerId,
+      traveler_name: travelerName,
+      route_origin: conversation.route_origin?.trim() || "Origen por confirmar",
+      route_destination: conversation.route_destination?.trim() || "Destino por confirmar",
+      status: "pending",
+    })
+    .select("*")
+    .single();
+
+  if (isMissingCargooTable(error)) {
+    markShipmentFeatureUnavailable();
+    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  markShipmentFeatureAvailable();
+  const [shipment] = await buildShipmentSummaries([data]);
+  return shipment;
+};
+
+export const markConversationPackageLoaded = async (conversationId: string) => {
+  if (isShipmentFeatureUnavailable()) {
+    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+  }
+
+  const user = await requireUser();
+  const { data: conversation, error: conversationError } = await supabase
+    .from("cargoo_conversations")
+    .select("*")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (isMissingCargooTable(conversationError)) {
+    markShipmentFeatureUnavailable();
+    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+  }
+
+  const mappedConversationError = mapSupabaseError(conversationError);
+  if (mappedConversationError) {
+    throw mappedConversationError;
+  }
+
+  if (!conversation?.trip_id) {
+    throw new Error("Este chat no esta vinculado a un viaje publicado.");
+  }
+
+  const currentUserIsParticipantOne = conversation.participant_one_id === user.id;
+  const currentUserIsTraveler = currentUserIsParticipantOne
+    ? conversation.participant_one_is_traveler
+    : conversation.participant_two_id === user.id
+      ? conversation.participant_two_is_traveler
+      : false;
+
+  if (currentUserIsTraveler) {
+    throw new Error("El emisor es quien confirma cuando el paquete ya esta cargado.");
+  }
+
+  const { data: existingShipment, error: existingShipmentError } = await supabase
+    .from("cargoo_shipments")
+    .select("id")
+    .eq("conversation_id", conversationId)
+    .maybeSingle();
+
+  if (isMissingCargooTable(existingShipmentError)) {
+    markShipmentFeatureUnavailable();
+    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+  }
+
+  const mappedExistingShipmentError = mapSupabaseError(existingShipmentError);
+  if (mappedExistingShipmentError) {
+    throw mappedExistingShipmentError;
+  }
+
+  if (existingShipment?.id) {
+    const shipment = await getShipmentByIdInternal(existingShipment.id);
+    if (!shipment) {
+      throw new Error("No pudimos recuperar el envio ya creado.");
+    }
+
+    if (shipment.status === "accepted" || shipment.status === "delivered") {
+      return shipment;
+    }
+
+    const { error: updateError } = await supabase
+      .from("cargoo_shipments")
+      .update({ status: "accepted", accepted_at: new Date().toISOString() })
+      .eq("id", shipment.id)
+      .eq("sender_id", user.id);
+
+    const mappedUpdateError = mapSupabaseError(updateError);
+    if (mappedUpdateError) {
+      throw mappedUpdateError;
+    }
+
+    const updatedShipment = await getShipmentByIdInternal(shipment.id);
+    if (!updatedShipment) {
+      throw new Error("No pudimos recargar el envio cargado.");
+    }
+
+    return updatedShipment;
+  }
+
+  const travelerId = conversation.participant_one_is_traveler ? conversation.participant_one_id : conversation.participant_two_id;
+  const travelerName = conversation.participant_one_is_traveler ? conversation.participant_one_name : conversation.participant_two_name;
+  const senderId = conversation.participant_one_is_traveler ? conversation.participant_two_id : conversation.participant_one_id;
+  const senderName = conversation.participant_one_is_traveler ? conversation.participant_two_name : conversation.participant_one_name;
+
+  const { data, error } = await supabase
+    .from("cargoo_shipments")
+    .insert({
+      trip_id: conversation.trip_id,
+      conversation_id: conversation.id,
+      sender_id: senderId,
+      sender_name: senderName,
+      traveler_id: travelerId,
+      traveler_name: travelerName,
+      route_origin: conversation.route_origin?.trim() || "Origen por confirmar",
+      route_destination: conversation.route_destination?.trim() || "Destino por confirmar",
+      status: "accepted",
+      accepted_at: new Date().toISOString(),
+    })
+    .select("*")
+    .single();
+
+  if (isMissingCargooTable(error)) {
+    markShipmentFeatureUnavailable();
+    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  markShipmentFeatureAvailable();
+  const [shipment] = await buildShipmentSummaries([data]);
+  return shipment;
+};
+
+export const acceptShipment = async (shipmentId: string) => {
+  const user = await requireUser();
+  const shipment = await getShipmentByIdInternal(shipmentId);
+
+  if (!shipment) {
+    throw new Error("No encontramos ese envio.");
+  }
+
+  if (shipment.travelerId !== user.id) {
+    throw new Error("Solo el transportista puede aceptar este envio.");
+  }
+
+  if (shipment.status !== "pending") {
+    return shipment;
+  }
+
+  const { error } = await supabase
+    .from("cargoo_shipments")
+    .update({ status: "accepted", accepted_at: new Date().toISOString() })
+    .eq("id", shipmentId)
+    .eq("traveler_id", user.id);
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  const updatedShipment = await getShipmentByIdInternal(shipmentId);
+  if (!updatedShipment) {
+    throw new Error("No pudimos recargar el envio aceptado.");
+  }
+
+  return updatedShipment;
+};
+
+export const markShipmentDelivered = async (shipmentId: string) => {
+  const user = await requireUser();
+  const shipment = await getShipmentByIdInternal(shipmentId);
+
+  if (!shipment) {
+    throw new Error("No encontramos ese envio.");
+  }
+
+  if (shipment.travelerId !== user.id) {
+    throw new Error("Solo el transportista puede marcar el paquete como entregado.");
+  }
+
+  if (shipment.status === "delivered") {
+    return shipment;
+  }
+
+  if (shipment.status !== "accepted") {
+    throw new Error("Primero debes aceptar el envio antes de marcarlo como entregado.");
+  }
+
+  const { error } = await supabase
+    .from("cargoo_shipments")
+    .update({ status: "delivered", delivered_at: new Date().toISOString() })
+    .eq("id", shipmentId)
+    .eq("traveler_id", user.id);
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  await syncTripCompletionState(user.id, shipment.tripId);
+
+  const updatedShipment = await getShipmentByIdInternal(shipmentId);
+  if (!updatedShipment) {
+    throw new Error("No pudimos recargar el envio entregado.");
+  }
+
+  return updatedShipment;
+};
+
+export const submitShipmentReview = async ({ shipmentId, rating, comment }: SubmitShipmentReviewInput) => {
+  const user = await requireUser();
+  const shipment = await getShipmentByIdInternal(shipmentId);
+
+  if (!shipment) {
+    throw new Error("No encontramos ese envio.");
+  }
+
+  if (shipment.senderId !== user.id) {
+    throw new Error("Solo el emisor puede valorar este envio.");
+  }
+
+  if (shipment.status !== "delivered") {
+    throw new Error("Solo puedes valorar envios ya entregados.");
+  }
+
+  if (shipment.reviewRating) {
+    throw new Error("Este envio ya tiene una valoracion registrada.");
+  }
+
+  const cleanComment = comment.trim();
+  const normalizedRating = Math.min(Math.max(Math.round(rating), 1), 5);
+  const { error } = await supabase
+    .from("cargoo_shipments")
+    .update({
+      review_rating: normalizedRating,
+      review_comment: cleanComment || null,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq("id", shipmentId)
+    .eq("sender_id", user.id);
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  const updatedShipment = await getShipmentByIdInternal(shipmentId);
+  if (!updatedShipment) {
+    throw new Error("No pudimos recargar la valoracion.");
+  }
+
+  return updatedShipment;
+};
+
+export const getTravelerRatingSummary = async (travelerId: string) => {
+  if (isShipmentFeatureUnavailable()) {
+    return {
+      averageRating: null,
+      reviewsCount: 0,
+    } satisfies TravelerRatingSummary;
+  }
+
+  const { data, error } = await supabase
+    .from("cargoo_shipments")
+    .select("review_rating")
+    .eq("traveler_id", travelerId)
+    .not("review_rating", "is", null);
+
+  if (isMissingCargooTable(error)) {
+    markShipmentFeatureUnavailable();
+    return {
+      averageRating: null,
+      reviewsCount: 0,
+    } satisfies TravelerRatingSummary;
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  markShipmentFeatureAvailable();
+  const ratings = (data ?? []).map((item) => item.review_rating).filter((rating): rating is number => typeof rating === "number");
+
+  if (!ratings.length) {
+    return {
+      averageRating: null,
+      reviewsCount: 0,
+    } satisfies TravelerRatingSummary;
+  }
+
+  return {
+    averageRating: Number((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length).toFixed(1)),
+    reviewsCount: ratings.length,
+  } satisfies TravelerRatingSummary;
 };
 
 export const getConversations = async () => {
@@ -1066,6 +1882,7 @@ export const getConversations = async () => {
   }
 
   const conversationIds = conversations.map((conversation) => conversation.id);
+  const shipmentByConversationId = await getShipmentsByConversationIds(conversationIds);
   const { data: unreadMessages, error: unreadMessagesError } = await supabase
     .from("cargoo_messages")
     .select("conversation_id")
@@ -1089,13 +1906,18 @@ export const getConversations = async () => {
   }, {});
 
   return conversations.map((conversation) =>
-    mapConversationRow(conversation, user.id, unreadCountByConversationId[conversation.id] ?? 0),
+    mapConversationRow(
+      conversation,
+      user.id,
+      unreadCountByConversationId[conversation.id] ?? 0,
+      shipmentByConversationId.get(conversation.id) ?? null,
+    ),
   );
 };
 
 export const getConversationMessages = async (conversationId: string) => {
   if (isChatFeatureUnavailable()) {
-    return null as { conversation: ConversationSummary; messages: ChatMessage[] } | null;
+    return null as { conversation: ConversationSummary; messages: ChatMessage[]; shipment: ShipmentSummary | null } | null;
   }
 
   const user = await requireUser();
@@ -1107,7 +1929,7 @@ export const getConversationMessages = async (conversationId: string) => {
 
   if (isMissingCargooTable(conversationError)) {
     markChatFeatureUnavailable();
-    return null as { conversation: ConversationSummary; messages: ChatMessage[] } | null;
+    return null as { conversation: ConversationSummary; messages: ChatMessage[]; shipment: ShipmentSummary | null } | null;
   }
 
   const mappedConversationError = mapSupabaseError(conversationError);
@@ -1129,7 +1951,7 @@ export const getConversationMessages = async (conversationId: string) => {
 
   if (isMissingCargooTable(messagesError)) {
     markChatFeatureUnavailable();
-    return null as { conversation: ConversationSummary; messages: ChatMessage[] } | null;
+    return null as { conversation: ConversationSummary; messages: ChatMessage[]; shipment: ShipmentSummary | null } | null;
   }
 
   const mappedMessagesError = mapSupabaseError(messagesError);
@@ -1138,10 +1960,14 @@ export const getConversationMessages = async (conversationId: string) => {
   }
 
   const unreadCount = (messages ?? []).filter((message) => message.sender_id !== user.id && !message.read_at).length;
+  const shipmentByConversationId = await getShipmentsByConversationIds([conversationId]);
+  const shipmentRow = shipmentByConversationId.get(conversationId) ?? null;
+  const shipment = shipmentRow ? (await buildShipmentSummaries([shipmentRow]))[0] ?? null : null;
 
   return {
-    conversation: mapConversationRow(conversation, user.id, unreadCount),
+    conversation: mapConversationRow(conversation, user.id, unreadCount, shipmentRow),
     messages: (messages ?? []).map(mapMessageRow),
+    shipment,
   };
 };
 

@@ -1,15 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Camera, ChevronRight, EyeOff, Globe, LogOut, MapPin, MessageSquare, Package, Settings, Star } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
-import { getCurrentUser, getFriendlyErrorMessage, getTrips, getTripStats, logoutUser, updateCurrentUser, type CargooTrip, type CargooUser } from "@/lib/cargoo-store";
+import {
+  getCurrentUser,
+  getFriendlyErrorMessage,
+  getTravelerRatingSummary,
+  getTrips,
+  getTripStats,
+  logoutUser,
+  updateCurrentUser,
+  uploadCurrentUserAvatar,
+  type CargooTrip,
+  type CargooUser,
+  type TravelerRatingSummary,
+} from "@/lib/cargoo-store";
 
 const ProfilePage = () => {
   const navigate = useNavigate();
@@ -17,7 +29,13 @@ const ProfilePage = () => {
   const [user, setUser] = useState<CargooUser | null>(null);
   const [trips, setTrips] = useState<CargooTrip[]>([]);
   const [savingVisibility, setSavingVisibility] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [ratingSummary, setRatingSummary] = useState<TravelerRatingSummary>({
+    averageRating: null,
+    reviewsCount: 0,
+  });
   const [loading, setLoading] = useState(true);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -25,6 +43,15 @@ const ProfilePage = () => {
         const [profile, userTrips] = await Promise.all([getCurrentUser(), getTrips()]);
         setUser(profile);
         setTrips(userTrips);
+
+        if (profile.isTraveler) {
+          setRatingSummary(await getTravelerRatingSummary(profile.userId));
+        } else {
+          setRatingSummary({
+            averageRating: null,
+            reviewsCount: 0,
+          });
+        }
       } catch (error) {
         toast.error(getFriendlyErrorMessage(error));
       } finally {
@@ -62,6 +89,31 @@ const ProfilePage = () => {
     }
   };
 
+  const handleOpenAvatarPicker = () => {
+    avatarInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setUploadingAvatar(true);
+
+    try {
+      const updatedUser = await uploadCurrentUserAvatar(file);
+      setUser(updatedUser);
+      await refreshProfile();
+      toast.success("Foto de perfil actualizada.");
+    } catch (error) {
+      toast.error(getFriendlyErrorMessage(error));
+    } finally {
+      event.target.value = "";
+      setUploadingAvatar(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -84,19 +136,45 @@ const ProfilePage = () => {
   const menuItems = [
     { label: "Editar perfil", to: "/app/profile/edit", icon: Settings },
     { label: "Mensajes", to: "/app/messages", icon: MessageSquare },
-    { label: user.isTraveler ? "Mis viajes" : "Buscar transportistas", to: user.isTraveler ? "/app/trips" : "/app/search", icon: Package },
+    ...(user.isTraveler
+      ? [{ label: "Mis viajes", to: "/app/trips", icon: Package }]
+      : [
+          { label: "Mis envios", to: "/app/shipments", icon: Package },
+          { label: "Buscar transportistas", to: "/app/search", icon: Globe },
+        ]),
   ];
+  const ratingLabel =
+    ratingSummary.averageRating !== null ? String(ratingSummary.averageRating.toFixed(1)).replace(".", ",") : "Nueva";
+  const ratingCaption =
+    ratingSummary.averageRating !== null
+      ? `${ratingSummary.reviewsCount} valoracion(es)`
+      : "Sin valoraciones";
 
   return (
     <div className="mx-auto max-w-lg px-4 pt-6">
       <div className="mb-6 text-center">
         <div className="relative mb-3 inline-block">
           <Avatar className="h-24 w-24 border-4 border-primary/20">
+            <AvatarImage src={user.avatarUrl} alt={user.name} />
             <AvatarFallback className="bg-primary/10 text-2xl font-bold text-primary">{initials}</AvatarFallback>
           </Avatar>
-          <button className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary shadow-lg">
+          <button
+            type="button"
+            className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary shadow-lg"
+            onClick={handleOpenAvatarPicker}
+            disabled={uploadingAvatar}
+            aria-label="Cambiar foto de perfil"
+          >
             <Camera className="h-4 w-4 text-primary-foreground" />
           </button>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAvatarChange}
+            disabled={uploadingAvatar}
+          />
         </div>
         <h1 className="text-xl font-display font-bold">{user.name}</h1>
         <p className="mt-1 flex items-center justify-center gap-1 text-sm text-muted-foreground">
@@ -110,9 +188,9 @@ const ProfilePage = () => {
           <Separator orientation="vertical" className="h-8" />
           <div className="text-center">
             <p className="flex items-center gap-1 text-lg font-bold">
-              4.8 <Star className="h-3 w-3 fill-warning text-warning" />
+              {ratingLabel} <Star className="h-3 w-3 fill-warning text-warning" />
             </p>
-            <p className="text-[10px] text-muted-foreground">Valoracion</p>
+            <p className="text-[10px] text-muted-foreground">{ratingCaption}</p>
           </div>
           <Separator orientation="vertical" className="h-8" />
           <div className="text-center">
