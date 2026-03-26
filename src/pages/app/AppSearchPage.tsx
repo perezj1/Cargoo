@@ -101,7 +101,8 @@ const AppSearchPage = () => {
         {loading ? "Buscando transportistas..." : `${filtered.length} transportistas encontrados`}
       </p>
       <p className="-mt-3 mb-6 text-xs text-muted-foreground">
-        Tambien se buscan rutas por ciudades intermedias donde el conductor puede recoger o entregar.
+        El buscador tambien tiene en cuenta ciudades intermedias del itinerario donde el transportista ha indicado que
+        puede parar.
       </p>
 
       {loading ? (

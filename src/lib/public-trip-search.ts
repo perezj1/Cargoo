@@ -1,11 +1,25 @@
 import type { PublicTripListing } from "@/lib/cargoo-store";
+import { normalizeSearchText } from "@/lib/search-normalization";
 
-export const normalizeSearchText = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
+const getSearchableRouteCities = (trip: PublicTripListing) => {
+  const fallbackRoute = [trip.origin, ...trip.stopCities, trip.destination];
+  const sourceRoute = trip.routeCities.length > 0 ? trip.routeCities : fallbackRoute;
+
+  return sourceRoute.reduce<string[]>((cities, city) => {
+    const nextCity = city.trim();
+    if (!nextCity) {
+      return cities;
+    }
+
+    const previousCity = cities[cities.length - 1];
+    if (previousCity && normalizeSearchText(previousCity) === normalizeSearchText(nextCity)) {
+      return cities;
+    }
+
+    cities.push(nextCity);
+    return cities;
+  }, []);
+};
 
 const getMatchingRouteIndexes = (
   routeCities: string[],
@@ -38,7 +52,7 @@ const getMatchingRouteIndexes = (
 };
 
 export const matchesPublicTripRoute = (trip: PublicTripListing, originQuery: string, destinationQuery: string) => {
-  const routeCities = trip.routeCities.length > 0 ? trip.routeCities : [trip.origin, trip.destination];
+  const routeCities = getSearchableRouteCities(trip);
   const originMatches = getMatchingRouteIndexes(routeCities, originQuery, { allowFirst: true, allowLast: false });
   const destinationMatches = getMatchingRouteIndexes(routeCities, destinationQuery, { allowFirst: false, allowLast: true });
 

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Calendar, CarFront, MapPin, MessageCircle, Package, Phone } from "lucide-react";
+import { ArrowLeft, Calendar, CarFront, MapPin, MessageCircle, Package, Phone, Star } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,6 +74,11 @@ const PublicCarrierProfilePage = () => {
 
   const digitsOnlyPhone = profile?.phone.replace(/[^\d+]/g, "") ?? "";
   const whatsappPhone = profile?.phone.replace(/[^\d]/g, "") ?? "";
+  const ratingLabel =
+    profile?.averageRating !== null && profile?.averageRating !== undefined
+      ? String(profile.averageRating.toFixed(1)).replace(".", ",")
+      : "Nueva";
+  const ratingCaption = profile?.reviewsCount ? `${profile.reviewsCount} valoracion(es)` : "Sin valoraciones todavia";
 
   const handleStartChat = async (tripId?: string) => {
     if (!profile) {
@@ -227,13 +233,16 @@ const PublicCarrierProfilePage = () => {
 
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex min-w-0 items-start gap-4">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary">
-                  {profile.name
-                    .split(" ")
-                    .map((part) => part[0])
-                    .join("")
-                    .slice(0, 2)}
-                </div>
+                <Avatar className="h-16 w-16 shrink-0">
+                  <AvatarImage src={profile.avatarUrl} alt={profile.name} />
+                  <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary">
+                    {profile.name
+                      .split(" ")
+                      .map((part) => part[0])
+                      .join("")
+                      .slice(0, 2)}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h1 className="text-3xl font-display font-bold">{profile.name}</h1>
@@ -244,6 +253,13 @@ const PublicCarrierProfilePage = () => {
                     {profile.location}
                   </p>
                   <p className="mt-4 max-w-2xl text-sm text-muted-foreground">{profile.bio}</p>
+                  <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+                    <div className="flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-foreground shadow-card">
+                      <Star className="h-4 w-4 fill-warning text-warning" />
+                      <span className="font-semibold">{ratingLabel}</span>
+                    </div>
+                    <span className="text-muted-foreground">{ratingCaption}</span>
+                  </div>
                 </div>
               </div>
 
@@ -375,6 +391,68 @@ const PublicCarrierProfilePage = () => {
               );
             })}
           </div>
+
+          <Card className="mt-6 shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Star className="h-5 w-5 fill-warning text-warning" />
+                Valoraciones de otros usuarios
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-end justify-between gap-4 rounded-xl bg-secondary p-4">
+                <div>
+                  <p className="text-3xl font-bold text-foreground">{ratingLabel}</p>
+                  <p className="text-sm text-muted-foreground">{ratingCaption}</p>
+                </div>
+                <div className="flex items-center gap-1 text-warning">
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <Star
+                      key={index}
+                      className={`h-4 w-4 ${profile.averageRating !== null && index < Math.round(profile.averageRating) ? "fill-warning text-warning" : "text-muted-foreground/30"}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {profile.reviews.length > 0 ? (
+                <div className="space-y-3">
+                  {profile.reviews.map((review) => (
+                    <div key={review.id} className="rounded-xl border border-border/70 bg-background p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">{review.senderName}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {review.routeOrigin} {"->"} {review.routeDestination}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Star className="h-4 w-4 fill-warning text-warning" />
+                            <span className="text-sm font-semibold text-foreground">{review.rating}</span>
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {review.reviewedAt
+                              ? new Intl.DateTimeFormat("es-ES", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                }).format(new Date(review.reviewedAt))
+                              : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-muted-foreground">{review.comment}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-border bg-background px-4 py-5 text-sm text-muted-foreground">
+                  Este transportista todavia no tiene comentarios publicos de otros usuarios.
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </main>
       <Footer />
