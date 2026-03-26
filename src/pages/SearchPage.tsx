@@ -1,11 +1,12 @@
 import { Filter, MapPin, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import PublicTripCard from "@/components/PublicTripCard";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { matchesPublicTripRoute } from "@/lib/public-trip-search";
@@ -91,6 +92,16 @@ const SearchPage = () => {
         </div>
 
         <div className="container py-8">
+          <div className="mb-6 rounded-2xl border border-primary/15 bg-primary/5 p-5 shadow-card">
+            <p className="text-sm text-muted-foreground">
+              Si quieres descubrir mas transportistas, horarios disponibles y gestionar tus contactos y envios desde un
+              mismo sitio, accede a la app.
+            </p>
+            <Button asChild className="mt-4">
+              <Link to="/app">Acceder a la app</Link>
+            </Button>
+          </div>
+
           <p className="mb-6 text-sm text-muted-foreground">
             {loading ? "Buscando conductores..." : `${filtered.length} conductores encontrados`}
           </p>
