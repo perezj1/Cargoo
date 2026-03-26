@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Calendar, ChevronRight, MapPin, Package, Plus } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/AuthContext";
 import { getFriendlyErrorMessage, getTrips, type CargooTrip } from "@/lib/cargoo-store";
 
 const statusConfig = {
@@ -14,6 +15,7 @@ const statusConfig = {
 } as const;
 
 const TripsPage = () => {
+  const { loading: authLoading, profile, profileLoading } = useAuth();
   const [tab, setTab] = useState("active");
   const [trips, setTrips] = useState<CargooTrip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,12 +38,24 @@ const TripsPage = () => {
     return trips.filter((trip) => (tab === "all" ? true : trip.status === tab));
   }, [tab, trips]);
 
+  if (authLoading || profileLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (profile && !profile.isTraveler) {
+    return <Navigate to="/app/search" replace />;
+  }
+
   return (
     <div className="mx-auto max-w-lg px-4 pt-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-display font-bold">Mis viajes</h1>
         <Button size="sm" asChild className="gap-1">
-          <Link to="/dashboard/trips/new">
+          <Link to="/app/trips/new">
             <Plus className="h-4 w-4" /> Nuevo
           </Link>
         </Button>
@@ -78,7 +92,7 @@ const TripsPage = () => {
             return (
               <Link
                 key={trip.id}
-                to={`/dashboard/trips/${trip.id}`}
+                to={`/app/trips/${trip.id}`}
                 className="block rounded-xl bg-card p-4 shadow-card transition-shadow hover:shadow-card-hover"
               >
                 <div className="mb-3 flex items-start justify-between">

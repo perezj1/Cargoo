@@ -1,35 +1,67 @@
 import { Filter, MapPin, Search } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
-import TravelerCard from "@/components/TravelerCard";
+import PublicTripCard from "@/components/PublicTripCard";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MOCK_TRAVELERS } from "@/lib/mock-travelers";
+import { getFriendlyErrorMessage, getPublicTripListings, type PublicTripListing } from "@/lib/cargoo-store";
+
+const normalizeSearchText = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 
 const SearchPage = () => {
   const [searchParams] = useSearchParams();
   const [origin, setOrigin] = useState(searchParams.get("origin") || "");
   const [destination, setDestination] = useState(searchParams.get("destination") || "");
   const [sortBy, setSortBy] = useState("date");
+  const [trips, setTrips] = useState<PublicTripListing[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = MOCK_TRAVELERS.filter((traveler) => {
-    const matchOrigin = !origin || traveler.origin.toLowerCase().includes(origin.toLowerCase());
-    const matchDestination = !destination || traveler.destination.toLowerCase().includes(destination.toLowerCase());
-    return matchOrigin && matchDestination;
-  }).sort((left, right) => {
-    if (sortBy === "rating") {
-      return right.rating - left.rating;
-    }
+  useEffect(() => {
+    const loadTrips = async () => {
+      try {
+        setTrips(await getPublicTripListings());
+      } catch (error) {
+        toast.error(getFriendlyErrorMessage(error));
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    if (sortBy === "trips") {
-      return right.trips - left.trips;
-    }
+    void loadTrips();
+  }, []);
 
-    return new Date(left.date).getTime() - new Date(right.date).getTime();
-  });
+  const filtered = useMemo(() => {
+    const normalizedOrigin = normalizeSearchText(origin);
+    const normalizedDestination = normalizeSearchText(destination);
+
+    return trips
+      .filter((trip) => {
+        const matchOrigin = !normalizedOrigin || normalizeSearchText(trip.origin).includes(normalizedOrigin);
+        const matchDestination = !normalizedDestination || normalizeSearchText(trip.destination).includes(normalizedDestination);
+
+        return matchOrigin && matchDestination;
+      })
+      .sort((left, right) => {
+        if (sortBy === "capacity") {
+          return right.availableKg - left.availableKg;
+        }
+
+        if (sortBy === "trips") {
+          return right.tripsCount - left.tripsCount;
+        }
+
+        return new Date(left.date).getTime() - new Date(right.date).getTime();
+      });
+  }, [destination, origin, sortBy, trips]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -64,7 +96,7 @@ const SearchPage = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="date">Fecha mas proxima</SelectItem>
-                  <SelectItem value="rating">Mejor valoracion</SelectItem>
+                  <SelectItem value="capacity">Mas espacio</SelectItem>
                   <SelectItem value="trips">Mas viajes</SelectItem>
                 </SelectContent>
               </Select>
@@ -73,11 +105,17 @@ const SearchPage = () => {
         </div>
 
         <div className="container py-8">
-          <p className="mb-6 text-sm text-muted-foreground">{filtered.length} conductores encontrados</p>
-          {filtered.length > 0 ? (
+          <p className="mb-6 text-sm text-muted-foreground">
+            {loading ? "Buscando conductores..." : `${filtered.length} conductores encontrados`}
+          </p>
+          {loading ? (
+            <div className="flex min-h-[40vh] items-center justify-center">
+              <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-primary" />
+            </div>
+          ) : filtered.length > 0 ? (
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((traveler) => (
-                <TravelerCard key={traveler.id} traveler={traveler} />
+              {filtered.map((trip) => (
+                <PublicTripCard key={trip.id} trip={trip} />
               ))}
             </div>
           ) : (

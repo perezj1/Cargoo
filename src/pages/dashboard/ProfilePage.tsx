@@ -8,10 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentUser, getFriendlyErrorMessage, getTrips, getTripStats, logoutUser, updateCurrentUser, type CargooTrip, type CargooUser } from "@/lib/cargoo-store";
 
 const ProfilePage = () => {
   const navigate = useNavigate();
+  const { refreshProfile } = useAuth();
   const [user, setUser] = useState<CargooUser | null>(null);
   const [trips, setTrips] = useState<CargooTrip[]>([]);
   const [savingVisibility, setSavingVisibility] = useState(false);
@@ -42,6 +44,7 @@ const ProfilePage = () => {
     try {
       const updatedUser = await updateCurrentUser({ isPublic: value });
       setUser(updatedUser);
+      await refreshProfile();
       toast.success("Visibilidad actualizada.");
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
@@ -79,9 +82,9 @@ const ProfilePage = () => {
     .slice(0, 2);
 
   const menuItems = [
-    { label: "Editar perfil", to: "/dashboard/profile/edit", icon: Settings },
-    { label: "Mensajes", to: "/dashboard/messages", icon: MessageSquare },
-    { label: "Mis viajes", to: "/dashboard/trips", icon: Package },
+    { label: "Editar perfil", to: "/app/profile/edit", icon: Settings },
+    { label: "Mensajes", to: "/app/messages", icon: MessageSquare },
+    { label: user.isTraveler ? "Mis viajes" : "Buscar transportistas", to: user.isTraveler ? "/app/trips" : "/app/search", icon: Package },
   ];
 
   return (

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { ArrowLeft, Calendar, MapPin, Package } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,11 +12,13 @@ import { createTrip, getFriendlyErrorMessage } from "@/lib/cargoo-store";
 
 const NewTripPage = () => {
   const navigate = useNavigate();
+  const { loading: authLoading, profile, profileLoading } = useAuth();
   const [form, setForm] = useState({
     origin: "",
     destination: "",
     date: "",
     capacity: "",
+    routeStops: "",
     notes: "",
   });
   const [saving, setSaving] = useState(false);
@@ -29,22 +32,40 @@ const NewTripPage = () => {
     setSaving(true);
 
     try {
+      const routeStops = form.routeStops
+        .split(/\n|,/)
+        .map((stop) => stop.trim())
+        .filter(Boolean);
+
       const trip = await createTrip({
         origin: form.origin,
         destination: form.destination,
         date: form.date,
         capacityKg: Number(form.capacity),
+        routeStops,
         notes: form.notes || "Sin notas adicionales.",
       });
 
       toast.success("Viaje publicado correctamente.");
-      navigate(`/dashboard/trips/${trip.id}`);
+      navigate(`/app/trips/${trip.id}`);
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
     } finally {
       setSaving(false);
     }
   };
+
+  if (authLoading || profileLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (profile && !profile.isTraveler) {
+    return <Navigate to="/app/search" replace />;
+  }
 
   return (
     <div className="mx-auto max-w-lg px-4 pt-6">
@@ -106,6 +127,19 @@ const NewTripPage = () => {
               />
             </div>
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Ciudades de paso</Label>
+          <Textarea
+            placeholder={"Una ciudad por linea\nLyon\nBarcelona"}
+            rows={3}
+            value={form.routeStops}
+            onChange={(event) => update("routeStops", event.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Opcional. El conductor solo vera un boton para avanzar a la siguiente ciudad de esta lista.
+          </p>
         </div>
 
         <div className="space-y-2">

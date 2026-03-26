@@ -3,6 +3,7 @@ import { ArrowLeft, Mail, MapPin, Phone, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,7 @@ import { getCurrentUser, getFriendlyErrorMessage, updateCurrentUser } from "@/li
 
 const EditProfilePage = () => {
   const navigate = useNavigate();
+  const { refreshProfile } = useAuth();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -52,8 +54,9 @@ const EditProfilePage = () => {
 
     try {
       await updateCurrentUser(form);
+      await refreshProfile();
       toast.success("Perfil actualizado.");
-      navigate("/dashboard/profile");
+      navigate("/app/profile");
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
     } finally {

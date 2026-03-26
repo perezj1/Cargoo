@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Mail, Lock } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import BrandLogo from "@/components/BrandLogo";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,9 +12,18 @@ import { getFriendlyErrorMessage, loginUser } from "@/lib/cargoo-store";
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const nextPath = searchParams.get("next") ?? "/app";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      navigate(nextPath, { replace: true });
+    }
+  }, [navigate, nextPath, user]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -22,7 +32,7 @@ const LoginPage = () => {
     try {
       await loginUser(email, password);
       toast.success("Sesion iniciada en Cargoo.");
-      navigate("/dashboard");
+      navigate(nextPath, { replace: true });
     } catch (error) {
       const message = getFriendlyErrorMessage(error);
       if (/Invalid login credentials/i.test(message)) {
@@ -83,7 +93,7 @@ const LoginPage = () => {
           </Button>
           <p className="text-center text-sm text-muted-foreground">
             No tienes cuenta?{" "}
-            <Link to="/register" className="font-medium text-primary hover:underline">
+            <Link to={`/register${searchParams.toString() ? `?${searchParams.toString()}` : ""}`} className="font-medium text-primary hover:underline">
               Registrate
             </Link>
           </p>

@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CarFront, EyeOff, Globe, Lock, Mail, User } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import BrandLogo from "@/components/BrandLogo";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,9 @@ import { getFriendlyErrorMessage, registerUser } from "@/lib/cargoo-store";
 
 const RegisterPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const nextPath = searchParams.get("next") ?? "/app";
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -20,6 +24,12 @@ const RegisterPage = () => {
     isTraveler: false,
   });
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      navigate(nextPath, { replace: true });
+    }
+  }, [navigate, nextPath, user]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -35,7 +45,7 @@ const RegisterPage = () => {
       }
 
       toast.success("Cuenta creada. Bienvenido a Cargoo.");
-      navigate("/dashboard");
+      navigate(nextPath, { replace: true });
     } catch (error) {
       const message = getFriendlyErrorMessage(error);
       if (/User already registered/i.test(message)) {
@@ -145,7 +155,7 @@ const RegisterPage = () => {
           </Button>
           <p className="text-center text-sm text-muted-foreground">
             Ya tienes cuenta?{" "}
-            <Link to="/login" className="font-medium text-primary hover:underline">
+            <Link to={`/login${searchParams.toString() ? `?${searchParams.toString()}` : ""}`} className="font-medium text-primary hover:underline">
               Inicia sesion
             </Link>
           </p>

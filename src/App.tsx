@@ -10,8 +10,11 @@ import HowItWorksPage from "./pages/HowItWorksPage.tsx";
 import Index from "./pages/Index.tsx";
 import LoginPage from "./pages/LoginPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import PublicCarrierProfilePage from "./pages/PublicCarrierProfilePage.tsx";
 import RegisterPage from "./pages/RegisterPage.tsx";
 import SearchPage from "./pages/SearchPage.tsx";
+import AppSearchPage from "./pages/app/AppSearchPage.tsx";
+import ConversationPage from "./pages/dashboard/ConversationPage.tsx";
 import DashboardHome from "./pages/dashboard/DashboardHome.tsx";
 import EditProfilePage from "./pages/dashboard/EditProfilePage.tsx";
 import MessagesPage from "./pages/dashboard/MessagesPage.tsx";
@@ -32,20 +35,24 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/search" element={<SearchPage />} />
+            <Route path="/transportistas/:userId" element={<PublicCarrierProfilePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/auth" element={<Navigate to="/login" replace />} />
             <Route path="/how-it-works" element={<HowItWorksPage />} />
 
-            <Route path="/dashboard" element={<DashboardLayout />}>
+            <Route path="/app" element={<DashboardLayout />}>
               <Route index element={<DashboardHome />} />
+              <Route path="search" element={<AppSearchPage />} />
               <Route path="trips" element={<TripsPage />} />
               <Route path="trips/new" element={<NewTripPage />} />
               <Route path="trips/:tripId" element={<TripDetailsPage />} />
               <Route path="messages" element={<MessagesPage />} />
+              <Route path="messages/:conversationId" element={<ConversationPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="profile/edit" element={<EditProfilePage />} />
             </Route>
+            <Route path="/dashboard/*" element={<Navigate to="/app" replace />} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>
