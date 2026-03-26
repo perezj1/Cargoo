@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
+import AppInstallPrompt from "@/components/AppInstallPrompt";
 import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -22,6 +23,7 @@ const DashboardLayout = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       <Outlet />
+      <AppInstallPrompt enabled={Boolean(user)} />
       <BottomNav />
     </div>
   );
