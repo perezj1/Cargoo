@@ -307,10 +307,10 @@ const ProfilePage = () => {
             <p className="text-sm font-medium">Notificaciones push</p>
             <p className="text-xs text-muted-foreground">
               {notificationPermission === "granted"
-                ? "Este navegador ya puede recibir avisos de mensajes, checkpoints y entregas."
+                ? "Recibe avisos de mensajes, checkpoints y entregas."
                 : notificationPermission === "denied"
                   ? "El navegador ha bloqueado los permisos. Tienes que reactivarlos en la configuracion del sitio."
-                  : "Activalas para recibir avisos cuando llegue un mensaje o haya cambios en el envio."}
+                  : "Recibe avisos de mensajes, checkpoints y entregas al activar esta opcion."}
             </p>
           </div>
           <Switch checked={notificationsEnabled} onCheckedChange={handleNotificationsChange} disabled={savingNotifications} />
