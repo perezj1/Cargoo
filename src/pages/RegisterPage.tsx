@@ -6,10 +6,12 @@ import { toast } from "sonner";
 import BrandLogo from "@/components/BrandLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { getFriendlyErrorMessage, registerUser } from "@/lib/cargoo-store";
+import { LEGAL_LINKS } from "@/lib/legal";
 
 const RegisterPage = () => {
   const navigate = useNavigate();
@@ -22,6 +24,7 @@ const RegisterPage = () => {
     password: "",
     isPublic: true,
     isTraveler: false,
+    acceptedLegal: false,
   });
   const [loading, setLoading] = useState(false);
 
@@ -33,10 +36,22 @@ const RegisterPage = () => {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (!formData.acceptedLegal) {
+      toast.error("Debes aceptar los terminos y documentos legales para crear una cuenta.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const result = await registerUser(formData);
+      const result = await registerUser({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        isTraveler: formData.isTraveler,
+        isPublic: formData.isPublic,
+      });
 
       if (result.needsEmailConfirmation) {
         toast.success("Cuenta creada. Revisa tu email para confirmar y luego iniciar sesion.");
@@ -150,7 +165,39 @@ const RegisterPage = () => {
             </div>
           ) : null}
 
-          <Button type="submit" className="w-full" size="lg" disabled={loading}>
+          <div className="rounded-xl border border-border bg-secondary/60 p-4">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="accepted-legal"
+                checked={formData.acceptedLegal}
+                onCheckedChange={(checked) => update("acceptedLegal", checked === true)}
+                className="mt-1"
+              />
+              <Label htmlFor="accepted-legal" className="text-sm font-normal leading-6 text-muted-foreground">
+                Al crear una cuenta acepto los{" "}
+                <Link to={LEGAL_LINKS.terms} className="font-medium text-primary hover:underline">
+                  Terminos de uso (AGB)
+                </Link>
+                , confirmo haber leido la{" "}
+                <Link to={LEGAL_LINKS.privacy} className="font-medium text-primary hover:underline">
+                  Politica de privacidad
+                </Link>
+                , el{" "}
+                <Link to={LEGAL_LINKS.disclaimer} className="font-medium text-primary hover:underline">
+                  Descargo de responsabilidad
+                </Link>{" "}
+                y el{" "}
+                <Link to={LEGAL_LINKS.imprint} className="font-medium text-primary hover:underline">
+                  Impressum
+                </Link>
+                .
+              </Label>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">
+              Cargoo solo facilita el contacto entre usuarios. Los acuerdos, envios y transportes son responsabilidad exclusiva de las personas que usan la plataforma.
+            </p>
+          </div>
+          <Button type="submit" className="w-full" size="lg" disabled={loading || !formData.acceptedLegal}>
             {loading ? "Creando cuenta..." : "Crear cuenta"}
           </Button>
           <p className="text-center text-sm text-muted-foreground">

@@ -23,6 +23,10 @@ import ProfilePage from "./pages/dashboard/ProfilePage.tsx";
 import ShipmentsPage from "./pages/dashboard/ShipmentsPage.tsx";
 import TripDetailsPage from "./pages/dashboard/TripDetailsPage.tsx";
 import TripsPage from "./pages/dashboard/TripsPage.tsx";
+import DisclaimerPage from "./pages/legal/DisclaimerPage.tsx";
+import ImprintPage from "./pages/legal/ImprintPage.tsx";
+import PrivacyPage from "./pages/legal/PrivacyPage.tsx";
+import TermsPage from "./pages/legal/TermsPage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +45,10 @@ const App = () => (
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/auth" element={<Navigate to="/login" replace />} />
             <Route path="/how-it-works" element={<HowItWorksPage />} />
+            <Route path="/legal/agb" element={<TermsPage />} />
+            <Route path="/legal/privacy" element={<PrivacyPage />} />
+            <Route path="/legal/disclaimer" element={<DisclaimerPage />} />
+            <Route path="/legal/impressum" element={<ImprintPage />} />
 
             <Route path="/app" element={<DashboardLayout />}>
               <Route index element={<DashboardHome />} />

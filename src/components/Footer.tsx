@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 
 import BrandLogo from "@/components/BrandLogo";
+import { LEGAL_LINKS } from "@/lib/legal";
 
 const Footer = () => (
   <footer className="bg-foreground py-12 text-background">
@@ -48,14 +49,24 @@ const Footer = () => (
           <h4 className="mb-3 text-sm font-semibold">Legal</h4>
           <ul className="space-y-2 text-sm opacity-70">
             <li>
-              <a href="#" className="transition-opacity hover:opacity-100">
-                Terminos de servicio
-              </a>
+              <Link to={LEGAL_LINKS.terms} className="transition-opacity hover:opacity-100">
+                Terminos de uso (AGB)
+              </Link>
             </li>
             <li>
-              <a href="#" className="transition-opacity hover:opacity-100">
+              <Link to={LEGAL_LINKS.privacy} className="transition-opacity hover:opacity-100">
                 Privacidad
-              </a>
+              </Link>
+            </li>
+            <li>
+              <Link to={LEGAL_LINKS.disclaimer} className="transition-opacity hover:opacity-100">
+                Descargo de responsabilidad
+              </Link>
+            </li>
+            <li>
+              <Link to={LEGAL_LINKS.imprint} className="transition-opacity hover:opacity-100">
+                Impressum
+              </Link>
             </li>
           </ul>
         </div>

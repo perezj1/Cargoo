@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getFriendlyErrorMessage, loginUser } from "@/lib/cargoo-store";
+import { LEGAL_LINKS } from "@/lib/legal";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -91,6 +92,25 @@ const LoginPage = () => {
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
             {loading ? "Entrando..." : "Iniciar sesion"}
           </Button>
+          <div className="rounded-xl border border-border bg-secondary/60 p-4 text-xs leading-6 text-muted-foreground">
+            Al iniciar sesion y continuar usando Cargoo confirmas que conoces los{" "}
+            <Link to={LEGAL_LINKS.terms} className="font-medium text-primary hover:underline">
+              Terminos de uso (AGB)
+            </Link>
+            , la{" "}
+            <Link to={LEGAL_LINKS.privacy} className="font-medium text-primary hover:underline">
+              Politica de privacidad
+            </Link>
+            , el{" "}
+            <Link to={LEGAL_LINKS.disclaimer} className="font-medium text-primary hover:underline">
+              Descargo de responsabilidad
+            </Link>{" "}
+            y el{" "}
+            <Link to={LEGAL_LINKS.imprint} className="font-medium text-primary hover:underline">
+              Impressum
+            </Link>
+            . Cargoo solo facilita el contacto entre usuarios; las operaciones entre ellos son responsabilidad propia.
+          </div>
           <p className="text-center text-sm text-muted-foreground">
             No tienes cuenta?{" "}
             <Link to={`/register${searchParams.toString() ? `?${searchParams.toString()}` : ""}`} className="font-medium text-primary hover:underline">
