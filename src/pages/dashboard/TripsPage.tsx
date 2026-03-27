@@ -50,6 +50,14 @@ const TripsPage = () => {
     return trips.filter((trip) => trip.status === tab);
   }, [tab, trips]);
 
+  const counts = useMemo(
+    () => ({
+      active: trips.filter((trip) => trip.status === "active").length,
+      completed: trips.filter((trip) => trip.status === "completed").length,
+    }),
+    [trips],
+  );
+
   if (authLoading || profileLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -95,10 +103,10 @@ const TripsPage = () => {
       <Tabs value={tab} onValueChange={setTab} className="mb-6">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="active" className="flex-1">
-            Activos
+            Activos {counts.active}
           </TabsTrigger>
           <TabsTrigger value="completed" className="flex-1">
-            Completados
+            Completados {counts.completed}
           </TabsTrigger>
         </TabsList>
       </Tabs>

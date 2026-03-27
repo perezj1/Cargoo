@@ -227,22 +227,25 @@ const TripDetailsPage = () => {
         <ArrowLeft className="h-4 w-4" /> Volver
       </button>
 
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold">Detalles del viaje</h1>
           <p className="mt-1 text-sm text-muted-foreground">Ruta, personas y paquetes en este viaje</p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <Badge variant="outline" className={status.className}>
-            {status.label}
-          </Badge>
-          {trip.status === "completed" ? (
-            <Button asChild variant="outline" size="sm">
-              <Link to={`/app/trips/new?reuseTrip=${encodeURIComponent(trip.id)}`}>Reutilizar trayecto</Link>
-            </Button>
-          ) : null}
-        </div>
+        <Badge variant="outline" className={status.className}>
+          {status.label}
+        </Badge>
       </div>
+
+      {trip.status === "completed" ? (
+        <div className="mb-6 mt-3 flex justify-end">
+          <Button asChild variant="outline" size="sm">
+            <Link to={`/app/trips/new?reuseTrip=${encodeURIComponent(trip.id)}`}>Reutilizar trayecto</Link>
+          </Button>
+        </div>
+      ) : (
+        <div className="mb-6" />
+      )}
 
       <Card className="mb-4 shadow-card">
         <CardHeader className="pb-4">

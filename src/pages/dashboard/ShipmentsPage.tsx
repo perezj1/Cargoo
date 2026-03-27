@@ -192,7 +192,7 @@ const ShipmentsPage = () => {
       <Tabs value={tab} onValueChange={handleTabChange} className="mb-6">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="active">Activos {counts.active}</TabsTrigger>
-          <TabsTrigger value="delivered">Finalizados {counts.delivered}</TabsTrigger>
+          <TabsTrigger value="delivered">Completados {counts.delivered}</TabsTrigger>
         </TabsList>
       </Tabs>
 
