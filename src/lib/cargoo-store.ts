@@ -2,6 +2,7 @@ import type { User } from "@supabase/supabase-js";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { normalizeLocale, type Locale } from "@/locales";
 import { normalizeSearchText } from "@/lib/search-normalization";
 
 type PushEventPayload =
@@ -25,6 +26,7 @@ export interface CargooUser {
   userId: string;
   name: string;
   email: string;
+  locale: Locale;
   isTraveler: boolean;
   isPublic: boolean;
   avatarUrl: string;
@@ -182,6 +184,7 @@ interface RegisterUserInput {
   password: string;
   isTraveler: boolean;
   isPublic: boolean;
+  locale: Locale;
 }
 
 interface CreateTripInput {
@@ -226,6 +229,14 @@ const isMissingProfileAvatarColumn = (error: { message?: string; code?: string }
   }
 
   return /avatar_url/i.test(error.message ?? "") && /cargoo_profiles/i.test(error.message ?? "");
+};
+
+const isMissingProfileLocaleColumn = (error: { message?: string; code?: string } | null) => {
+  if (!error) {
+    return false;
+  }
+
+  return /locale/i.test(error.message ?? "") && /cargoo_profiles/i.test(error.message ?? "");
 };
 
 const mapSupabaseError = (error: { message?: string } | null) => {
@@ -349,6 +360,7 @@ const buildProfileFromMetadata = (user: User): CargooUser => {
     userId: user.id,
     name: typeof metadata.name === "string" && metadata.name.trim() ? metadata.name : deriveNameFromEmail(user.email ?? ""),
     email: user.email ?? "",
+    locale: typeof metadata.locale === "string" ? normalizeLocale(metadata.locale) : "es",
     isTraveler: Boolean(metadata.is_traveler),
     isPublic: metadata.is_public === false ? false : true,
     avatarUrl: typeof metadata.avatar_url === "string" ? metadata.avatar_url : "",
@@ -360,6 +372,7 @@ const buildProfileFromMetadata = (user: User): CargooUser => {
 
 const profileToMetadata = (profile: CargooUser) => ({
   name: profile.name,
+  locale: profile.locale,
   is_traveler: profile.isTraveler,
   is_public: profile.isPublic,
   avatar_url: profile.avatarUrl,
@@ -505,6 +518,7 @@ const mapProfileRow = (
     name: string;
     is_traveler: boolean;
     is_public: boolean;
+    locale?: string | null;
     avatar_url?: string | null;
     phone?: string | null;
     location?: string | null;
@@ -512,10 +526,12 @@ const mapProfileRow = (
   },
   email: string,
   fallbackAvatarUrl = "",
+  fallbackLocale: Locale = "es",
 ): CargooUser => ({
   userId: row.user_id,
   name: row.name,
   email,
+  locale: row.locale ? normalizeLocale(row.locale) : fallbackLocale,
   isTraveler: row.is_traveler,
   isPublic: row.is_public,
   avatarUrl: row.avatar_url ?? fallbackAvatarUrl,
@@ -788,6 +804,7 @@ const buildProfilePayload = (user: User) => {
   return {
     user_id: user.id,
     name: profile.name,
+    locale: profile.locale,
     is_traveler: profile.isTraveler,
     is_public: profile.isPublic,
     avatar_url: profile.avatarUrl,
@@ -800,12 +817,26 @@ const buildProfilePayload = (user: User) => {
 const upsertProfilePayload = async (payload: ReturnType<typeof buildProfilePayload>) => {
   const result = await supabase.from("cargoo_profiles").upsert(payload, { onConflict: "user_id" }).select("*").single();
 
-  if (!isMissingProfileAvatarColumn(result.error)) {
+  if (!isMissingProfileAvatarColumn(result.error) && !isMissingProfileLocaleColumn(result.error)) {
     return result;
   }
 
-  const { avatar_url: _avatarUrl, ...payloadWithoutAvatar } = payload;
-  return supabase.from("cargoo_profiles").upsert(payloadWithoutAvatar, { onConflict: "user_id" }).select("*").single();
+  let fallbackPayload: Omit<typeof payload, "avatar_url" | "locale"> & {
+    avatar_url?: string;
+    locale?: string;
+  } = { ...payload };
+
+  if (isMissingProfileAvatarColumn(result.error)) {
+    const { avatar_url: _avatarUrl, ...payloadWithoutAvatar } = fallbackPayload;
+    fallbackPayload = payloadWithoutAvatar;
+  }
+
+  if (isMissingProfileLocaleColumn(result.error)) {
+    const { locale: _locale, ...payloadWithoutLocale } = fallbackPayload;
+    fallbackPayload = payloadWithoutLocale;
+  }
+
+  return supabase.from("cargoo_profiles").upsert(fallbackPayload, { onConflict: "user_id" }).select("*").single();
 };
 
 const ensureProfile = async (user: User) => {
@@ -827,7 +858,7 @@ const ensureProfile = async (user: User) => {
       await upsertProfilePayload(buildProfilePayload(user));
     }
 
-    return mapProfileRow(data, user.email ?? "", buildProfileFromMetadata(user).avatarUrl);
+    return mapProfileRow(data, user.email ?? "", metadataProfile.avatarUrl, metadataProfile.locale);
   }
 
   const payload = buildProfilePayload(user);
@@ -843,7 +874,8 @@ const ensureProfile = async (user: User) => {
     throw mappedCreateError;
   }
 
-  return mapProfileRow(createdProfile, user.email ?? "", buildProfileFromMetadata(user).avatarUrl);
+  const metadataProfile = buildProfileFromMetadata(user);
+  return mapProfileRow(createdProfile, user.email ?? "", metadataProfile.avatarUrl, metadataProfile.locale);
 };
 
 export const loginUser = async (email: string, password: string) => {
@@ -863,13 +895,14 @@ export const loginUser = async (email: string, password: string) => {
   return ensureProfile(data.user);
 };
 
-export const registerUser = async ({ name, email, password, isTraveler, isPublic }: RegisterUserInput) => {
+export const registerUser = async ({ name, email, password, isTraveler, isPublic, locale }: RegisterUserInput) => {
   const { data, error } = await supabase.auth.signUp({
     email: email.trim().toLowerCase(),
     password,
     options: {
       data: {
         name,
+        locale,
         is_traveler: isTraveler,
         is_public: isPublic,
         phone: "",
@@ -914,10 +947,12 @@ export const updateCurrentUser = async (updates: Partial<CargooUser>) => {
     ...currentProfile,
     ...updates,
     email: updates.email?.trim().toLowerCase() ?? currentProfile.email,
+    locale: updates.locale ? normalizeLocale(updates.locale) : currentProfile.locale,
   };
 
   const nextUser = await updateUserMetadata({
     name: nextProfile.name,
+    locale: nextProfile.locale,
     is_traveler: nextProfile.isTraveler,
     is_public: nextProfile.isPublic,
     phone: nextProfile.phone,
@@ -928,6 +963,7 @@ export const updateCurrentUser = async (updates: Partial<CargooUser>) => {
   const payload = {
     user_id: nextUser.id,
     name: nextProfile.name,
+    locale: nextProfile.locale,
     is_traveler: nextProfile.isTraveler,
     is_public: nextProfile.isPublic,
     avatar_url: nextProfile.avatarUrl,
@@ -947,7 +983,7 @@ export const updateCurrentUser = async (updates: Partial<CargooUser>) => {
     throw mappedError;
   }
 
-  return mapProfileRow(data, nextProfile.email, nextProfile.avatarUrl);
+  return mapProfileRow(data, nextProfile.email, nextProfile.avatarUrl, nextProfile.locale);
 };
 
 export const uploadCurrentUserAvatar = async (file: File) => {
@@ -989,7 +1025,7 @@ export const uploadCurrentUserAvatar = async (file: File) => {
     throw mappedError;
   }
 
-  return mapProfileRow(data, nextUser.email ?? "", avatarUrl);
+  return mapProfileRow(data, nextUser.email ?? "", avatarUrl, buildProfileFromMetadata(nextUser).locale);
 };
 
 export const logoutUser = async () => {

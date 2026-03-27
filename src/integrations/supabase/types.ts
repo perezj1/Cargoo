@@ -109,6 +109,7 @@ export type Database = {
           created_at: string | null;
           is_public: boolean;
           is_traveler: boolean;
+          locale: string;
           location: string | null;
           name: string;
           phone: string | null;
@@ -121,6 +122,7 @@ export type Database = {
           created_at?: string | null;
           is_public?: boolean;
           is_traveler?: boolean;
+          locale?: string;
           location?: string | null;
           name: string;
           phone?: string | null;
@@ -133,6 +135,7 @@ export type Database = {
           created_at?: string | null;
           is_public?: boolean;
           is_traveler?: boolean;
+          locale?: string;
           location?: string | null;
           name?: string;
           phone?: string | null;

@@ -4,11 +4,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocale } from "@/contexts/LocaleContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getCurrentUser,
@@ -28,6 +30,7 @@ import { getNotificationPermissionState, removePushSubscription, syncPushSubscri
 const ProfilePage = () => {
   const navigate = useNavigate();
   const { refreshProfile } = useAuth();
+  const { intlLocale, messages } = useLocale();
   const [user, setUser] = useState<CargooUser | null>(null);
   const [trips, setTrips] = useState<CargooTrip[]>([]);
   const [savingVisibility, setSavingVisibility] = useState(false);
@@ -99,7 +102,7 @@ const ProfilePage = () => {
       const updatedUser = await updateCurrentUser({ isPublic: value });
       setUser(updatedUser);
       await refreshProfile();
-      toast.success("Visibilidad actualizada.");
+      toast.success(messages.appProfile.visibilityUpdated);
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
     } finally {
@@ -141,7 +144,7 @@ const ProfilePage = () => {
 
       setNotificationsEnabled(enabled);
       setNotificationPermission(getNotificationPermissionState());
-      toast.success(enabled ? "Notificaciones push activadas." : "Notificaciones push desactivadas.");
+      toast.success(enabled ? messages.appProfile.notificationsEnabledToast : messages.appProfile.notificationsDisabledToast);
     } catch (error) {
       setNotificationPermission(getNotificationPermissionState());
       toast.error(getFriendlyErrorMessage(error));
@@ -166,7 +169,7 @@ const ProfilePage = () => {
       const updatedUser = await uploadCurrentUserAvatar(file);
       setUser(updatedUser);
       await refreshProfile();
-      toast.success("Foto de perfil actualizada.");
+      toast.success(messages.appProfile.avatarUpdated);
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
     } finally {
@@ -196,17 +199,17 @@ const ProfilePage = () => {
 
   const menuItems = user.isTraveler
     ? [
-        { label: "Editar perfil", to: "/app/profile/edit", icon: Settings },
-        { label: "Mensajes", to: "/app/messages", icon: MessageSquare },
-        { label: "Mis viajes", to: "/app/trips", icon: Package },
+        { label: messages.appProfile.editProfile, to: "/app/profile/edit", icon: Settings },
+        { label: messages.appProfile.messages, to: "/app/messages", icon: MessageSquare },
+        { label: messages.appProfile.myTrips, to: "/app/trips", icon: Package },
       ]
-    : [{ label: "Editar perfil", to: "/app/profile/edit", icon: Settings }];
+    : [{ label: messages.appProfile.editProfile, to: "/app/profile/edit", icon: Settings }];
   const ratingLabel =
-    ratingSummary.averageRating !== null ? String(ratingSummary.averageRating.toFixed(1)).replace(".", ",") : "Nueva";
-  const ratingCaption =
     ratingSummary.averageRating !== null
-      ? `${ratingSummary.reviewsCount} valoracion(es)`
-      : "Sin valoraciones";
+      ? new Intl.NumberFormat(intlLocale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(ratingSummary.averageRating)
+      : messages.common.newLabel;
+  const ratingCaption =
+    ratingSummary.averageRating !== null ? messages.appProfile.reviewsCount(ratingSummary.reviewsCount) : messages.common.noReviewsYet;
 
   return (
     <div className="mx-auto max-w-lg px-4 pt-6">
@@ -221,7 +224,7 @@ const ProfilePage = () => {
             className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary shadow-lg"
             onClick={handleOpenAvatarPicker}
             disabled={uploadingAvatar}
-            aria-label="Cambiar foto de perfil"
+            aria-label={messages.appProfile.changeAvatar}
           >
             <Camera className="h-4 w-4 text-primary-foreground" />
           </button>
@@ -242,7 +245,7 @@ const ProfilePage = () => {
           <div className="mt-3 flex items-center justify-center gap-4">
             <div className="text-center">
               <p className="text-lg font-bold">{stats.totalTrips}</p>
-              <p className="text-[10px] text-muted-foreground">Viajes</p>
+              <p className="text-[10px] text-muted-foreground">{messages.appProfile.trips}</p>
             </div>
             <Separator orientation="vertical" className="h-8" />
             <div className="text-center">
@@ -254,7 +257,7 @@ const ProfilePage = () => {
             <Separator orientation="vertical" className="h-8" />
             <div className="text-center">
               <p className="text-lg font-bold">{stats.pendingRequests}</p>
-              <p className="text-[10px] text-muted-foreground">Solicitudes</p>
+              <p className="text-[10px] text-muted-foreground">{messages.appProfile.requests}</p>
             </div>
           </div>
         ) : null}
@@ -266,8 +269,8 @@ const ProfilePage = () => {
             <div className="flex items-center gap-3">
               {user.isPublic ? <Globe className="h-5 w-5 text-primary" /> : <EyeOff className="h-5 w-5 text-muted-foreground" />}
               <div>
-                <p className="text-sm font-medium">Perfil {user.isPublic ? "publico" : "privado"}</p>
-                <p className="text-xs text-muted-foreground">{user.isPublic ? "Visible para todos" : "Solo usuarios registrados"}</p>
+                <p className="text-sm font-medium">{user.isPublic ? messages.appProfile.profilePublic : messages.appProfile.profilePrivate}</p>
+                <p className="text-xs text-muted-foreground">{user.isPublic ? messages.appProfile.visibleToAll : messages.appProfile.visibleToRegistered}</p>
               </div>
             </div>
             <Switch checked={user.isPublic} onCheckedChange={handleVisibilityChange} disabled={savingVisibility} />
@@ -278,10 +281,8 @@ const ProfilePage = () => {
           <div className="flex items-center gap-3">
             <Settings className="h-5 w-5 text-primary" />
             <div>
-              <p className="text-sm font-medium">Ajustes de cuenta</p>
-              <p className="text-xs text-muted-foreground">
-                Aqui puedes cambiar tu foto de perfil y editar la informacion de tu cuenta.
-              </p>
+              <p className="text-sm font-medium">{messages.appProfile.accountSettings}</p>
+              <p className="text-xs text-muted-foreground">{messages.appProfile.accountSettingsDescription}</p>
             </div>
           </div>
         </div>
@@ -292,25 +293,29 @@ const ProfilePage = () => {
           <Badge className="bg-success px-2 text-[10px] text-success-foreground">OK</Badge>
         </div>
         <div>
-          <p className="text-sm font-medium">{user.isTraveler ? "Identidad verificada" : "Cuenta activa"}</p>
+          <p className="text-sm font-medium">{user.isTraveler ? messages.appProfile.verifiedIdentity : messages.appProfile.activeAccount}</p>
           <p className="text-xs text-muted-foreground">
-            {user.isTraveler
-              ? "Cuenta conectada a Supabase y datos guardados en la base"
-              : "Tu cuenta esta conectada y lista para usar la app con normalidad."}
+            {user.isTraveler ? messages.appProfile.verifiedDescription : messages.appProfile.activeDescription}
           </p>
         </div>
       </div>
 
       <div className="mb-4 rounded-xl bg-card p-4 shadow-card">
+        <p className="text-sm font-medium">{messages.appProfile.languageTitle}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{messages.appProfile.languageDescription}</p>
+        <LanguageSwitcher compact className="mt-3 w-full" />
+      </div>
+
+      <div className="mb-4 rounded-xl bg-card p-4 shadow-card">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium">Notificaciones push</p>
+            <p className="text-sm font-medium">{messages.appProfile.notificationsTitle}</p>
             <p className="text-xs text-muted-foreground">
               {notificationPermission === "granted"
-                ? "Recibe avisos de mensajes, checkpoints y entregas."
+                ? messages.appProfile.notificationsEnabledDescription
                 : notificationPermission === "denied"
-                  ? "El navegador ha bloqueado los permisos. Tienes que reactivarlos en la configuracion del sitio."
-                  : "Recibe avisos de mensajes, checkpoints y entregas al activar esta opcion."}
+                  ? messages.appProfile.notificationsDeniedDescription
+                  : messages.appProfile.notificationsDefaultDescription}
             </p>
           </div>
           <Switch checked={notificationsEnabled} onCheckedChange={handleNotificationsChange} disabled={savingNotifications} />
@@ -339,7 +344,7 @@ const ProfilePage = () => {
         onClick={handleLogout}
       >
         <LogOut className="h-4 w-4" />
-        Cerrar sesion
+        {messages.appProfile.logout}
       </Button>
     </div>
   );

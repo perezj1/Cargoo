@@ -1,6 +1,7 @@
 import { Download, Plus, Share, Smartphone } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -16,6 +17,7 @@ const IOS_SEEN_KEY = "cargoo-install-prompt-ios-seen";
 const ANDROID_SEEN_KEY = "cargoo-install-prompt-android-seen";
 
 const AppInstallPrompt = ({ enabled }: { enabled: boolean }) => {
+  const { messages } = useLocale();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [open, setOpen] = useState(false);
   const [installing, setInstalling] = useState(false);
@@ -113,41 +115,39 @@ const AppInstallPrompt = ({ enabled }: { enabled: boolean }) => {
             <Smartphone className="h-6 w-6" />
           </div>
           <DialogHeader>
-            <DialogTitle className="text-xl">Instala Cargoo en tu movil</DialogTitle>
-            <DialogDescription>
-              Ten la app siempre a mano para seguir envios, hablar con transportistas y recibir actualizaciones mas rapido.
-            </DialogDescription>
+            <DialogTitle className="text-xl">{messages.installPrompt.title}</DialogTitle>
+            <DialogDescription>{messages.installPrompt.description}</DialogDescription>
           </DialogHeader>
         </div>
 
         <div className="space-y-4 px-6 pb-6 pt-2">
           {platform.isIos ? (
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p className="font-medium text-foreground">En iPhone o iPad se instala desde Safari en dos pasos:</p>
+              <p className="font-medium text-foreground">{messages.installPrompt.iosIntro}</p>
               <div className="rounded-xl border border-border bg-background px-4 py-3">
                 <div className="flex items-center gap-2 font-medium text-foreground">
                   <Share className="h-4 w-4 text-primary" />
-                  1. Pulsa Compartir
+                  {messages.installPrompt.iosStep1Title}
                 </div>
-                <p className="mt-1">Toca el simbolo de compartir en la barra de Safari.</p>
+                <p className="mt-1">{messages.installPrompt.iosStep1Text}</p>
               </div>
               <div className="rounded-xl border border-border bg-background px-4 py-3">
                 <div className="flex items-center gap-2 font-medium text-foreground">
                   <Plus className="h-4 w-4 text-primary" />
-                  2. Agregar a la pantalla de inicio
+                  {messages.installPrompt.iosStep2Title}
                 </div>
-                <p className="mt-1">Despues confirma para tener Cargoo como app en tu pantalla de inicio.</p>
+                <p className="mt-1">{messages.installPrompt.iosStep2Text}</p>
               </div>
             </div>
           ) : (
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p className="font-medium text-foreground">Instala Cargoo en Android para abrirla como app y entrar mas rapido.</p>
+              <p className="font-medium text-foreground">{messages.installPrompt.androidIntro}</p>
               <div className="rounded-xl border border-border bg-background px-4 py-3">
                 <div className="flex items-center gap-2 font-medium text-foreground">
                   <Download className="h-4 w-4 text-primary" />
-                  Instalacion directa
+                  {messages.installPrompt.androidDirectTitle}
                 </div>
-                <p className="mt-1">Pulsa el boton de abajo y Android te ofrecera instalar Cargoo.</p>
+                <p className="mt-1">{messages.installPrompt.androidDirectText}</p>
               </div>
             </div>
           )}
@@ -156,11 +156,11 @@ const AppInstallPrompt = ({ enabled }: { enabled: boolean }) => {
             {platform.isAndroid ? (
               <Button className="w-full gap-2" size="lg" onClick={() => void handleInstall()} disabled={installing}>
                 <Download className="h-4 w-4" />
-                {installing ? "Instalando..." : "Instalar"}
+                {installing ? messages.installPrompt.installing : messages.installPrompt.install}
               </Button>
             ) : null}
             <Button variant="outline" className="w-full" onClick={closePrompt}>
-              Ahora no
+              {messages.installPrompt.later}
             </Button>
           </DialogFooter>
         </div>

@@ -2,15 +2,17 @@ import { Calendar, CarFront, MapPin, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
+import { useLocale } from "@/contexts/LocaleContext";
 import type { Traveler } from "@/lib/mock-travelers";
 
 const TravelerCard = ({ traveler }: { traveler: Traveler }) => {
+  const { intlLocale, messages } = useLocale();
   const initials = traveler.name
     .split(" ")
     .map((namePart) => namePart[0])
     .join("");
 
-  const formattedDate = new Date(traveler.date).toLocaleDateString("es-ES", {
+  const formattedDate = new Date(traveler.date).toLocaleDateString(intlLocale, {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -30,15 +32,15 @@ const TravelerCard = ({ traveler }: { traveler: Traveler }) => {
             <h3 className="truncate font-semibold text-card-foreground">{traveler.name}</h3>
             {traveler.isPublic ? (
               <Badge variant="secondary" className="shrink-0 text-xs">
-                Publico
+                {messages.travelerCard.public}
               </Badge>
             ) : null}
           </div>
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
             <Star className="h-3.5 w-3.5 fill-accent text-accent" />
             <span>{traveler.rating}</span>
-            <span className="mx-1">·</span>
-            <span>{traveler.trips} viajes</span>
+            <span className="mx-1">&middot;</span>
+            <span>{messages.travelerCard.trips(traveler.trips)}</span>
           </div>
         </div>
       </div>
@@ -47,7 +49,7 @@ const TravelerCard = ({ traveler }: { traveler: Traveler }) => {
         <div className="flex items-center gap-2 text-sm">
           <MapPin className="h-4 w-4 shrink-0 text-primary" />
           <span className="text-card-foreground">{traveler.origin}</span>
-          <span className="text-muted-foreground">→</span>
+          <span className="text-muted-foreground">-&gt;</span>
           <span className="text-card-foreground">{traveler.destination}</span>
         </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -57,7 +59,7 @@ const TravelerCard = ({ traveler }: { traveler: Traveler }) => {
           </div>
           <div className="flex items-center gap-1.5">
             <CarFront className="h-4 w-4" />
-            <span>{traveler.capacity} disponibles</span>
+            <span>{messages.travelerCard.available(traveler.capacity)}</span>
           </div>
         </div>
       </div>

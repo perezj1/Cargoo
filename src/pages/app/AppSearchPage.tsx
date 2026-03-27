@@ -7,11 +7,13 @@ import PublicTripCard from "@/components/PublicTripCard";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocale } from "@/contexts/LocaleContext";
 import { matchesPublicTripRoute } from "@/lib/public-trip-search";
 import { getFriendlyErrorMessage, getPublicTripListings, type PublicTripListing } from "@/lib/cargoo-store";
 
 const AppSearchPage = () => {
   const { loading: authLoading, profile, profileLoading } = useAuth();
+  const { messages } = useLocale();
   const [searchParams] = useSearchParams();
   const [origin, setOrigin] = useState(searchParams.get("origin") || "");
   const [destination, setDestination] = useState(searchParams.get("destination") || "");
@@ -63,13 +65,13 @@ const AppSearchPage = () => {
 
   return (
     <div className="mx-auto max-w-lg px-4 pt-6">
-      <h1 className="mb-6 text-2xl font-display font-bold">Buscar transportistas</h1>
+      <h1 className="mb-6 text-2xl font-display font-bold">{messages.searchPage.title}</h1>
 
       <div className="mb-6 flex flex-col gap-3">
         <div className="flex flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3">
           <MapPin className="h-4 w-4 shrink-0 text-primary" />
           <Input
-            placeholder="Origen"
+            placeholder={messages.searchPage.originPlaceholder}
             className="border-0 bg-transparent shadow-none focus-visible:ring-0"
             value={origin}
             onChange={(event) => setOrigin(event.target.value)}
@@ -78,7 +80,7 @@ const AppSearchPage = () => {
         <div className="flex flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3">
           <MapPin className="h-4 w-4 shrink-0 text-accent" />
           <Input
-            placeholder="Destino"
+            placeholder={messages.searchPage.destinationPlaceholder}
             className="border-0 bg-transparent shadow-none focus-visible:ring-0"
             value={destination}
             onChange={(event) => setDestination(event.target.value)}
@@ -87,23 +89,20 @@ const AppSearchPage = () => {
         <Select value={sortBy} onValueChange={setSortBy}>
           <SelectTrigger className="w-full bg-card">
             <Filter className="mr-2 h-4 w-4" />
-            <SelectValue placeholder="Ordenar por" />
+            <SelectValue placeholder={messages.searchPage.sortPlaceholder} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="date">Fecha mas proxima</SelectItem>
-            <SelectItem value="capacity">Mas espacio</SelectItem>
-            <SelectItem value="trips">Mas viajes</SelectItem>
+            <SelectItem value="date">{messages.searchPage.sortDate}</SelectItem>
+            <SelectItem value="capacity">{messages.searchPage.sortCapacity}</SelectItem>
+            <SelectItem value="trips">{messages.searchPage.sortTrips}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <p className="mb-6 text-sm text-muted-foreground">
-        {loading ? "Buscando transportistas..." : `${filtered.length} transportistas encontrados`}
+        {loading ? messages.searchPage.loading : messages.searchPage.resultsFound(filtered.length)}
       </p>
-      <p className="-mt-3 mb-6 text-xs text-muted-foreground">
-        El buscador tambien tiene en cuenta ciudades intermedias del itinerario donde el transportista ha indicado que
-        puede parar.
-      </p>
+      <p className="-mt-3 mb-6 text-xs text-muted-foreground">{messages.searchPage.routeHint}</p>
 
       {loading ? (
         <div className="flex min-h-[40vh] items-center justify-center">
@@ -118,8 +117,8 @@ const AppSearchPage = () => {
       ) : (
         <div className="py-20 text-center">
           <Search className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-          <h3 className="mb-2 text-xl font-display font-semibold">No se encontraron transportistas</h3>
-          <p className="text-muted-foreground">Intenta con otra ruta o fecha</p>
+          <h3 className="mb-2 text-xl font-display font-semibold">{messages.searchPage.emptyTitle}</h3>
+          <p className="text-muted-foreground">{messages.searchPage.emptyDescription}</p>
         </div>
       )}
     </div>

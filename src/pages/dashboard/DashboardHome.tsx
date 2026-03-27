@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocale } from "@/contexts/LocaleContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
   advanceTripToNextStop,
@@ -26,14 +27,9 @@ import {
   type TravelerRatingSummary,
 } from "@/lib/cargoo-store";
 
-const shipmentStatusConfig = {
-  pending: { label: "Por cargar", className: "border-warning/20 bg-warning/10 text-warning" },
-  accepted: { label: "En ruta", className: "border-primary/20 bg-primary/10 text-primary" },
-  delivered: { label: "Entregado", className: "border-success/20 bg-success/10 text-success" },
-} as const;
-
 const DashboardHome = () => {
   const { loading: authLoading, profile, profileLoading } = useAuth();
+  const { intlLocale, messages } = useLocale();
   const [trips, setTrips] = useState<CargooTrip[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [shipments, setShipments] = useState<ShipmentSummary[]>([]);
@@ -47,6 +43,11 @@ const DashboardHome = () => {
   const [loadingShipmentConversationId, setLoadingShipmentConversationId] = useState<string | null>(null);
   const [searchOrigin, setSearchOrigin] = useState("");
   const [searchDestination, setSearchDestination] = useState("");
+  const shipmentStatusConfig = {
+    pending: { label: messages.shipmentStatus.pending, className: "border-warning/20 bg-warning/10 text-warning" },
+    accepted: { label: messages.shipmentStatus.accepted, className: "border-primary/20 bg-primary/10 text-primary" },
+    delivered: { label: messages.shipmentStatus.delivered, className: "border-success/20 bg-success/10 text-success" },
+  } as const;
 
   const loadDashboardData = async () => {
     if (!profile) {
@@ -152,27 +153,29 @@ const DashboardHome = () => {
     .join("")
     .slice(0, 2);
   const ratingValue =
-    ratingSummary.averageRating !== null ? String(ratingSummary.averageRating.toFixed(1)).replace(".", ",") : "Nueva";
+    ratingSummary.averageRating !== null
+      ? new Intl.NumberFormat(intlLocale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(ratingSummary.averageRating)
+      : messages.common.newLabel;
 
   const cards = profile.isTraveler
     ? [
-        { label: "Viajes activos", value: String(stats.activeTrips), icon: CarFront, color: "text-primary", to: "/app/trips" },
-        { label: "Capacidad", value: `${stats.totalCapacityKg} kg`, icon: Package, color: "text-accent", to: "/app/trips" },
-        { label: "Solicitudes", value: String(stats.pendingRequests), icon: MessageSquare, color: "text-primary", to: "/app/messages" },
-        { label: "Valoracion", value: ratingValue, icon: Star, color: "text-warning", to: "/app/profile" },
+        { label: messages.dashboardHome.travelerCards.activeTrips, value: String(stats.activeTrips), icon: CarFront, color: "text-primary", to: "/app/trips" },
+        { label: messages.dashboardHome.travelerCards.capacity, value: `${stats.totalCapacityKg} kg`, icon: Package, color: "text-accent", to: "/app/trips" },
+        { label: messages.dashboardHome.travelerCards.requests, value: String(stats.pendingRequests), icon: MessageSquare, color: "text-primary", to: "/app/messages" },
+        { label: messages.dashboardHome.travelerCards.rating, value: ratingValue, icon: Star, color: "text-warning", to: "/app/profile" },
       ]
     : [
-        { label: "En ruta", value: String(shipmentCounts.accepted), icon: Truck, color: "text-primary", to: "/app/shipments?tab=active" },
-        { label: "Entregados", value: String(shipmentCounts.delivered), icon: CheckCircle2, color: "text-success", to: "/app/shipments?tab=delivered" },
-        { label: "Por valorar", value: String(shipmentCounts.reviewPending), icon: Star, color: "text-warning", to: "/app/shipments?tab=delivered" },
-        { label: "Mensajes", value: String(unreadMessages), icon: MessageSquare, color: "text-accent", to: "/app/messages" },
+        { label: messages.dashboardHome.senderCards.accepted, value: String(shipmentCounts.accepted), icon: Truck, color: "text-primary", to: "/app/shipments?tab=active" },
+        { label: messages.dashboardHome.senderCards.delivered, value: String(shipmentCounts.delivered), icon: CheckCircle2, color: "text-success", to: "/app/shipments?tab=delivered" },
+        { label: messages.dashboardHome.senderCards.reviewPending, value: String(shipmentCounts.reviewPending), icon: Star, color: "text-warning", to: "/app/shipments?tab=delivered" },
+        { label: messages.dashboardHome.senderCards.messages, value: String(unreadMessages), icon: MessageSquare, color: "text-accent", to: "/app/messages" },
       ];
 
   const primaryAction = profile.isTraveler
-    ? { to: "/app/trips/new", label: "Publicar nuevo viaje", icon: Plus }
-    : { to: "/app/search", label: "Buscar transportistas", icon: Search };
+    ? { to: "/app/trips/new", label: messages.dashboardHome.publishTrip, icon: Plus }
+    : { to: "/app/search", label: messages.dashboardHome.findCarriers, icon: Search };
   const PrimaryActionIcon = primaryAction.icon;
-  const sectionTitle = profile.isTraveler ? "Contactos recientes" : "Mis envios recientes";
+  const sectionTitle = profile.isTraveler ? messages.dashboardHome.recentContacts : messages.dashboardHome.recentShipments;
   const sectionLink = profile.isTraveler ? "/app/messages" : "/app/shipments";
   const activeRouteSummary = activeTripDetails?.stops.map((stop) => stop.city).join(" -> ") ?? "";
   const shouldOpenPendingPackages = profile.isTraveler && activeTripDetails && !activeTripDetails.nextStop && activeTripDetails.status === "active";
@@ -205,10 +208,10 @@ const DashboardHome = () => {
       setActiveTripDetails(nextActiveTripDetails);
       toast.success(
         updatedTrip.nextStop
-          ? `Checkpoint guardado. Proxima ciudad: ${updatedTrip.nextStop.city}.`
+          ? messages.dashboardHome.checkpointSaved(updatedTrip.nextStop.city)
           : updatedTrip.status === "completed"
-            ? `Viaje completado. Has llegado a ${updatedTrip.destination}.`
-            : `Has llegado a ${updatedTrip.destination}. Falta marcar los paquetes entregados.`,
+            ? messages.dashboardHome.tripCompleted(updatedTrip.destination)
+            : messages.dashboardHome.destinationReached(updatedTrip.destination),
       );
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
@@ -222,7 +225,7 @@ const DashboardHome = () => {
 
     try {
       await markConversationPackageLoaded(conversationId);
-      toast.success("Paquete cargado. El seguimiento ya esta activo.");
+      toast.success(messages.dashboardHome.packageLoadedSuccess);
       await loadDashboardData();
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
@@ -235,7 +238,7 @@ const DashboardHome = () => {
     <div className="mx-auto max-w-lg px-4 pt-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Hola,</p>
+          <p className="text-sm text-muted-foreground">{messages.dashboardHome.greeting}</p>
           <h1 className="text-2xl font-display font-bold">{profile.name}</h1>
           <p className="text-sm text-muted-foreground">{profile.location}</p>
         </div>
@@ -249,11 +252,11 @@ const DashboardHome = () => {
 
       {!profile.isTraveler ? (
         <div className="mb-6 space-y-3">
-          <h2 className="text-xl font-display font-semibold">Buscar transportistas</h2>
+          <h2 className="text-xl font-display font-semibold">{messages.dashboardHome.searchCarriersTitle}</h2>
           <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3">
             <MapPin className="h-4 w-4 shrink-0 text-primary" />
             <Input
-              placeholder="Origen"
+              placeholder={messages.dashboardHome.originPlaceholder}
               className="border-0 bg-transparent shadow-none focus-visible:ring-0"
               value={searchOrigin}
               onChange={(event) => setSearchOrigin(event.target.value)}
@@ -262,7 +265,7 @@ const DashboardHome = () => {
           <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3">
             <MapPin className="h-4 w-4 shrink-0 text-accent" />
             <Input
-              placeholder="Destino"
+              placeholder={messages.dashboardHome.destinationPlaceholder}
               className="border-0 bg-transparent shadow-none focus-visible:ring-0"
               value={searchDestination}
               onChange={(event) => setSearchDestination(event.target.value)}
@@ -271,7 +274,7 @@ const DashboardHome = () => {
           <Button asChild className="w-full gap-2" size="lg">
             <Link to={emitterSearchLink}>
               <Search className="h-4 w-4" />
-              Buscar
+              {messages.dashboardHome.searchButton}
             </Link>
           </Button>
         </div>
@@ -300,12 +303,12 @@ const DashboardHome = () => {
         <div className="mb-6 rounded-xl border border-primary/15 bg-primary/5 p-5 shadow-card">
           <div className="flex items-center gap-2 text-foreground">
             <Route className="h-4 w-4 text-primary" />
-            <span className="font-medium">Ruta publicada</span>
+            <span className="font-medium">{messages.dashboardHome.routePublished}</span>
           </div>
           <p className="mt-3 text-sm text-muted-foreground">{activeRouteSummary}</p>
           {shouldOpenPendingPackages ? (
             <Button asChild className="mt-4 w-full" size="lg">
-              <Link to={`/app/trips/${activeTripDetails.id}#paquetes-pendientes`}>Entrega los paquetes pendientes</Link>
+              <Link to={`/app/trips/${activeTripDetails.id}#paquetes-pendientes`}>{messages.dashboardHome.deliverPendingShipments}</Link>
             </Button>
           ) : (
             <Button
@@ -315,20 +318,16 @@ const DashboardHome = () => {
               disabled={advancingTrip || !activeTripDetails.nextStop || !activeTripDetails.trackingAvailable}
             >
               {advancingTrip
-                ? "Guardando checkpoint..."
+                ? messages.dashboardHome.savingCheckpoint
                 : activeTripDetails.nextStop
-                  ? `Llegue a ${activeTripDetails.nextStop.city}`
-                  : "No quedan ciudades pendientes"}
+                  ? messages.dashboardHome.arrivedAt(activeTripDetails.nextStop.city)
+                  : messages.dashboardHome.noPendingCities}
             </Button>
           )}
           {!activeTripDetails.trackingAvailable ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              El seguimiento por ciudades necesita la migracion nueva de Supabase para activarse.
-            </p>
+            <p className="mt-3 text-xs text-muted-foreground">{messages.dashboardHome.trackingNeedsMigration}</p>
           ) : !activeTripDetails.nextStop && activeTripDetails.status === "active" ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Ya has llegado al destino. El viaje se cerrara cuando todos los paquetes esten marcados como entregados.
-            </p>
+            <p className="mt-3 text-xs text-muted-foreground">{messages.dashboardHome.destinationReachedPendingShipments}</p>
           ) : null}
         </div>
       ) : null}
@@ -337,7 +336,7 @@ const DashboardHome = () => {
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-display font-semibold">{sectionTitle}</h2>
           <Link to={sectionLink} className="flex items-center gap-1 text-xs font-medium text-primary">
-            Ver todo <ArrowRight className="h-3 w-3" />
+            {messages.dashboardHome.viewAll} <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
         <div className="space-y-3">
@@ -364,7 +363,7 @@ const DashboardHome = () => {
                     <p className="mt-0.5 text-[10px] text-primary/70">
                       {conversation.routeOrigin && conversation.routeDestination
                         ? `${conversation.routeOrigin} -> ${conversation.routeDestination}`
-                        : "Chat directo"}
+                        : messages.dashboardHome.directChat}
                     </p>
                   </div>
                   {conversation.unreadCount > 0 ? (
@@ -393,10 +392,10 @@ const DashboardHome = () => {
                       </div>
                       <p className="mt-3 text-xs text-muted-foreground">
                         {shipment.status === "pending"
-                          ? "Transporte elegido. Falta confirmar cuando el paquete ya este cargado."
+                          ? messages.dashboardHome.selectedTransportPending
                           : shipment.nextCheckpointCity
-                            ? `Ahora en ${shipment.currentCheckpointCity}. Siguiente: ${shipment.nextCheckpointCity}.`
-                            : `Ultimo checkpoint: ${shipment.currentCheckpointCity}.`}
+                            ? messages.dashboardHome.nowInCheckpoint(shipment.currentCheckpointCity, shipment.nextCheckpointCity)
+                            : messages.dashboardHome.lastCheckpoint(shipment.currentCheckpointCity)}
                       </p>
                     </Link>
 
@@ -407,7 +406,7 @@ const DashboardHome = () => {
                         onClick={() => void handleMarkPackageLoaded(shipment.conversationId)}
                         disabled={loadingShipmentConversationId === shipment.conversationId}
                       >
-                        {loadingShipmentConversationId === shipment.conversationId ? "Activando..." : "Paquete cargado"}
+                        {loadingShipmentConversationId === shipment.conversationId ? messages.shipmentsPage.activating : messages.shipmentsPage.packageLoaded}
                       </Button>
                     ) : null}
                   </div>
@@ -417,8 +416,8 @@ const DashboardHome = () => {
           {(profile.isTraveler ? conversations.length === 0 : shipments.length === 0) ? (
             <div className="rounded-xl bg-card p-4 text-sm text-muted-foreground shadow-card">
               {profile.isTraveler
-                ? "Todavia no tienes conversaciones activas. Cuando alguien te escriba desde una ficha publica aparecera aqui."
-                : "Todavia no has elegido ningun transporte. Busca un transportista, habla con el y cuando te encaje pulsa en 'Elegir este transporte'."}
+                ? messages.dashboardHome.noTravelerConversations
+                : messages.dashboardHome.noSenderShipments}
             </div>
           ) : null}
         </div>

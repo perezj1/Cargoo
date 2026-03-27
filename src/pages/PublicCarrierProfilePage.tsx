@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocale } from "@/contexts/LocaleContext";
 import {
   createShipmentRequest,
   getFriendlyErrorMessage,
@@ -32,6 +33,7 @@ const PublicCarrierProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [startingChat, setStartingChat] = useState(false);
   const [selectingTripId, setSelectingTripId] = useState("");
+  const { intlLocale, messages } = useLocale();
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -76,9 +78,11 @@ const PublicCarrierProfilePage = () => {
   const whatsappPhone = profile?.phone.replace(/[^\d]/g, "") ?? "";
   const ratingLabel =
     profile?.averageRating !== null && profile?.averageRating !== undefined
-      ? String(profile.averageRating.toFixed(1)).replace(".", ",")
-      : "Nueva";
-  const ratingCaption = profile?.reviewsCount ? `${profile.reviewsCount} valoracion(es)` : "Sin valoraciones todavia";
+      ? new Intl.NumberFormat(intlLocale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(profile.averageRating)
+      : messages.common.newLabel;
+  const ratingCaption = profile?.reviewsCount
+    ? messages.publicProfile.reviewsCount(profile.reviewsCount)
+    : messages.publicProfile.noReviewsYet;
 
   const handleStartChat = async (tripId?: string) => {
     if (!profile) {
@@ -88,7 +92,7 @@ const PublicCarrierProfilePage = () => {
     const tripToUse = orderedTrips.find((trip) => trip.id === tripId) ?? activeTrip;
 
     if (isOwnProfile) {
-      toast.error("No puedes abrir un chat contigo mismo.");
+      toast.error(messages.publicProfile.ownChatError);
       return;
     }
 
@@ -130,12 +134,12 @@ const PublicCarrierProfilePage = () => {
 
     const tripToUse = orderedTrips.find((trip) => trip.id === tripId) ?? activeTrip;
     if (!tripToUse) {
-      toast.error("Selecciona primero una ruta visible.");
+      toast.error(messages.publicProfile.selectVisibleRoute);
       return;
     }
 
     if (isOwnProfile) {
-      toast.error("No puedes elegir tu propio transporte.");
+      toast.error(messages.publicProfile.ownTransportError);
       return;
     }
 
@@ -159,7 +163,7 @@ const PublicCarrierProfilePage = () => {
       });
 
       await createShipmentRequest(conversation.id);
-      toast.success("Transporte elegido. Cuando cargueis el paquete, podras confirmarlo desde el chat.");
+      toast.success(messages.publicProfile.chooseTransportSuccess);
       navigate(`/app/messages/${conversation.id}`);
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
@@ -200,17 +204,15 @@ const PublicCarrierProfilePage = () => {
         <main className="flex-1 pt-16">
           <div className="container py-8">
             <button onClick={() => navigate(-1)} className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
-              <ArrowLeft className="h-4 w-4" /> Volver
+              <ArrowLeft className="h-4 w-4" /> {messages.common.back}
             </button>
 
             <Card className="shadow-card">
               <CardContent className="p-6 text-center">
-                <h1 className="mb-2 text-2xl font-display font-bold">Ficha no disponible</h1>
-                <p className="mb-4 text-sm text-muted-foreground">
-                  Este perfil ya no es publico o no tiene viajes visibles en este momento.
-                </p>
+                <h1 className="mb-2 text-2xl font-display font-bold">{messages.publicProfile.unavailableTitle}</h1>
+                <p className="mb-4 text-sm text-muted-foreground">{messages.publicProfile.unavailableDescription}</p>
                 <Button asChild>
-                  <Link to="/search">Volver a buscar</Link>
+                  <Link to="/search">{messages.publicProfile.backToSearch}</Link>
                 </Button>
               </CardContent>
             </Card>
@@ -228,7 +230,7 @@ const PublicCarrierProfilePage = () => {
         <div className="bg-secondary py-8">
           <div className="container">
             <button onClick={() => navigate(-1)} className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
-              <ArrowLeft className="h-4 w-4" /> Volver
+              <ArrowLeft className="h-4 w-4" /> {messages.common.back}
             </button>
 
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -246,7 +248,7 @@ const PublicCarrierProfilePage = () => {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h1 className="text-3xl font-display font-bold">{profile.name}</h1>
-                    <Badge variant="secondary">Perfil publico</Badge>
+                    <Badge variant="secondary">{messages.publicProfile.publicProfileBadge}</Badge>
                   </div>
                   <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
                     <MapPin className="h-4 w-4" />
@@ -265,37 +267,37 @@ const PublicCarrierProfilePage = () => {
 
               <Card className="w-full max-w-md shadow-card">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Contacto del transportista</CardTitle>
+                  <CardTitle className="text-lg">{messages.publicProfile.contactTitle}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="rounded-xl bg-secondary p-4 text-sm">
-                    <p className="font-medium text-foreground">Telefono o WhatsApp</p>
-                    <p className="mt-2 text-muted-foreground">{profile.phone || "Todavia no ha indicado un contacto directo."}</p>
+                    <p className="font-medium text-foreground">{messages.publicProfile.phoneLabel}</p>
+                    <p className="mt-2 text-muted-foreground">{profile.phone || messages.publicProfile.noDirectContact}</p>
                   </div>
 
                   {profile.phone ? (
                     <div className="flex flex-col gap-3">
                       <Button size="lg" className="w-full gap-2" onClick={() => void handleStartChat()} disabled={startingChat || isOwnProfile}>
                         <MessageCircle className="h-4 w-4" />
-                        {isOwnProfile ? "Es tu propia ficha" : startingChat ? "Abriendo chat..." : "Escribir por la app"}
+                        {isOwnProfile ? messages.publicProfile.ownProfile : startingChat ? messages.publicProfile.openingChat : messages.publicProfile.openChat}
                       </Button>
                       <Button asChild size="lg" className="w-full gap-2">
                         <a href={`tel:${digitsOnlyPhone}`}>
                           <Phone className="h-4 w-4" />
-                          Llamar
+                          {messages.publicProfile.call}
                         </a>
                       </Button>
                       <Button asChild variant="outline" size="lg" className="w-full gap-2">
                         <a href={`https://wa.me/${whatsappPhone}`} target="_blank" rel="noreferrer">
                           <MessageCircle className="h-4 w-4" />
-                          Abrir WhatsApp
+                          {messages.publicProfile.openWhatsApp}
                         </a>
                       </Button>
                     </div>
                   ) : (
                     <Button size="lg" className="w-full gap-2" onClick={() => void handleStartChat()} disabled={startingChat || isOwnProfile}>
                       <MessageCircle className="h-4 w-4" />
-                      {isOwnProfile ? "Es tu propia ficha" : startingChat ? "Abriendo chat..." : "Escribir por la app"}
+                      {isOwnProfile ? messages.publicProfile.ownProfile : startingChat ? messages.publicProfile.openingChat : messages.publicProfile.openChat}
                     </Button>
                   )}
                 </CardContent>
@@ -307,18 +309,18 @@ const PublicCarrierProfilePage = () => {
         <div className="container py-8">
           <div className="mb-6 flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-display font-bold">Viajes visibles</h2>
-              <p className="text-sm text-muted-foreground">{orderedTrips.length} ruta(s) publicadas por este transportista</p>
+              <h2 className="text-2xl font-display font-bold">{messages.publicProfile.visibleTripsTitle}</h2>
+              <p className="text-sm text-muted-foreground">{messages.publicProfile.visibleTripsCount(orderedTrips.length)}</p>
             </div>
             <Badge variant="outline" className="bg-card">
               <CarFront className="mr-1 h-3.5 w-3.5" />
-              {profile.isTraveler ? "Transportista" : "Perfil Cargoo"}
+              {profile.isTraveler ? messages.common.travelerBadge : "Cargoo"}
             </Badge>
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {orderedTrips.map((trip) => {
-              const formattedDate = new Date(trip.date).toLocaleDateString("es-ES", {
+              const formattedDate = new Date(trip.date).toLocaleDateString(intlLocale, {
                 day: "numeric",
                 month: "short",
                 year: "numeric",
@@ -336,7 +338,7 @@ const PublicCarrierProfilePage = () => {
                         <span>{trip.destination}</span>
                       </div>
                       {isSelected ? (
-                        <Badge className="shrink-0">Ruta seleccionada</Badge>
+                        <Badge className="shrink-0">{messages.publicProfile.selectedRoute}</Badge>
                       ) : null}
                     </div>
 
@@ -347,13 +349,13 @@ const PublicCarrierProfilePage = () => {
                       </span>
                       <span className="flex items-center gap-1.5">
                         <Package className="h-4 w-4" />
-                        {trip.availableKg}/{trip.capacityKg} kg libres
+                        {messages.publicProfile.availableKg(trip.availableKg, trip.capacityKg)}
                       </span>
                     </div>
 
                     {trip.stopCities.length > 0 ? (
                       <div className="mb-3 rounded-xl bg-secondary p-3 text-sm text-muted-foreground">
-                        <span className="font-medium text-foreground">Paradas disponibles:</span> {trip.stopCities.join(", ")}
+                        <span className="font-medium text-foreground">{messages.publicProfile.availableStops}</span> {trip.stopCities.join(", ")}
                       </div>
                     ) : null}
 
@@ -367,11 +369,7 @@ const PublicCarrierProfilePage = () => {
                         onClick={() => void handleChooseTransport(trip.id)}
                         disabled={startingChat || Boolean(selectingTripId) || isOwnProfile}
                       >
-                        {isOwnProfile
-                          ? "Es tu ruta"
-                          : selectingTripId === trip.id
-                            ? "Guardando..."
-                            : "Elegir este transporte"}
+                        {isOwnProfile ? messages.publicProfile.ownRoute : selectingTripId === trip.id ? messages.publicProfile.saving : messages.publicProfile.chooseTransport}
                       </Button>
                       <Button
                         type="button"
@@ -383,7 +381,7 @@ const PublicCarrierProfilePage = () => {
                             : navigate(`/transportistas/${profile.userId}?trip=${encodeURIComponent(trip.id)}`)
                         }
                       >
-                        {isSelected ? "Escribir por la app" : "Ver esta ruta"}
+                        {isSelected ? messages.publicProfile.openChat : messages.publicProfile.viewThisRoute}
                       </Button>
                     </div>
                   </CardContent>
@@ -396,7 +394,7 @@ const PublicCarrierProfilePage = () => {
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Star className="h-5 w-5 fill-warning text-warning" />
-                Valoraciones de otros usuarios
+                {messages.publicProfile.reviewsTitle}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -433,7 +431,7 @@ const PublicCarrierProfilePage = () => {
                           </div>
                           <p className="mt-1 text-xs text-muted-foreground">
                             {review.reviewedAt
-                              ? new Intl.DateTimeFormat("es-ES", {
+                              ? new Intl.DateTimeFormat(intlLocale, {
                                   day: "numeric",
                                   month: "short",
                                   year: "numeric",
@@ -448,7 +446,7 @@ const PublicCarrierProfilePage = () => {
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed border-border bg-background px-4 py-5 text-sm text-muted-foreground">
-                  Este transportista todavia no tiene comentarios publicos de otros usuarios.
+                  {messages.publicProfile.noPublicComments}
                 </div>
               )}
             </CardContent>

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ import { getCurrentUser, getFriendlyErrorMessage, updateCurrentUser } from "@/li
 const EditProfilePage = () => {
   const navigate = useNavigate();
   const { refreshProfile } = useAuth();
+  const { messages } = useLocale();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -55,7 +57,7 @@ const EditProfilePage = () => {
     try {
       await updateCurrentUser(form);
       await refreshProfile();
-      toast.success("Perfil actualizado.");
+      toast.success(messages.editProfilePage.updatedSuccess);
       navigate("/app/profile");
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
@@ -75,14 +77,14 @@ const EditProfilePage = () => {
   return (
     <div className="mx-auto max-w-lg px-4 pt-6">
       <button onClick={() => navigate(-1)} className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
-        <ArrowLeft className="h-4 w-4" /> Volver
+        <ArrowLeft className="h-4 w-4" /> {messages.common.back}
       </button>
 
-      <h1 className="mb-6 text-2xl font-display font-bold">Editar perfil</h1>
+      <h1 className="mb-6 text-2xl font-display font-bold">{messages.editProfilePage.title}</h1>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-2">
-          <Label>Nombre completo</Label>
+          <Label>{messages.editProfilePage.fullName}</Label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input className="pl-10" value={form.name} onChange={(event) => update("name", event.target.value)} required />
@@ -90,7 +92,7 @@ const EditProfilePage = () => {
         </div>
 
         <div className="space-y-2">
-          <Label>Email</Label>
+          <Label>{messages.editProfilePage.email}</Label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input type="email" className="pl-10" value={form.email} onChange={(event) => update("email", event.target.value)} required />
@@ -98,7 +100,7 @@ const EditProfilePage = () => {
         </div>
 
         <div className="space-y-2">
-          <Label>Telefono</Label>
+          <Label>{messages.editProfilePage.phone}</Label>
           <div className="relative">
             <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input type="tel" className="pl-10" value={form.phone} onChange={(event) => update("phone", event.target.value)} />
@@ -106,7 +108,7 @@ const EditProfilePage = () => {
         </div>
 
         <div className="space-y-2">
-          <Label>Ubicacion</Label>
+          <Label>{messages.editProfilePage.location}</Label>
           <div className="relative">
             <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input className="pl-10" value={form.location} onChange={(event) => update("location", event.target.value)} />
@@ -114,17 +116,17 @@ const EditProfilePage = () => {
         </div>
 
         <div className="space-y-2">
-          <Label>Bio</Label>
+          <Label>{messages.editProfilePage.bio}</Label>
           <Textarea
             rows={3}
             value={form.bio}
             onChange={(event) => update("bio", event.target.value)}
-            placeholder="Cuentanos un poco sobre ti y tu forma de viajar"
+            placeholder={messages.editProfilePage.bioPlaceholder}
           />
         </div>
 
         <Button type="submit" className="w-full" size="lg" disabled={saving}>
-          {saving ? "Guardando..." : "Guardar cambios"}
+          {saving ? messages.common.saving : messages.editProfilePage.saveChanges}
         </Button>
       </form>
     </div>

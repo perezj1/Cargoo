@@ -4,7 +4,9 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import BrandLogo from "@/components/BrandLogo";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -18,6 +20,7 @@ const RegisterPage = () => {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const nextPath = searchParams.get("next") ?? "/app";
+  const { locale, messages } = useLocale();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -38,7 +41,7 @@ const RegisterPage = () => {
     event.preventDefault();
 
     if (!formData.acceptedLegal) {
-      toast.error("Debes aceptar los terminos y documentos legales para crear una cuenta.");
+      toast.error(messages.register.mustAcceptLegal);
       return;
     }
 
@@ -51,20 +54,21 @@ const RegisterPage = () => {
         password: formData.password,
         isTraveler: formData.isTraveler,
         isPublic: formData.isPublic,
+        locale,
       });
 
       if (result.needsEmailConfirmation) {
-        toast.success("Cuenta creada. Revisa tu email para confirmar y luego iniciar sesion.");
+        toast.success(messages.register.confirmEmail);
         navigate("/login");
         return;
       }
 
-      toast.success("Cuenta creada. Bienvenido a Cargoo.");
+      toast.success(messages.register.success);
       navigate(nextPath, { replace: true });
     } catch (error) {
       const message = getFriendlyErrorMessage(error);
       if (/User already registered/i.test(message)) {
-        toast.error("Ese email ya existe. Puedes iniciar sesion.");
+        toast.error(messages.register.userExists);
       } else {
         toast.error(message);
       }
@@ -80,22 +84,25 @@ const RegisterPage = () => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-secondary px-4 py-12">
       <div className="w-full max-w-md">
+        <div className="mb-4 flex justify-end">
+          <LanguageSwitcher compact />
+        </div>
         <div className="mb-8 text-center">
           <Link to="/" className="mb-6 inline-flex items-center gap-2">
             <BrandLogo />
           </Link>
-          <h1 className="text-2xl font-display font-bold">Crea tu cuenta</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Unete a la comunidad de Cargoo</p>
+          <h1 className="text-2xl font-display font-bold">{messages.register.title}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{messages.register.subtitle}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5 rounded-xl bg-card p-8 shadow-card">
           <div className="space-y-2">
-            <Label htmlFor="name">Nombre completo</Label>
+            <Label htmlFor="name">{messages.register.name}</Label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="name"
-                placeholder="Tu nombre"
+                placeholder={messages.register.namePlaceholder}
                 className="pl-10"
                 value={formData.name}
                 onChange={(event) => update("name", event.target.value)}
@@ -104,13 +111,13 @@ const RegisterPage = () => {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="reg-email">Email</Label>
+            <Label htmlFor="reg-email">{messages.register.email}</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="reg-email"
                 type="email"
-                placeholder="tu@email.com"
+                placeholder={messages.register.emailPlaceholder}
                 className="pl-10"
                 value={formData.email}
                 onChange={(event) => update("email", event.target.value)}
@@ -119,13 +126,13 @@ const RegisterPage = () => {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="reg-password">Contrasena</Label>
+            <Label htmlFor="reg-password">{messages.register.password}</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="reg-password"
                 type="password"
-                placeholder="Minimo 8 caracteres"
+                placeholder={messages.register.passwordPlaceholder}
                 className="pl-10"
                 value={formData.password}
                 onChange={(event) => update("password", event.target.value)}
@@ -139,8 +146,8 @@ const RegisterPage = () => {
             <div className="flex items-center gap-3">
               <CarFront className="h-5 w-5 text-primary" />
               <div>
-                <p className="text-sm font-medium">Soy conductor</p>
-                <p className="text-xs text-muted-foreground">Quiero transportar paquetes</p>
+                <p className="text-sm font-medium">{messages.register.travelerTitle}</p>
+                <p className="text-xs text-muted-foreground">{messages.register.travelerDescription}</p>
               </div>
             </div>
             <Switch checked={formData.isTraveler} onCheckedChange={(value) => update("isTraveler", value)} />
@@ -155,9 +162,9 @@ const RegisterPage = () => {
                   <EyeOff className="h-5 w-5 text-muted-foreground" />
                 )}
                 <div>
-                  <p className="text-sm font-medium">Perfil {formData.isPublic ? "publico" : "privado"}</p>
+                  <p className="text-sm font-medium">{formData.isPublic ? messages.register.publicTitle : messages.register.privateTitle}</p>
                   <p className="text-xs text-muted-foreground">
-                    {formData.isPublic ? "Cualquier persona puede ver tus viajes" : "Solo usuarios registrados pueden contactarte"}
+                    {formData.isPublic ? messages.register.publicDescription : messages.register.privateDescription}
                   </p>
                 </div>
               </div>
@@ -174,36 +181,34 @@ const RegisterPage = () => {
                 className="mt-1"
               />
               <Label htmlFor="accepted-legal" className="text-sm font-normal leading-6 text-muted-foreground">
-                Al crear una cuenta acepto los{" "}
+                {messages.register.legalAcceptance}{" "}
                 <Link to={LEGAL_LINKS.terms} className="font-medium text-primary hover:underline">
-                  Terminos de uso (AGB)
+                  {messages.footer.terms}
                 </Link>
-                , confirmo haber leido la{" "}
+                {messages.register.legalMiddle1}{" "}
                 <Link to={LEGAL_LINKS.privacy} className="font-medium text-primary hover:underline">
-                  Politica de privacidad
+                  {messages.footer.privacy}
                 </Link>
-                , el{" "}
+                {messages.register.legalMiddle2}{" "}
                 <Link to={LEGAL_LINKS.disclaimer} className="font-medium text-primary hover:underline">
-                  Descargo de responsabilidad
+                  {messages.footer.disclaimer}
                 </Link>{" "}
-                y el{" "}
+                {messages.register.legalMiddle3}{" "}
                 <Link to={LEGAL_LINKS.imprint} className="font-medium text-primary hover:underline">
-                  Impressum
+                  {messages.footer.imprint}
                 </Link>
-                .
+                {messages.register.legalEnd}
               </Label>
             </div>
-            <p className="mt-3 text-xs leading-5 text-muted-foreground">
-              Cargoo solo facilita el contacto entre usuarios. Los acuerdos, envios y transportes son responsabilidad exclusiva de las personas que usan la plataforma.
-            </p>
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">{messages.register.legalNotice}</p>
           </div>
           <Button type="submit" className="w-full" size="lg" disabled={loading || !formData.acceptedLegal}>
-            {loading ? "Creando cuenta..." : "Crear cuenta"}
+            {loading ? messages.register.submitting : messages.register.submit}
           </Button>
           <p className="text-center text-sm text-muted-foreground">
-            Ya tienes cuenta?{" "}
+            {messages.register.hasAccount}{" "}
             <Link to={`/login${searchParams.toString() ? `?${searchParams.toString()}` : ""}`} className="font-medium text-primary hover:underline">
-              Inicia sesion
+              {messages.register.login}
             </Link>
           </p>
         </form>

@@ -7,6 +7,7 @@ import ShipmentReviewDialog from "@/components/ShipmentReviewDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useLocale } from "@/contexts/LocaleContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
   advanceTripToNextStop,
@@ -24,30 +25,16 @@ import {
   type ShipmentSummary,
 } from "@/lib/cargoo-store";
 
-const formatMessageTime = (value: string) =>
-  new Date(value).toLocaleTimeString("es-ES", {
+const formatMessageTime = (value: string, intlLocale: string) =>
+  new Date(value).toLocaleTimeString(intlLocale, {
     hour: "2-digit",
     minute: "2-digit",
   });
 
-const shipmentStatusConfig = {
-  pending: {
-    label: "Por cargar",
-    className: "border-warning/20 bg-warning/10 text-warning",
-  },
-  accepted: {
-    label: "En ruta",
-    className: "border-primary/20 bg-primary/10 text-primary",
-  },
-  delivered: {
-    label: "Entregado",
-    className: "border-success/20 bg-success/10 text-success",
-  },
-} as const;
-
 const ConversationPage = () => {
   const navigate = useNavigate();
   const { conversationId = "" } = useParams();
+  const { intlLocale, messages: localeMessages } = useLocale();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [conversation, setConversation] = useState<ConversationSummary | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -59,6 +46,20 @@ const ConversationPage = () => {
   const [acting, setActing] = useState<"choose" | "loaded" | "checkpoint" | null>(null);
   const [savingReview, setSavingReview] = useState(false);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const shipmentStatusConfig = {
+    pending: {
+      label: localeMessages.shipmentStatus.pending,
+      className: "border-warning/20 bg-warning/10 text-warning",
+    },
+    accepted: {
+      label: localeMessages.shipmentStatus.accepted,
+      className: "border-primary/20 bg-primary/10 text-primary",
+    },
+    delivered: {
+      label: localeMessages.shipmentStatus.delivered,
+      className: "border-success/20 bg-success/10 text-success",
+    },
+  } as const;
 
   const loadConversation = async () => {
     const data = await getConversationMessages(conversationId);
@@ -176,7 +177,7 @@ const ConversationPage = () => {
     try {
       await createShipmentRequest(conversationId);
       await loadConversation();
-      toast.success("Transporte elegido. Cuando cargueis el paquete, podras confirmarlo aqui.");
+      toast.success(localeMessages.conversationPage.chooseTransportSuccess);
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
     } finally {
@@ -190,7 +191,7 @@ const ConversationPage = () => {
     try {
       await markConversationPackageLoaded(conversationId);
       await loadConversation();
-      toast.success("Paquete cargado. El seguimiento ya esta activo.");
+      toast.success(localeMessages.conversationPage.packageLoadedSuccess);
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
     } finally {
@@ -213,7 +214,7 @@ const ConversationPage = () => {
       });
       setReviewDialogOpen(false);
       await loadConversation();
-      toast.success("Valoracion guardada.");
+      toast.success(localeMessages.conversationPage.reviewSaved);
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
     } finally {
@@ -231,7 +232,7 @@ const ConversationPage = () => {
     try {
       await advanceTripToNextStop(travelerTrip.id);
       await loadConversation();
-      toast.success(`Checkpoint guardado en ${travelerTrip.nextStop.city}.`);
+      toast.success(localeMessages.conversationPage.checkpointSaved(travelerTrip.nextStop.city));
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
     } finally {
@@ -251,13 +252,13 @@ const ConversationPage = () => {
     return (
       <div className="mx-auto max-w-lg px-4 pt-6">
         <button onClick={() => navigate("/app/messages")} className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
-          <ArrowLeft className="h-4 w-4" /> Volver
+          <ArrowLeft className="h-4 w-4" /> {localeMessages.common.back}
         </button>
         <div className="rounded-xl bg-card p-6 text-center shadow-card">
-          <h1 className="text-xl font-display font-bold">Conversacion no disponible</h1>
-          <p className="mt-2 text-sm text-muted-foreground">No encontramos este chat o ya no tienes acceso a el.</p>
+          <h1 className="text-xl font-display font-bold">{localeMessages.conversationPage.unavailableTitle}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{localeMessages.conversationPage.unavailableDescription}</p>
           <Button asChild className="mt-4">
-            <Link to="/app/messages">Volver a mensajes</Link>
+            <Link to="/app/messages">{localeMessages.conversationPage.backToMessages}</Link>
           </Button>
         </div>
       </div>
@@ -279,7 +280,7 @@ const ConversationPage = () => {
   return (
     <div className="mx-auto flex h-[calc(100vh-5rem)] max-w-lg flex-col px-4 pb-4 pt-6">
       <button onClick={() => navigate("/app/messages")} className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
-        <ArrowLeft className="h-4 w-4" /> Volver
+        <ArrowLeft className="h-4 w-4" /> {localeMessages.common.back}
       </button>
 
       <div className="mb-4 rounded-xl bg-card p-4 shadow-card">
@@ -300,14 +301,14 @@ const ConversationPage = () => {
               <p className="truncate text-xs text-muted-foreground">
                 {conversation.routeOrigin && conversation.routeDestination
                   ? `${conversation.routeOrigin} -> ${conversation.routeDestination}`
-                  : "Chat directo"}
+                  : localeMessages.conversationPage.directChat}
               </p>
             </div>
           </div>
 
           {infoLink ? (
             <Button asChild type="button" size="sm" variant="outline" className="shrink-0">
-              <Link to={infoLink}>Ver info</Link>
+              <Link to={infoLink}>{localeMessages.conversationPage.viewInfo}</Link>
             </Button>
           ) : null}
         </div>
@@ -327,32 +328,34 @@ const ConversationPage = () => {
           ) : (
             <span className="inline-flex min-w-0 items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
               <Package className="mr-1 h-3.5 w-3.5" />
-              No activo
+              {localeMessages.conversationPage.inactive}
             </span>
           )}
 
           {canChooseTransport ? (
             <Button type="button" size="sm" className="shrink-0" onClick={() => void handleChooseTransport()} disabled={acting !== null}>
-              {acting === "choose" ? "Guardando..." : "Elegir este transporte"}
+              {acting === "choose" ? localeMessages.conversationPage.saving : localeMessages.conversationPage.chooseTransport}
             </Button>
           ) : null}
 
           {canMarkPackageLoaded ? (
             <Button type="button" size="sm" className="shrink-0" onClick={() => void handleMarkPackageLoaded()} disabled={acting !== null}>
-              {acting === "loaded" ? "Activando..." : "Paquete cargado"}
+              {acting === "loaded" ? localeMessages.conversationPage.activating : localeMessages.conversationPage.packageLoaded}
             </Button>
           ) : null}
 
           {canAdvanceTrip ? (
             <Button type="button" size="sm" className="shrink-0" onClick={() => void handleAdvanceTrip()} disabled={acting !== null}>
-              {acting === "checkpoint" ? "Guardando..." : `Estoy en ${travelerTrip?.nextStop?.city}`}
+              {acting === "checkpoint"
+                ? localeMessages.conversationPage.saving
+                : localeMessages.conversationPage.advanceToCity(travelerTrip?.nextStop?.city ?? "")}
             </Button>
           ) : null}
 
           {canReviewShipment ? (
             <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={() => setReviewDialogOpen(true)}>
               <Star className="h-4 w-4 fill-warning text-warning" />
-              Valorar
+              {localeMessages.conversationPage.rate}
             </Button>
           ) : null}
         </div>
@@ -371,7 +374,7 @@ const ConversationPage = () => {
               >
                 <p className="whitespace-pre-wrap break-words">{message.content}</p>
                 <p className={`mt-2 text-[10px] ${isMine ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                  {formatMessageTime(message.createdAt)}
+                  {formatMessageTime(message.createdAt, intlLocale)}
                 </p>
               </div>
             </div>
@@ -379,7 +382,7 @@ const ConversationPage = () => {
         })}
         {messages.length === 0 ? (
           <div className="flex min-h-[120px] items-center justify-center text-center text-sm text-muted-foreground">
-            Todavia no hay mensajes en esta conversacion.
+            {localeMessages.conversationPage.noMessages}
           </div>
         ) : null}
         <div ref={messagesEndRef} />
@@ -390,7 +393,7 @@ const ConversationPage = () => {
           <Input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="Escribe tu mensaje..."
+            placeholder={localeMessages.conversationPage.inputPlaceholder}
             className="h-11 rounded-full border-0 bg-secondary/80 shadow-none focus-visible:ring-1"
             onKeyDown={(event) => {
               if (event.key === "Enter") {
@@ -404,7 +407,7 @@ const ConversationPage = () => {
             className="h-11 w-11 shrink-0 rounded-full"
             onClick={() => void handleSend()}
             disabled={sending || !draft.trim()}
-            aria-label="Enviar mensaje"
+            aria-label={localeMessages.conversationPage.sendMessage}
           >
             <Send className="h-4 w-4" />
           </Button>
@@ -414,7 +417,7 @@ const ConversationPage = () => {
       <ShipmentReviewDialog
         open={reviewDialogOpen}
         onOpenChange={setReviewDialogOpen}
-        travelerName={conversation.otherUserIsTraveler ? conversation.otherUserName : "transportista"}
+        travelerName={conversation.otherUserIsTraveler ? conversation.otherUserName : localeMessages.conversationPage.genericTraveler}
         saving={savingReview}
         onSubmit={handleSubmitReview}
       />

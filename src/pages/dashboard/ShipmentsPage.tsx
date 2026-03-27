@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocale } from "@/contexts/LocaleContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
   deleteDeliveredShipment,
@@ -27,12 +28,6 @@ import {
   submitShipmentReview,
   type ShipmentSummary,
 } from "@/lib/cargoo-store";
-
-const statusConfig = {
-  pending: { label: "Por cargar", className: "border-warning/20 bg-warning/10 text-warning" },
-  accepted: { label: "En ruta", className: "border-primary/20 bg-primary/10 text-primary" },
-  delivered: { label: "Entregado", className: "border-success/20 bg-success/10 text-success" },
-} as const;
 
 const normalizeTab = (value: string | null) => {
   if (value === "active" || value === "delivered") {
@@ -44,6 +39,7 @@ const normalizeTab = (value: string | null) => {
 
 const ShipmentsPage = () => {
   const { loading: authLoading, profile, profileLoading } = useAuth();
+  const { intlLocale, messages } = useLocale();
   const [searchParams, setSearchParams] = useSearchParams();
   const [shipments, setShipments] = useState<ShipmentSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,6 +49,11 @@ const ShipmentsPage = () => {
   const [loadingConversationId, setLoadingConversationId] = useState<string | null>(null);
   const [shipmentToDelete, setShipmentToDelete] = useState<ShipmentSummary | null>(null);
   const [deletingShipmentId, setDeletingShipmentId] = useState<string | null>(null);
+  const statusConfig = {
+    pending: { label: messages.shipmentStatus.pending, className: "border-warning/20 bg-warning/10 text-warning" },
+    accepted: { label: messages.shipmentStatus.accepted, className: "border-primary/20 bg-primary/10 text-primary" },
+    delivered: { label: messages.shipmentStatus.delivered, className: "border-success/20 bg-success/10 text-success" },
+  } as const;
 
   const loadShipments = async () => {
     try {
@@ -116,7 +117,7 @@ const ShipmentsPage = () => {
         rating,
         comment,
       });
-      toast.success("Valoracion guardada.");
+      toast.success(messages.shipmentsPage.reviewSaved);
       setReviewingShipment(null);
       await loadShipments();
     } catch (error) {
@@ -131,7 +132,7 @@ const ShipmentsPage = () => {
 
     try {
       await markConversationPackageLoaded(conversationId);
-      toast.success("Paquete cargado. El seguimiento ya esta activo.");
+      toast.success(messages.shipmentsPage.packageLoadedSuccess);
       await loadShipments();
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
@@ -150,7 +151,7 @@ const ShipmentsPage = () => {
     try {
       await deleteDeliveredShipment(shipmentToDelete.id);
       setShipmentToDelete(null);
-      toast.success("Envio entregado eliminado.");
+      toast.success(messages.shipmentsPage.deletedSuccess);
       await loadShipments();
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
@@ -180,19 +181,17 @@ const ShipmentsPage = () => {
   return (
     <div className="mx-auto max-w-lg px-4 pt-6">
       <div className="mb-2 flex items-center justify-between">
-        <h1 className="text-2xl font-display font-bold">Mis envios</h1>
+        <h1 className="text-2xl font-display font-bold">{messages.shipmentsPage.title}</h1>
         <Badge variant="outline" className="bg-card">
-          {shipments.length} total
+          {messages.shipmentsPage.total(shipments.length)}
         </Badge>
       </div>
-      <p className="mb-5 text-sm text-muted-foreground">
-        Aqui ves los transportes que ya has elegido, los que ya estan en ruta y los que ya han sido entregados.
-      </p>
+      <p className="mb-5 text-sm text-muted-foreground">{messages.shipmentsPage.subtitle}</p>
 
       <Tabs value={tab} onValueChange={handleTabChange} className="mb-6">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="active">Activos {counts.active}</TabsTrigger>
-          <TabsTrigger value="delivered">Completados {counts.delivered}</TabsTrigger>
+          <TabsTrigger value="active">{messages.shipmentsPage.activeTab(counts.active)}</TabsTrigger>
+          <TabsTrigger value="delivered">{messages.shipmentsPage.completedTab(counts.delivered)}</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -203,26 +202,26 @@ const ShipmentsPage = () => {
       ) : filteredShipments.length === 0 ? (
         <div className="py-16 text-center text-muted-foreground">
           <Package className="mx-auto mb-3 h-10 w-10 opacity-40" />
-          <p className="text-sm">No hay envios en esta categoria.</p>
+          <p className="text-sm">{messages.shipmentsPage.empty}</p>
         </div>
       ) : (
         <div className="space-y-4 pb-4">
           {filteredShipments.map((shipment) => {
             const status = statusConfig[shipment.status];
             const formattedTripDate = shipment.tripDate
-              ? new Date(`${shipment.tripDate}T00:00:00`).toLocaleDateString("es-ES", {
+              ? new Date(`${shipment.tripDate}T00:00:00`).toLocaleDateString(intlLocale, {
                   day: "numeric",
                   month: "short",
                   year: "numeric",
                 })
-              : "Fecha pendiente";
+              : messages.shipmentsPage.pendingDate;
 
             return (
               <div key={shipment.id} className="rounded-xl bg-card p-4 shadow-card">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-foreground">{shipment.routeOrigin} {"->"} {shipment.routeDestination}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Transportista: {shipment.travelerName}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{messages.shipmentsPage.travelerLabel(shipment.travelerName)}</p>
                   </div>
                   <Badge variant="outline" className={status.className}>
                     {status.label}
@@ -233,18 +232,20 @@ const ShipmentsPage = () => {
                   <div className="rounded-xl border border-border/70 bg-background px-3 py-3 text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Calendar className="h-4 w-4" />
-                      <span>Salida</span>
+                      <span>{messages.shipmentsPage.departure}</span>
                     </div>
                     <p className="mt-2 font-medium text-foreground">{formattedTripDate}</p>
                   </div>
                   <div className="rounded-xl border border-border/70 bg-background px-3 py-3 text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Truck className="h-4 w-4" />
-                      <span>Checkpoint actual</span>
+                      <span>{messages.shipmentsPage.currentCheckpoint}</span>
                     </div>
                     <p className="mt-2 font-medium text-foreground">{shipment.currentCheckpointCity}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {shipment.nextCheckpointCity ? `Siguiente: ${shipment.nextCheckpointCity}` : "Sin siguiente parada"}
+                      {shipment.nextCheckpointCity
+                        ? messages.shipmentsPage.nextCheckpoint(shipment.nextCheckpointCity)
+                        : messages.shipmentsPage.noNextCheckpoint}
                     </p>
                   </div>
                 </div>
@@ -252,7 +253,7 @@ const ShipmentsPage = () => {
                 {shipment.status !== "pending" ? (
                   <div className="mt-4">
                     <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Seguimiento del trayecto</span>
+                      <span>{messages.shipmentsPage.tracking}</span>
                       <span>{shipment.trackingProgressPercent}%</span>
                     </div>
                     <Progress value={shipment.trackingProgressPercent} />
@@ -261,13 +262,13 @@ const ShipmentsPage = () => {
 
                 {shipment.status === "pending" ? (
                   <div className="mt-4 rounded-xl border border-warning/20 bg-warning/10 px-3 py-3 text-sm text-warning">
-                    Transporte elegido. Cuando el paquete ya este cargado, confirmalo desde el chat para activar el seguimiento.
+                    {messages.shipmentsPage.pendingBanner}
                   </div>
                 ) : null}
 
                 {shipment.status === "delivered" ? (
                   <div className="mt-4 rounded-xl border border-success/20 bg-success/10 px-3 py-3 text-sm text-success">
-                    Entregado {shipment.reviewRating ? `y valorado con ${shipment.reviewRating} estrella(s).` : "pendiente de valoracion."}
+                    {messages.shipmentsPage.deliveredBanner(shipment.reviewRating)}
                   </div>
                 ) : null}
 
@@ -275,7 +276,7 @@ const ShipmentsPage = () => {
                   <Button asChild variant="outline">
                     <Link to={`/app/messages/${shipment.conversationId}`}>
                       <MessageSquare className="h-4 w-4" />
-                      Abrir chat
+                      {messages.shipmentsPage.openChat}
                     </Link>
                   </Button>
 
@@ -286,14 +287,14 @@ const ShipmentsPage = () => {
                       disabled={loadingConversationId === shipment.conversationId}
                     >
                       <Package className="h-4 w-4" />
-                      {loadingConversationId === shipment.conversationId ? "Activando..." : "Paquete cargado"}
+                      {loadingConversationId === shipment.conversationId ? messages.shipmentsPage.activating : messages.shipmentsPage.packageLoaded}
                     </Button>
                   ) : null}
 
                   {shipment.status === "delivered" && !shipment.reviewRating ? (
                     <Button type="button" onClick={() => setReviewingShipment(shipment)}>
                       <Star className="h-4 w-4 fill-warning text-warning" />
-                      Valorar transportista
+                      {messages.shipmentsPage.rateTraveler}
                     </Button>
                   ) : null}
 
@@ -305,7 +306,7 @@ const ShipmentsPage = () => {
                       onClick={() => setShipmentToDelete(shipment)}
                     >
                       <Trash2 className="h-4 w-4" />
-                      Eliminar envio
+                      {messages.shipmentsPage.deleteShipment}
                     </Button>
                   ) : null}
                 </div>
@@ -322,7 +323,7 @@ const ShipmentsPage = () => {
             setReviewingShipment(null);
           }
         }}
-        travelerName={reviewingShipment?.travelerName ?? "transportista"}
+        travelerName={reviewingShipment?.travelerName ?? messages.shipmentsPage.genericTraveler}
         saving={savingReview}
         onSubmit={handleSubmitReview}
       />
@@ -337,20 +338,18 @@ const ShipmentsPage = () => {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar envio entregado</AlertDialogTitle>
-            <AlertDialogDescription>
-              Este envio se quitara de tu historial. La conversacion seguira disponible para ambas personas.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{messages.shipmentsPage.deleteDialogTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{messages.shipmentsPage.deleteDialogDescription}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={Boolean(deletingShipmentId)}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={Boolean(deletingShipmentId)}>{messages.common.cancel}</AlertDialogCancel>
             <Button
               type="button"
               variant="destructive"
               onClick={() => void handleDeleteDeliveredShipment()}
               disabled={Boolean(deletingShipmentId)}
             >
-              {deletingShipmentId ? "Eliminando..." : "Eliminar envio"}
+              {deletingShipmentId ? messages.shipmentsPage.deleting : messages.shipmentsPage.deleteDialogButton}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

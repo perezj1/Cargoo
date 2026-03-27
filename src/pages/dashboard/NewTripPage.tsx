@@ -4,6 +4,7 @@ import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,7 @@ const NewTripPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { loading: authLoading, profile, profileLoading } = useAuth();
+  const { intlLocale, messages } = useLocale();
   const reuseTripId = searchParams.get("reuseTrip") ?? "";
   const [form, setForm] = useState({
     origin: "",
@@ -78,7 +80,7 @@ const NewTripPage = () => {
         const trip = await getTripById(reuseTripId);
 
         if (!trip) {
-          throw new Error("No se encontro el viaje que querias reutilizar.");
+          throw new Error(messages.newTripPage.reuseTripNotFound);
         }
 
         setForm({
@@ -99,19 +101,19 @@ const NewTripPage = () => {
     };
 
     void loadReuseTrip();
-  }, [authLoading, profile, profileLoading, reuseAppliedId, reuseTripId]);
+  }, [authLoading, messages.newTripPage.reuseTripNotFound, profile, profileLoading, reuseAppliedId, reuseTripId]);
 
   const reusedTripDate = useMemo(() => {
     if (!reusingTrip) {
       return "";
     }
 
-    return new Date(`${reusingTrip.date}T00:00:00`).toLocaleDateString("es-ES", {
+    return new Date(`${reusingTrip.date}T00:00:00`).toLocaleDateString(intlLocale, {
       day: "numeric",
       month: "short",
       year: "numeric",
     });
-  }, [reusingTrip]);
+  }, [intlLocale, reusingTrip]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -126,10 +128,10 @@ const NewTripPage = () => {
         date: form.date,
         capacityKg: Number(form.capacity),
         routeStops: cleanedRouteStops,
-        notes: form.notes || "Sin notas adicionales.",
+        notes: form.notes || messages.newTripPage.defaultNotes,
       });
 
-      toast.success("Viaje publicado correctamente.");
+      toast.success(messages.newTripPage.tripPublished);
       navigate(`/app/trips/${trip.id}`);
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
@@ -159,30 +161,27 @@ const NewTripPage = () => {
   }
 
   return (
-    <div className="mx-auto max-w-lg px-4 pt-6">
-      <button onClick={() => navigate(-1)} className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
-        <ArrowLeft className="h-4 w-4" /> Volver
-      </button>
+      <div className="mx-auto max-w-lg px-4 pt-6">
+        <button onClick={() => navigate(-1)} className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
+        <ArrowLeft className="h-4 w-4" /> {messages.common.back}
+        </button>
 
-      <h1 className="mb-6 text-2xl font-display font-bold">Publicar viaje</h1>
+      <h1 className="mb-6 text-2xl font-display font-bold">{messages.newTripPage.title}</h1>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {reusingTrip ? (
           <div className="rounded-xl border border-primary/10 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">Trayecto reutilizado</p>
-            <p className="mt-1">
-              Hemos copiado la ruta, las paradas y la capacidad del viaje anterior {reusingTrip.origin} {"->"} {reusingTrip.destination}
-              {reusedTripDate ? ` del ${reusedTripDate}` : ""}. Solo revisa la nueva fecha y publica.
-            </p>
+            <p className="font-medium text-foreground">{messages.newTripPage.reusedTitle}</p>
+            <p className="mt-1">{messages.newTripPage.reusedDescription(reusingTrip.origin, reusingTrip.destination, reusedTripDate)}</p>
           </div>
         ) : null}
 
         <div className="space-y-2">
-          <Label>Origen</Label>
+          <Label>{messages.newTripPage.originLabel}</Label>
           <div className="relative">
             <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
             <Input
-              placeholder="Ciudad, pais"
+              placeholder={messages.newTripPage.originPlaceholder}
               className="pl-10"
               value={form.origin}
               onChange={(event) => update("origin", event.target.value)}
@@ -194,18 +193,18 @@ const NewTripPage = () => {
         <div className="space-y-3">
           <Button type="button" variant="outline" className="w-full justify-start gap-2 border-dashed" onClick={addRouteStop}>
             <Plus className="h-4 w-4" />
-            Agregar ciudades en la ruta
+            {messages.newTripPage.addRouteStops}
           </Button>
 
           {routeStops.map((stop, index) => (
             <div key={`route-stop-${index}`} className="rounded-xl border border-border/80 bg-secondary/20 p-3">
               <div className="mb-2 flex items-center justify-between gap-3">
-                <Label className="text-xs font-medium text-muted-foreground">Parada intermedia {index + 1}</Label>
+                <Label className="text-xs font-medium text-muted-foreground">{messages.newTripPage.stopLabel(index + 1)}</Label>
                 <button
                   type="button"
                   onClick={() => removeRouteStop(index)}
                   className="text-muted-foreground transition-colors hover:text-destructive"
-                  aria-label={`Eliminar parada ${index + 1}`}
+                  aria-label={messages.newTripPage.deleteStopAria(index + 1)}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -213,7 +212,7 @@ const NewTripPage = () => {
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
                 <Input
-                  placeholder="Ciudad donde puedes recoger o entregar"
+                  placeholder={messages.newTripPage.stopPlaceholder}
                   className="pl-10"
                   value={stop}
                   onChange={(event) => updateRouteStop(index, event.target.value)}
@@ -222,17 +221,15 @@ const NewTripPage = () => {
             </div>
           ))}
 
-          <p className="text-xs text-muted-foreground">
-            Estas ciudades apareceran en el buscador como paradas validas para recoger o entregar paquetes.
-          </p>
+          <p className="text-xs text-muted-foreground">{messages.newTripPage.stopHint}</p>
         </div>
 
         <div className="space-y-2">
-          <Label>Destino</Label>
+          <Label>{messages.newTripPage.destinationLabel}</Label>
           <div className="relative">
             <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-accent" />
             <Input
-              placeholder="Ciudad, pais"
+              placeholder={messages.newTripPage.destinationPlaceholder}
               className="pl-10"
               value={form.destination}
               onChange={(event) => update("destination", event.target.value)}
@@ -243,7 +240,7 @@ const NewTripPage = () => {
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Fecha del viaje</Label>
+            <Label>{messages.newTripPage.dateLabel}</Label>
             <div className="relative cursor-pointer" onClick={openDatePicker}>
               <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -257,7 +254,7 @@ const NewTripPage = () => {
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Capacidad (kg)</Label>
+            <Label>{messages.newTripPage.capacityLabel}</Label>
             <div className="relative">
               <Package className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -274,9 +271,9 @@ const NewTripPage = () => {
         </div>
 
         <div className="space-y-2">
-          <Label>Notas adicionales</Label>
+          <Label>{messages.newTripPage.notesLabel}</Label>
           <Textarea
-            placeholder="Tipo de objetos que aceptas, restricciones o puntos de entrega"
+            placeholder={messages.newTripPage.notesPlaceholder}
             rows={3}
             value={form.notes}
             onChange={(event) => update("notes", event.target.value)}
@@ -284,7 +281,7 @@ const NewTripPage = () => {
         </div>
 
         <Button type="submit" className="w-full" size="lg" disabled={saving}>
-          {saving ? "Publicando..." : "Publicar viaje"}
+          {saving ? messages.newTripPage.publishing : messages.newTripPage.publish}
         </Button>
       </form>
     </div>

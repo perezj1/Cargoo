@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocale } from "@/contexts/LocaleContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
   advanceTripToNextStop,
@@ -21,30 +22,19 @@ import {
   type ShipmentSummary,
 } from "@/lib/cargoo-store";
 
-const statusConfig = {
-  active: { label: "Activo", className: "border-success/20 bg-success/10 text-success" },
-  completed: { label: "Completado", className: "border-border bg-muted text-muted-foreground" },
-} as const;
-
-const shipmentStatusConfig = {
-  pending: { label: "Por cargar", className: "border-warning/20 bg-warning/10 text-warning" },
-  accepted: { label: "En ruta", className: "border-primary/20 bg-primary/10 text-primary" },
-  delivered: { label: "Entregado", className: "border-success/20 bg-success/10 text-success" },
-} as const;
-
-const formatTripDate = (value: string) =>
-  new Date(`${value}T00:00:00`).toLocaleDateString("es-ES", {
+const formatTripDate = (value: string, intlLocale: string) =>
+  new Date(`${value}T00:00:00`).toLocaleDateString(intlLocale, {
     day: "numeric",
     month: "long",
     year: "numeric",
   });
 
-const formatCheckpointDate = (value: string | null) => {
+const formatCheckpointDate = (value: string | null, intlLocale: string, emptyLabel: string) => {
   if (!value) {
-    return "Sin actualizaciones todavia";
+    return emptyLabel;
   }
 
-  return new Intl.DateTimeFormat("es-ES", {
+  return new Intl.DateTimeFormat(intlLocale, {
     day: "numeric",
     month: "short",
     hour: "2-digit",
@@ -56,6 +46,7 @@ const TripDetailsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { loading: authLoading, profile, profileLoading } = useAuth();
+  const { intlLocale, messages } = useLocale();
   const { tripId = "" } = useParams();
   const [trip, setTrip] = useState<CargooTripDetails | null>(null);
   const [shipments, setShipments] = useState<ShipmentSummary[]>([]);
@@ -64,6 +55,15 @@ const TripDetailsPage = () => {
   const [advancing, setAdvancing] = useState(false);
   const [updatingShipmentId, setUpdatingShipmentId] = useState<string | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const statusConfig = {
+    active: { label: messages.tripStatus.active, className: "border-success/20 bg-success/10 text-success" },
+    completed: { label: messages.tripStatus.completed, className: "border-border bg-muted text-muted-foreground" },
+  } as const;
+  const shipmentStatusConfig = {
+    pending: { label: messages.shipmentStatus.pending, className: "border-warning/20 bg-warning/10 text-warning" },
+    accepted: { label: messages.shipmentStatus.accepted, className: "border-primary/20 bg-primary/10 text-primary" },
+    delivered: { label: messages.shipmentStatus.delivered, className: "border-success/20 bg-success/10 text-success" },
+  } as const;
 
   const loadTripData = async () => {
     const [nextTrip, nextShipments, conversations] = await Promise.all([getTripById(tripId), getTripShipments(tripId), getConversations()]);
@@ -131,17 +131,17 @@ const TripDetailsPage = () => {
     try {
       const updatedTrip = await advanceTripToNextStop(trip.id);
       if (!updatedTrip) {
-        throw new Error("No se pudo actualizar el checkpoint.");
+        throw new Error(messages.tripDetailsPage.checkpointUpdateError);
       }
 
       setTrip(updatedTrip);
       await loadTripData();
       toast.success(
         updatedTrip.nextStop
-          ? `Checkpoint guardado. Proxima ciudad: ${updatedTrip.nextStop.city}.`
+          ? messages.tripDetailsPage.checkpointSaved(updatedTrip.nextStop.city)
           : updatedTrip.status === "completed"
-            ? `Viaje completado. Has llegado a ${updatedTrip.destination}.`
-            : `Has llegado a ${updatedTrip.destination}. Falta marcar los paquetes entregados.`,
+            ? messages.tripDetailsPage.tripCompleted(updatedTrip.destination)
+            : messages.tripDetailsPage.destinationReached(updatedTrip.destination),
       );
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
@@ -156,7 +156,7 @@ const TripDetailsPage = () => {
     try {
       await markShipmentDelivered(shipmentId);
       await loadTripData();
-      toast.success("Paquete marcado como entregado.");
+      toast.success(messages.tripDetailsPage.shipmentDeliveredSuccess);
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
     } finally {
@@ -188,15 +188,15 @@ const TripDetailsPage = () => {
     return (
       <div className="mx-auto max-w-lg px-4 pt-6">
         <button onClick={() => navigate("/app/trips")} className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
-          <ArrowLeft className="h-4 w-4" /> Volver
+          <ArrowLeft className="h-4 w-4" /> {messages.common.back}
         </button>
 
         <Card className="shadow-card">
           <CardContent className="p-6 text-center">
-            <h1 className="mb-2 text-2xl font-display font-bold">Viaje no encontrado</h1>
-            <p className="mb-4 text-sm text-muted-foreground">El viaje que buscas no existe o ya no esta disponible.</p>
+            <h1 className="mb-2 text-2xl font-display font-bold">{messages.tripDetailsPage.notFoundTitle}</h1>
+            <p className="mb-4 text-sm text-muted-foreground">{messages.tripDetailsPage.notFoundDescription}</p>
             <Button asChild>
-              <Link to="/app/trips">Ver mis viajes</Link>
+              <Link to="/app/trips">{messages.tripDetailsPage.viewMyTrips}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -224,13 +224,13 @@ const TripDetailsPage = () => {
   return (
     <div className="mx-auto max-w-lg px-4 pt-6">
       <button onClick={() => navigate("/app/trips")} className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
-        <ArrowLeft className="h-4 w-4" /> Volver
+        <ArrowLeft className="h-4 w-4" /> {messages.common.back}
       </button>
 
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-display font-bold">Detalles del viaje</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Ruta, personas y paquetes en este viaje</p>
+          <h1 className="text-2xl font-display font-bold">{messages.tripDetailsPage.title}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{messages.tripDetailsPage.subtitle}</p>
         </div>
         <Badge variant="outline" className={status.className}>
           {status.label}
@@ -240,7 +240,7 @@ const TripDetailsPage = () => {
       {trip.status === "completed" ? (
         <div className="mb-6 mt-3 flex justify-end">
           <Button asChild variant="outline" size="sm">
-            <Link to={`/app/trips/new?reuseTrip=${encodeURIComponent(trip.id)}`}>Reutilizar trayecto</Link>
+            <Link to={`/app/trips/new?reuseTrip=${encodeURIComponent(trip.id)}`}>{messages.tripDetailsPage.reuseTrip}</Link>
           </Button>
         </div>
       ) : (
@@ -263,7 +263,7 @@ const TripDetailsPage = () => {
               className="mt-[-0.25rem] h-8 w-8 shrink-0 rounded-full text-muted-foreground"
               onClick={() => setDetailsExpanded((currentValue) => !currentValue)}
               aria-expanded={detailsExpanded}
-              aria-label={detailsExpanded ? "Plegar detalles del viaje" : "Desplegar detalles del viaje"}
+              aria-label={detailsExpanded ? messages.tripDetailsPage.collapseDetails : messages.tripDetailsPage.expandDetails}
             >
               <ChevronDown className={`h-4 w-4 transition-transform ${detailsExpanded ? "rotate-180" : ""}`} />
             </Button>
@@ -272,7 +272,7 @@ const TripDetailsPage = () => {
         <CardContent className="space-y-5 text-sm">
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Progreso de ruta</span>
+              <span>{messages.tripDetailsPage.routeProgress}</span>
               <span>{trip.progressPercent}%</span>
             </div>
             <Progress value={trip.progressPercent} />
@@ -284,15 +284,15 @@ const TripDetailsPage = () => {
                 <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    <span>Salida prevista</span>
+                    <span>{messages.tripDetailsPage.departure}</span>
                   </div>
-                  <p className="mt-2 font-medium text-foreground">{formatTripDate(trip.date)}</p>
+                  <p className="mt-2 font-medium text-foreground">{formatTripDate(trip.date, intlLocale)}</p>
                 </div>
 
                 <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Package className="h-4 w-4" />
-                    <span>Capacidad disponible</span>
+                    <span>{messages.tripDetailsPage.availableCapacity}</span>
                   </div>
                   <p className="mt-2 font-medium text-foreground">
                     {Math.max(trip.capacityKg - trip.usedKg, 0)} de {trip.capacityKg} kg
@@ -302,26 +302,29 @@ const TripDetailsPage = () => {
                 <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <CheckCircle2 className="h-4 w-4" />
-                    <span>Ultimo checkpoint</span>
+                    <span>{messages.tripDetailsPage.lastCheckpoint}</span>
                   </div>
                   <p className="mt-2 font-medium text-foreground">{trip.lastCheckpointCity}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{formatCheckpointDate(trip.lastCheckpointAt)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {formatCheckpointDate(trip.lastCheckpointAt, intlLocale, messages.tripDetailsPage.noUpdatesYet)}
+                  </p>
                 </div>
 
                 <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Clock3 className="h-4 w-4" />
-                    <span>Proxima ciudad</span>
+                    <span>{messages.tripDetailsPage.nextCity}</span>
                   </div>
                   <p className="mt-2 font-medium text-foreground">
-                    {trip.nextStop?.city ?? (trip.status === "completed" ? "Ruta completada" : "Destino final alcanzado")}
+                    {trip.nextStop?.city ??
+                      (trip.status === "completed" ? messages.tripDetailsPage.routeCompleted : messages.tripDetailsPage.destinationReachedLabel)}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {trip.nextStop
-                      ? "Marca esta ciudad cuando realmente hayas llegado."
+                      ? messages.tripDetailsPage.markWhenArrived
                       : trip.status === "completed"
-                        ? "Ya no quedan checkpoints pendientes."
-                        : "Ahora solo falta marcar los paquetes entregados para cerrar el viaje."}
+                        ? messages.tripDetailsPage.noPendingCheckpoints
+                        : messages.tripDetailsPage.pendingDeliveryHint}
                   </p>
                 </div>
               </div>
@@ -329,12 +332,12 @@ const TripDetailsPage = () => {
               <div className="rounded-xl border border-primary/10 bg-primary/5 px-4 py-4">
                 <div className="flex items-center gap-2 text-foreground">
                   <Route className="h-4 w-4 text-primary" />
-                  <span className="font-medium">Ruta publicada</span>
+                  <span className="font-medium">{messages.tripDetailsPage.routePublished}</span>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">{routeSummary}</p>
                 {shouldOpenPendingPackages ? (
                   <Button className="mt-4 w-full" size="lg" onClick={openPendingPackagesSection}>
-                    Entrega los paquetes pendientes
+                    {messages.tripDetailsPage.deliverPendingShipments}
                   </Button>
                 ) : (
                   <Button
@@ -344,19 +347,19 @@ const TripDetailsPage = () => {
                     disabled={advancing || !trip.nextStop || !trip.trackingAvailable}
                   >
                     {advancing
-                      ? "Guardando checkpoint..."
+                      ? messages.tripDetailsPage.savingCheckpoint
                       : trip.nextStop
-                        ? `Llegue a ${trip.nextStop.city}`
-                        : "No quedan ciudades pendientes"}
+                        ? messages.tripDetailsPage.arrivedAt(trip.nextStop.city)
+                        : messages.tripDetailsPage.noPendingCities}
                   </Button>
                 )}
                 {!trip.trackingAvailable ? (
                   <p className="mt-3 text-xs text-muted-foreground">
-                    El viaje existe, pero el seguimiento por ciudades necesita la migracion nueva de Supabase para activarse.
+                    {messages.tripDetailsPage.trackingNeedsMigration}
                   </p>
                 ) : !trip.nextStop && trip.status === "active" ? (
                   <p className="mt-3 text-xs text-muted-foreground">
-                    Ya has llegado al destino. El viaje se cerrara cuando todos los paquetes esten marcados como entregados.
+                    {messages.tripDetailsPage.destinationReachedPendingShipments}
                   </p>
                 ) : null}
               </div>
@@ -369,28 +372,28 @@ const TripDetailsPage = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Users className="h-5 w-5 text-primary" />
-            Personas que envian contigo
+            {messages.tripDetailsPage.peopleShipping}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-border/70 bg-background px-4 py-3 text-center">
               <p className="text-2xl font-bold text-warning">{shipmentCounts.pending}</p>
-              <p className="text-xs text-muted-foreground">Por confirmar</p>
+              <p className="text-xs text-muted-foreground">{messages.tripDetailsPage.pendingConfirm}</p>
             </div>
             <div className="rounded-xl border border-border/70 bg-background px-4 py-3 text-center">
               <p className="text-2xl font-bold text-primary">{shipmentCounts.accepted}</p>
-              <p className="text-xs text-muted-foreground">En ruta</p>
+              <p className="text-xs text-muted-foreground">{messages.tripDetailsPage.accepted}</p>
             </div>
             <div className="rounded-xl border border-border/70 bg-background px-4 py-3 text-center">
               <p className="text-2xl font-bold text-success">{shipmentCounts.delivered}</p>
-              <p className="text-xs text-muted-foreground">Entregados</p>
+              <p className="text-xs text-muted-foreground">{messages.tripDetailsPage.deliveredPlural}</p>
             </div>
           </div>
 
           {tripConversations.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border bg-background px-4 py-5 text-sm text-muted-foreground">
-              Todavia no hay emisores vinculados a este viaje. Cuando alguien te escriba desde este trayecto, aparecera aqui.
+              {messages.tripDetailsPage.noSendersYet}
             </div>
           ) : (
             <div className="space-y-3">
@@ -411,23 +414,21 @@ const TripDetailsPage = () => {
                         variant="outline"
                         className={shipmentStatus ? shipmentStatus.className : "border-border bg-muted text-muted-foreground"}
                       >
-                        {shipmentStatus?.label ?? "En conversacion"}
+                        {shipmentStatus?.label ?? messages.tripDetailsPage.inConversation}
                       </Badge>
                     </div>
 
                     {!shipment ? (
                       <p className="mt-3 text-xs text-muted-foreground">
-                        Todavia estais hablando. Si finalmente os encaja, el emisor elegira este transporte desde la app.
+                        {messages.tripDetailsPage.talkingOnlyHint}
                       </p>
                     ) : shipment.status === "pending" ? (
-                      <p className="mt-3 text-xs text-muted-foreground">
-                        Transporte elegido. El emisor confirmara cuando el paquete ya este cargado.
-                      </p>
+                      <p className="mt-3 text-xs text-muted-foreground">{messages.tripDetailsPage.transportSelectedHint}</p>
                     ) : shipment.status === "delivered" ? (
                       <p className="mt-3 text-xs text-muted-foreground">
                         {shipment.reviewRating
-                          ? `Valorado con ${shipment.reviewRating} estrella(s).`
-                          : "Entrega completada. Pendiente de valoracion por el emisor."}
+                          ? messages.tripDetailsPage.deliveredWithRating(shipment.reviewRating)
+                          : messages.tripDetailsPage.deliveredPendingReview}
                       </p>
                     ) : null}
 
@@ -435,13 +436,13 @@ const TripDetailsPage = () => {
                       <Button asChild variant="outline" size="sm" className="gap-2">
                         <Link to={`/app/messages/${conversation.id}`}>
                           <MessageSquare className="h-4 w-4" />
-                          Chat
+                          {messages.tripDetailsPage.chat}
                         </Link>
                       </Button>
 
                       {shipment?.status === "pending" ? (
                         <Button type="button" size="sm" variant="outline" disabled>
-                          Por cargar
+                          {messages.shipmentStatus.pending}
                         </Button>
                       ) : null}
 
@@ -454,14 +455,14 @@ const TripDetailsPage = () => {
                           disabled={updatingShipmentId === shipment.id}
                         >
                           <CheckCircle2 className="h-4 w-4" />
-                          {updatingShipmentId === shipment.id ? "Guardando..." : "Entregado"}
+                          {updatingShipmentId === shipment.id ? messages.tripDetailsPage.saving : messages.shipmentStatus.delivered}
                         </Button>
                       ) : null}
 
                       {shipment?.status === "delivered" ? (
                         <Button type="button" size="sm" variant="outline" className="gap-2" disabled>
                           <CheckCircle2 className="h-4 w-4" />
-                          Entregado
+                          {messages.shipmentStatus.delivered}
                         </Button>
                       ) : null}
                     </div>
@@ -475,7 +476,7 @@ const TripDetailsPage = () => {
 
       <Card className="mb-4 shadow-card">
         <CardHeader>
-          <CardTitle className="text-lg">Ruta paso a paso</CardTitle>
+          <CardTitle className="text-lg">{messages.tripDetailsPage.stepByStepRoute}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           {trip.stops.map((stop, index) => {
@@ -510,11 +511,15 @@ const TripDetailsPage = () => {
                             : "border-border bg-muted text-muted-foreground"
                       }
                     >
-                      {isReached ? "Confirmada" : isNext ? "Siguiente" : "Pendiente"}
+                      {isReached ? messages.tripDetailsPage.confirmed : isNext ? messages.tripDetailsPage.next : messages.tripDetailsPage.pending}
                     </Badge>
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {stop.reachedAt ? `Marcada el ${formatCheckpointDate(stop.reachedAt)}` : "Aun no se ha confirmado esta ciudad."}
+                    {stop.reachedAt
+                      ? messages.tripDetailsPage.markedOn(
+                          formatCheckpointDate(stop.reachedAt, intlLocale, messages.tripDetailsPage.noUpdatesYet),
+                        )
+                      : messages.tripDetailsPage.cityNotConfirmed}
                   </p>
                 </div>
               </div>
@@ -526,10 +531,7 @@ const TripDetailsPage = () => {
       <Card className="shadow-card">
         <CardContent className="flex items-start gap-3 p-4 text-sm text-muted-foreground">
           <ShieldCheck className="mt-0.5 h-5 w-5 text-primary" />
-          <p>
-            Este seguimiento esta pensado para ser facil y seguro: una sola accion por parada, sin mapas en vivo y sin
-            obligar al conductor a escribir mientras viaja.
-          </p>
+          <p>{messages.tripDetailsPage.safeTrackingHint}</p>
         </CardContent>
       </Card>
     </div>

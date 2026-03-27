@@ -3,22 +3,28 @@ import { Link } from "react-router-dom";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useLocale } from "@/contexts/LocaleContext";
 import type { PublicTripListing } from "@/lib/cargoo-store";
 
 const PublicTripCard = ({ trip }: { trip: PublicTripListing }) => {
+  const { intlLocale, messages } = useLocale();
   const initials = trip.carrierName
     .split(" ")
     .map((namePart) => namePart[0])
     .join("")
     .slice(0, 2);
 
-  const formattedDate = new Date(trip.date).toLocaleDateString("es-ES", {
+  const formattedDate = new Date(trip.date).toLocaleDateString(intlLocale, {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
-  const ratingLabel = trip.averageRating !== null ? String(trip.averageRating.toFixed(1)).replace(".", ",") : "Nueva";
-  const ratingCaption = trip.reviewsCount > 0 ? `${trip.reviewsCount} valoracion(es)` : "Sin valoraciones";
+  const ratingLabel =
+    trip.averageRating !== null
+      ? new Intl.NumberFormat(intlLocale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(trip.averageRating)
+      : messages.common.newLabel;
+  const ratingCaption =
+    trip.reviewsCount > 0 ? messages.publicTripCard.reviews(trip.reviewsCount) : messages.publicTripCard.noReviews;
 
   return (
     <Link
@@ -34,10 +40,10 @@ const PublicTripCard = ({ trip }: { trip: PublicTripListing }) => {
           <div className="mb-1 flex items-center gap-2">
             <h3 className="truncate font-semibold text-card-foreground">{trip.carrierName}</h3>
             <Badge variant="secondary" className="shrink-0 text-xs">
-              Publico
+              {messages.publicTripCard.public}
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground">{trip.tripsCount} viaje(s) publicado(s)</p>
+          <p className="text-sm text-muted-foreground">{messages.publicTripCard.tripsPublished(trip.tripsCount)}</p>
           <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
             <Star className="h-3.5 w-3.5 fill-warning text-warning" />
             <span className="font-medium text-foreground">{ratingLabel}</span>
@@ -60,12 +66,12 @@ const PublicTripCard = ({ trip }: { trip: PublicTripListing }) => {
           </div>
           <div className="flex items-center gap-1.5">
             <CarFront className="h-4 w-4" />
-            <span>{trip.availableKg} kg libres</span>
+            <span>{messages.publicTripCard.availableKg(trip.availableKg)}</span>
           </div>
         </div>
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <Package className="h-4 w-4" />
-          <span>Capacidad total: {trip.capacityKg} kg</span>
+          <span>{messages.publicTripCard.totalCapacity(trip.capacityKg)}</span>
         </div>
         {trip.notes ? <p className="line-clamp-2 text-sm text-muted-foreground">{trip.notes}</p> : null}
       </div>

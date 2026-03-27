@@ -46,7 +46,8 @@ type PreferenceRow = {
 };
 
 type ProfileRow = {
-  id: string;
+  user_id?: string;
+  id?: string;
   locale: string | null;
 };
 
@@ -126,6 +127,19 @@ function pickLocale(raw: string | null | undefined): Locale {
   return "es";
 }
 
+function isMissingProfileLocaleSource(error: { message?: string; code?: string } | null) {
+  if (!error) {
+    return false;
+  }
+
+  return (
+    error.code === "PGRST205" ||
+    /Could not find the table/i.test(error.message ?? "") ||
+    /relation .* does not exist/i.test(error.message ?? "") ||
+    /locale/i.test(error.message ?? "")
+  );
+}
+
 function compactText(value: string, maxLength = 140) {
   const normalized = value.replace(/\s+/g, " ").trim();
   if (normalized.length <= maxLength) {
@@ -177,12 +191,34 @@ async function getPushTargets(userIds: string[]) {
     return [] as Array<PushSubscriptionRow & { locale: Locale }>;
   }
 
-  const [{ data: subscriptions, error: subscriptionsError }, { data: preferences, error: preferencesError }, { data: profiles, error: profilesError }] =
-    await Promise.all([
-      supabase.from("push_subscriptions").select("user_id, endpoint, p256dh, auth").in("user_id", uniqueUserIds),
-      supabase.from("preferences").select("user_id, notifications_enabled").in("user_id", uniqueUserIds),
-      supabase.from("profiles").select("id, locale").in("id", uniqueUserIds),
-    ]);
+  const [{ data: subscriptions, error: subscriptionsError }, { data: preferences, error: preferencesError }] = await Promise.all([
+    supabase.from("push_subscriptions").select("user_id, endpoint, p256dh, auth").in("user_id", uniqueUserIds),
+    supabase.from("preferences").select("user_id, notifications_enabled").in("user_id", uniqueUserIds),
+  ]);
+
+  let profiles: ProfileRow[] | null = null;
+
+  const { data: cargooProfiles, error: cargooProfilesError } = await supabase
+    .from("cargoo_profiles")
+    .select("user_id, locale")
+    .in("user_id", uniqueUserIds);
+
+  if (!cargooProfilesError) {
+    profiles = cargooProfiles as ProfileRow[] | null;
+  } else if (isMissingProfileLocaleSource(cargooProfilesError)) {
+    const { data: legacyProfiles, error: legacyProfilesError } = await supabase
+      .from("profiles")
+      .select("id, locale")
+      .in("id", uniqueUserIds);
+
+    if (legacyProfilesError && !isMissingProfileLocaleSource(legacyProfilesError)) {
+      throw legacyProfilesError;
+    }
+
+    profiles = (legacyProfiles as ProfileRow[] | null) ?? [];
+  } else {
+    throw cargooProfilesError;
+  }
 
   if (subscriptionsError) {
     throw subscriptionsError;
@@ -192,10 +228,6 @@ async function getPushTargets(userIds: string[]) {
     throw preferencesError;
   }
 
-  if (profilesError) {
-    throw profilesError;
-  }
-
   const notificationsByUserId = new Map<string, boolean>();
   (preferences as PreferenceRow[] | null)?.forEach((row) => {
     notificationsByUserId.set(row.user_id, row.notifications_enabled);
@@ -203,7 +235,7 @@ async function getPushTargets(userIds: string[]) {
 
   const localeByUserId = new Map<string, Locale>();
   (profiles as ProfileRow[] | null)?.forEach((row) => {
-    localeByUserId.set(row.id, pickLocale(row.locale));
+    localeByUserId.set(row.user_id ?? row.id ?? "", pickLocale(row.locale));
   });
 
   return ((subscriptions as PushSubscriptionRow[] | null) || [])

@@ -3,13 +3,16 @@ import { Menu, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 import BrandLogo from "@/components/BrandLogo";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
+  const { messages } = useLocale();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -25,25 +28,26 @@ const Navbar = () => {
             to="/search"
             className={`text-sm font-medium transition-colors ${isActive("/search") ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
           >
-            Buscar conductores
+            {messages.navbar.searchDrivers}
           </Link>
           <Link
             to="/how-it-works"
             className={`text-sm font-medium transition-colors ${isActive("/how-it-works") ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
           >
-            Como funciona
+            {messages.navbar.howItWorks}
           </Link>
+          <LanguageSwitcher compact />
           {user ? (
             <Button size="sm" asChild>
-              <Link to="/app">Abrir app</Link>
+              <Link to="/app">{messages.navbar.openApp}</Link>
             </Button>
           ) : (
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="sm" asChild>
-                <Link to="/login">Iniciar sesion</Link>
+                <Link to="/login">{messages.navbar.login}</Link>
               </Button>
               <Button size="sm" asChild>
-                <Link to="/register">Registrarse</Link>
+                <Link to="/register">{messages.navbar.register}</Link>
               </Button>
             </div>
           )}
@@ -52,37 +56,38 @@ const Navbar = () => {
         <button
           className="p-2 text-foreground md:hidden"
           onClick={() => setMobileOpen((open) => !open)}
-          aria-label={mobileOpen ? "Cerrar menu" : "Abrir menu"}
+          aria-label={mobileOpen ? messages.navbar.closeMenu : messages.navbar.openMenu}
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
 
       {mobileOpen ? (
-        <div className="animate-fade-in border-b border-border bg-background px-4 pb-4 md:hidden">
+        <div className="animate-fade-in overflow-x-hidden border-b border-border bg-background px-4 pb-4 md:hidden">
           <div className="flex flex-col gap-3">
-            <Link to="/search" className="py-2 text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>
-              Buscar conductores
+            <LanguageSwitcher compact className="w-full" />
+            <Link to="/search" className="break-words py-2 text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>
+              {messages.navbar.searchDrivers}
             </Link>
-            <Link to="/how-it-works" className="py-2 text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>
-              Como funciona
+            <Link to="/how-it-works" className="break-words py-2 text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>
+              {messages.navbar.howItWorks}
             </Link>
             {user ? (
               <Button size="sm" asChild>
                 <Link to="/app" onClick={() => setMobileOpen(false)}>
-                  Abrir app
+                  {messages.navbar.openApp}
                 </Link>
               </Button>
             ) : (
               <>
                 <Button variant="ghost" size="sm" asChild>
                   <Link to="/login" onClick={() => setMobileOpen(false)}>
-                    Iniciar sesion
+                    {messages.navbar.login}
                   </Link>
                 </Button>
                 <Button size="sm" asChild>
                   <Link to="/register" onClick={() => setMobileOpen(false)}>
-                    Registrarse
+                    {messages.navbar.register}
                   </Link>
                 </Button>
               </>

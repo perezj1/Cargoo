@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
+import { useLocale } from "@/contexts/LocaleContext";
 import PublicTripCard from "@/components/PublicTripCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ const SearchPage = () => {
   const [sortBy, setSortBy] = useState("date");
   const [trips, setTrips] = useState<PublicTripListing[]>([]);
   const [loading, setLoading] = useState(true);
+  const { messages } = useLocale();
 
   useEffect(() => {
     const loadTrips = async () => {
@@ -56,12 +58,12 @@ const SearchPage = () => {
       <main className="flex-1 pt-16">
         <div className="bg-secondary py-8">
           <div className="container">
-            <h1 className="mb-6 text-2xl font-display font-bold md:text-3xl">Buscar conductores</h1>
+            <h1 className="mb-6 text-2xl font-display font-bold md:text-3xl">{messages.searchPage.title}</h1>
             <div className="flex flex-col gap-3 md:flex-row">
               <div className="flex flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3">
                 <MapPin className="h-4 w-4 shrink-0 text-primary" />
                 <Input
-                  placeholder="Origen"
+                  placeholder={messages.searchPage.originPlaceholder}
                   className="border-0 bg-transparent shadow-none focus-visible:ring-0"
                   value={origin}
                   onChange={(event) => setOrigin(event.target.value)}
@@ -70,7 +72,7 @@ const SearchPage = () => {
               <div className="flex flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3">
                 <MapPin className="h-4 w-4 shrink-0 text-accent" />
                 <Input
-                  placeholder="Destino"
+                  placeholder={messages.searchPage.destinationPlaceholder}
                   className="border-0 bg-transparent shadow-none focus-visible:ring-0"
                   value={destination}
                   onChange={(event) => setDestination(event.target.value)}
@@ -79,12 +81,12 @@ const SearchPage = () => {
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger className="w-full bg-card md:w-48">
                   <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Ordenar por" />
+                  <SelectValue placeholder={messages.searchPage.sortPlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="date">Fecha mas proxima</SelectItem>
-                  <SelectItem value="capacity">Mas espacio</SelectItem>
-                  <SelectItem value="trips">Mas viajes</SelectItem>
+                  <SelectItem value="date">{messages.searchPage.sortDate}</SelectItem>
+                  <SelectItem value="capacity">{messages.searchPage.sortCapacity}</SelectItem>
+                  <SelectItem value="trips">{messages.searchPage.sortTrips}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -93,21 +95,16 @@ const SearchPage = () => {
 
         <div className="container py-8">
           <div className="mb-6 rounded-2xl border border-primary/15 bg-primary/5 p-5 shadow-card">
-            <p className="text-sm text-muted-foreground">
-              Si quieres descubrir mas transportistas, horarios disponibles y gestionar tus contactos y envios desde un
-              mismo sitio, accede a la app.
-            </p>
+            <p className="text-sm text-muted-foreground">{messages.searchPage.teaser}</p>
             <Button asChild className="mt-4">
-              <Link to="/app">Acceder a la app</Link>
+              <Link to="/app">{messages.searchPage.teaserButton}</Link>
             </Button>
           </div>
 
           <p className="mb-6 text-sm text-muted-foreground">
-            {loading ? "Buscando conductores..." : `${filtered.length} conductores encontrados`}
+            {loading ? messages.searchPage.loading : messages.searchPage.resultsFound(filtered.length)}
           </p>
-          <p className="-mt-3 mb-6 text-xs text-muted-foreground">
-            El buscador tambien tiene en cuenta ciudades intermedias donde el transportista ha indicado que puede parar.
-          </p>
+          <p className="-mt-3 mb-6 text-xs text-muted-foreground">{messages.searchPage.routeHint}</p>
           {loading ? (
             <div className="flex min-h-[40vh] items-center justify-center">
               <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-primary" />
@@ -121,8 +118,8 @@ const SearchPage = () => {
           ) : (
             <div className="py-20 text-center">
               <Search className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-              <h3 className="mb-2 text-xl font-display font-semibold">No se encontraron conductores</h3>
-              <p className="text-muted-foreground">Intenta con otra ruta o fecha</p>
+              <h3 className="mb-2 text-xl font-display font-semibold">{messages.searchPage.emptyTitle}</h3>
+              <p className="text-muted-foreground">{messages.searchPage.emptyDescription}</p>
             </div>
           )}
         </div>

@@ -19,3 +19,6 @@ export const LEGAL_COMPANY = {
   commercialRegister: "",
   uid: "",
 } as const;
+
+export const interpolateLegalText = (value: string) =>
+  value.replace(/\{(\w+)\}/g, (_match, key: keyof typeof LEGAL_COMPANY) => LEGAL_COMPANY[key] ?? "");

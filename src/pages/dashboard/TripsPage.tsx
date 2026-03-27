@@ -16,21 +16,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocale } from "@/contexts/LocaleContext";
 import { deleteCompletedTrip, getFriendlyErrorMessage, getTrips, type CargooTrip } from "@/lib/cargoo-store";
-
-const statusConfig = {
-  active: { label: "Activo", className: "border-success/20 bg-success/10 text-success" },
-  completed: { label: "Completado", className: "border-border bg-muted text-muted-foreground" },
-} as const;
 
 const TripsPage = () => {
   const navigate = useNavigate();
   const { loading: authLoading, profile, profileLoading } = useAuth();
+  const { intlLocale, messages } = useLocale();
   const [tab, setTab] = useState("active");
   const [trips, setTrips] = useState<CargooTrip[]>([]);
   const [loading, setLoading] = useState(true);
   const [tripToDelete, setTripToDelete] = useState<CargooTrip | null>(null);
   const [deletingTripId, setDeletingTripId] = useState<string | null>(null);
+  const statusConfig = {
+    active: { label: messages.tripStatus.active, className: "border-success/20 bg-success/10 text-success" },
+    completed: { label: messages.tripStatus.completed, className: "border-border bg-muted text-muted-foreground" },
+  } as const;
 
   const loadTrips = async () => {
     try {
@@ -80,7 +81,7 @@ const TripsPage = () => {
     try {
       await deleteCompletedTrip(tripToDelete.id);
       setTripToDelete(null);
-      toast.success("Viaje completado eliminado.");
+      toast.success(messages.tripsPage.deletedSuccess);
       await loadTrips();
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
@@ -92,22 +93,18 @@ const TripsPage = () => {
   return (
     <div className="mx-auto max-w-lg px-4 pt-6">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-display font-bold">Mis viajes</h1>
+        <h1 className="text-2xl font-display font-bold">{messages.tripsPage.title}</h1>
         <Button size="sm" asChild className="gap-1">
           <Link to="/app/trips/new">
-            <Plus className="h-4 w-4" /> Nuevo
+            <Plus className="h-4 w-4" /> {messages.tripsPage.newTrip}
           </Link>
         </Button>
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="mb-6">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="active" className="flex-1">
-            Activos {counts.active}
-          </TabsTrigger>
-          <TabsTrigger value="completed" className="flex-1">
-            Completados {counts.completed}
-          </TabsTrigger>
+          <TabsTrigger value="active" className="flex-1">{messages.tripsPage.activeTab(counts.active)}</TabsTrigger>
+          <TabsTrigger value="completed" className="flex-1">{messages.tripsPage.completedTab(counts.completed)}</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -119,7 +116,7 @@ const TripsPage = () => {
         <div className="space-y-3">
           {filteredTrips.map((trip) => {
             const status = statusConfig[trip.status];
-            const formattedDate = new Date(trip.date).toLocaleDateString("es-ES", {
+            const formattedDate = new Date(trip.date).toLocaleDateString(intlLocale, {
               day: "numeric",
               month: "short",
               year: "numeric",
@@ -151,11 +148,11 @@ const TripsPage = () => {
                   </div>
                   {trip.status === "active" && trip.requests > 0 ? (
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-accent">{trip.requests} solicitud(es) pendientes</span>
+                      <span className="font-medium text-accent">{messages.tripsPage.pendingRequests(trip.requests)}</span>
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   ) : trip.status === "completed" ? (
-                    <p className="text-xs text-muted-foreground">Este trayecto ya termino, pero puedes reutilizarlo con otra fecha.</p>
+                    <p className="text-xs text-muted-foreground">{messages.tripsPage.completedHint}</p>
                   ) : null}
                 </Link>
 
@@ -167,7 +164,7 @@ const TripsPage = () => {
                       size="sm"
                       onClick={() => navigate(`/app/trips/new?reuseTrip=${encodeURIComponent(trip.id)}`)}
                     >
-                      Reutilizar trayecto
+                      {messages.tripsPage.reuseTrip}
                     </Button>
                     <Button
                       type="button"
@@ -177,7 +174,7 @@ const TripsPage = () => {
                       onClick={() => setTripToDelete(trip)}
                     >
                       <Trash2 className="h-4 w-4" />
-                      Eliminar
+                      {messages.tripsPage.delete}
                     </Button>
                   </div>
                 ) : null}
@@ -187,7 +184,7 @@ const TripsPage = () => {
           {filteredTrips.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground">
               <Package className="mx-auto mb-3 h-10 w-10 opacity-40" />
-              <p className="text-sm">No tienes viajes en esta categoria</p>
+              <p className="text-sm">{messages.tripsPage.empty}</p>
             </div>
           ) : null}
         </div>
@@ -203,15 +200,13 @@ const TripsPage = () => {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar viaje completado</AlertDialogTitle>
-            <AlertDialogDescription>
-              Este viaje se borrara del historial. Si tiene envios vinculados, tambien desapareceran junto con el viaje.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{messages.tripsPage.deleteDialogTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{messages.tripsPage.deleteDialogDescription}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={Boolean(deletingTripId)}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={Boolean(deletingTripId)}>{messages.common.cancel}</AlertDialogCancel>
             <Button type="button" variant="destructive" onClick={() => void handleDeleteCompletedTrip()} disabled={Boolean(deletingTripId)}>
-              {deletingTripId ? "Eliminando..." : "Eliminar viaje"}
+              {deletingTripId ? messages.tripsPage.deleting : messages.tripsPage.deleteDialogButton}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

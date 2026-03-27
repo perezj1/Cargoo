@@ -3,25 +3,27 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocale } from "@/contexts/LocaleContext";
 import { supabase } from "@/integrations/supabase/client";
 import { getConversations } from "@/lib/cargoo-store";
 
 const BottomNav = () => {
   const { pathname } = useLocation();
   const { profile, user } = useAuth();
+  const { messages } = useLocale();
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const items = profile?.isTraveler
     ? [
-        { to: "/app", icon: Home, label: "Inicio" },
-        { to: "/app/trips", icon: CarFront, label: "Viajes" },
-        { to: "/app/messages", icon: MessageSquare, label: "Mensajes" },
-        { to: "/app/profile", icon: User, label: "Perfil" },
+        { to: "/app", icon: Home, label: messages.bottomNav.home },
+        { to: "/app/trips", icon: CarFront, label: messages.bottomNav.trips },
+        { to: "/app/messages", icon: MessageSquare, label: messages.bottomNav.messages },
+        { to: "/app/profile", icon: User, label: messages.bottomNav.profile },
       ]
     : [
-        { to: "/app", icon: Home, label: "Inicio" },
-        { to: "/app/shipments", icon: Package, label: "Envios" },
-        { to: "/app/messages", icon: MessageSquare, label: "Mensajes" },
-        { to: "/app/profile", icon: User, label: "Perfil" },
+        { to: "/app", icon: Home, label: messages.bottomNav.home },
+        { to: "/app/shipments", icon: Package, label: messages.bottomNav.shipments },
+        { to: "/app/messages", icon: MessageSquare, label: messages.bottomNav.messages },
+        { to: "/app/profile", icon: User, label: messages.bottomNav.profile },
       ];
 
   const loadUnreadState = async () => {
