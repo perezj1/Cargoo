@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import {
   getCurrentUser,
   getFriendlyErrorMessage,
@@ -22,6 +23,7 @@ import {
   type CargooUser,
   type TravelerRatingSummary,
 } from "@/lib/cargoo-store";
+import { getNotificationPermissionState, removePushSubscription, syncPushSubscription } from "@/lib/push-notifications";
 
 const ProfilePage = () => {
   const navigate = useNavigate();
@@ -30,6 +32,9 @@ const ProfilePage = () => {
   const [trips, setTrips] = useState<CargooTrip[]>([]);
   const [savingVisibility, setSavingVisibility] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [savingNotifications, setSavingNotifications] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationPermission, setNotificationPermission] = useState(getNotificationPermissionState());
   const [ratingSummary, setRatingSummary] = useState<TravelerRatingSummary>({
     averageRating: null,
     reviewsCount: 0,
@@ -42,6 +47,26 @@ const ProfilePage = () => {
       try {
         const profile = await getCurrentUser();
         setUser(profile);
+
+        const { data: preferences, error: preferencesError } = await supabase
+          .from("preferences")
+          .select("notifications_enabled")
+          .eq("user_id", profile.userId)
+          .maybeSingle();
+
+        if (preferencesError) {
+          throw preferencesError;
+        }
+
+        const pushEnabled = preferences?.notifications_enabled ?? true;
+        setNotificationsEnabled(pushEnabled);
+        setNotificationPermission(getNotificationPermissionState());
+
+        if (pushEnabled && getNotificationPermissionState() === "granted") {
+          void syncPushSubscription(profile.userId, { requestPermission: false }).catch(() => {
+            // Silent sync only keeps the subscription stored remotely.
+          });
+        }
 
         if (profile.isTraveler) {
           const userTrips = await getTrips();
@@ -88,6 +113,40 @@ const ProfilePage = () => {
       navigate("/login");
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
+    }
+  };
+
+  const handleNotificationsChange = async (enabled: boolean) => {
+    if (!user) {
+      return;
+    }
+
+    setSavingNotifications(true);
+
+    try {
+      if (enabled) {
+        await syncPushSubscription(user.userId, { requestPermission: true, forceRefresh: true });
+      } else {
+        await removePushSubscription();
+      }
+
+      const { error } = await supabase
+        .from("preferences")
+        .update({ notifications_enabled: enabled })
+        .eq("user_id", user.userId);
+
+      if (error) {
+        throw error;
+      }
+
+      setNotificationsEnabled(enabled);
+      setNotificationPermission(getNotificationPermissionState());
+      toast.success(enabled ? "Notificaciones push activadas." : "Notificaciones push desactivadas.");
+    } catch (error) {
+      setNotificationPermission(getNotificationPermissionState());
+      toast.error(getFriendlyErrorMessage(error));
+    } finally {
+      setSavingNotifications(false);
     }
   };
 
@@ -239,6 +298,22 @@ const ProfilePage = () => {
               ? "Cuenta conectada a Supabase y datos guardados en la base"
               : "Tu cuenta esta conectada y lista para usar la app con normalidad."}
           </p>
+        </div>
+      </div>
+
+      <div className="mb-4 rounded-xl bg-card p-4 shadow-card">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium">Notificaciones push</p>
+            <p className="text-xs text-muted-foreground">
+              {notificationPermission === "granted"
+                ? "Este navegador ya puede recibir avisos de mensajes, checkpoints y entregas."
+                : notificationPermission === "denied"
+                  ? "El navegador ha bloqueado los permisos. Tienes que reactivarlos en la configuracion del sitio."
+                  : "Activalas para recibir avisos cuando llegue un mensaje o haya cambios en el envio."}
+            </p>
+          </div>
+          <Switch checked={notificationsEnabled} onCheckedChange={handleNotificationsChange} disabled={savingNotifications} />
         </div>
       </div>
 

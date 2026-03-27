@@ -3,6 +3,7 @@ import type { Session, User } from "@supabase/supabase-js";
 
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUser, type CargooUser } from "@/lib/cargoo-store";
+import { getNotificationPermissionState, syncPushSubscription } from "@/lib/push-notifications";
 
 interface AuthContextValue {
   user: User | null;
@@ -83,6 +84,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(nextSession?.user ?? null);
         if (nextSession?.user) {
           void refreshProfile();
+          if (getNotificationPermissionState() === "granted") {
+            void syncPushSubscription(nextSession.user.id, { requestPermission: false }).catch(() => {
+              // Push sync should not block auth.
+            });
+          }
         } else {
           setProfile(null);
           setProfileLoading(false);

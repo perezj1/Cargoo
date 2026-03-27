@@ -4,6 +4,23 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { normalizeSearchText } from "@/lib/search-normalization";
 
+type PushEventPayload =
+  | { eventType: "trip_checkpoint_reached"; tripId: string; stopId: string; city?: string }
+  | { eventType: "shipment_delivered"; shipmentId: string }
+  | { eventType: "message_received"; messageId: string };
+
+const PUSH_FUNCTION_NAME = "send-reminders";
+
+const triggerPushEvent = async (payload: PushEventPayload) => {
+  const { error } = await supabase.functions.invoke(PUSH_FUNCTION_NAME, {
+    body: payload,
+  });
+
+  if (error) {
+    throw error;
+  }
+};
+
 export interface CargooUser {
   userId: string;
   name: string;
@@ -1336,6 +1353,15 @@ export const advanceTripToNextStop = async (tripId: string) => {
     throw mappedStopUpdateError;
   }
 
+  void triggerPushEvent({
+    eventType: "trip_checkpoint_reached",
+    tripId,
+    stopId: nextStop.id,
+    city: nextStop.city,
+  }).catch((error) => {
+    console.error("No se pudo enviar la push del checkpoint.", error);
+  });
+
   const isLastStop = nextStop.order === tripDetails.stops[tripDetails.stops.length - 1]?.order;
 
   const updatedTripDetails = isLastStop ? await syncTripCompletionState(user.id, tripId) : await getTripById(tripId);
@@ -1942,6 +1968,13 @@ export const markShipmentDelivered = async (shipmentId: string) => {
     throw mappedError;
   }
 
+  void triggerPushEvent({
+    eventType: "shipment_delivered",
+    shipmentId,
+  }).catch((error) => {
+    console.error("No se pudo enviar la push de paquete entregado.", error);
+  });
+
   await syncTripCompletionState(user.id, shipment.tripId);
 
   const updatedShipment = await getShipmentByIdInternal(shipmentId);
@@ -2300,6 +2333,13 @@ export const sendConversationMessage = async (conversationId: string, content: s
   }
 
   markChatFeatureAvailable();
+
+  void triggerPushEvent({
+    eventType: "message_received",
+    messageId: data.id,
+  }).catch((error) => {
+    console.error("No se pudo enviar la push de nuevo mensaje.", error);
+  });
 
   return mapMessageRow(data);
 };
