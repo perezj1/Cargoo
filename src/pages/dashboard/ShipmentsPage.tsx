@@ -25,7 +25,7 @@ const statusConfig = {
 } as const;
 
 const normalizeTab = (value: string | null) => {
-  if (value === "active" || value === "delivered" || value === "all") {
+  if (value === "active" || value === "delivered") {
     return value;
   }
 
@@ -75,10 +75,6 @@ const ShipmentsPage = () => {
 
   const filteredShipments = useMemo(() => {
     return shipments.filter((shipment) => {
-      if (tab === "all") {
-        return true;
-      }
-
       if (tab === "active") {
         return shipment.status === "pending" || shipment.status === "accepted";
       }
@@ -163,10 +159,9 @@ const ShipmentsPage = () => {
       </p>
 
       <Tabs value={tab} onValueChange={handleTabChange} className="mb-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="active">Activos {counts.active}</TabsTrigger>
           <TabsTrigger value="delivered">Finalizados {counts.delivered}</TabsTrigger>
-          <TabsTrigger value="all">Todos</TabsTrigger>
         </TabsList>
       </Tabs>
 

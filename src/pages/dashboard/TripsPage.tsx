@@ -36,7 +36,7 @@ const TripsPage = () => {
   }, []);
 
   const filteredTrips = useMemo(() => {
-    return trips.filter((trip) => (tab === "all" ? true : trip.status === tab));
+    return trips.filter((trip) => trip.status === tab);
   }, [tab, trips]);
 
   if (authLoading || profileLoading) {
@@ -63,15 +63,12 @@ const TripsPage = () => {
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="mb-6">
-        <TabsList className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="active" className="flex-1">
             Activos
           </TabsTrigger>
           <TabsTrigger value="completed" className="flex-1">
             Completados
-          </TabsTrigger>
-          <TabsTrigger value="all" className="flex-1">
-            Todos
           </TabsTrigger>
         </TabsList>
       </Tabs>
