@@ -1,5 +1,3 @@
-import { CarFront } from "lucide-react";
-
 import { cn } from "@/lib/utils";
 
 interface BrandLogoProps {
@@ -17,14 +15,11 @@ const BrandLogo = ({
 }: BrandLogoProps) => {
   return (
     <span className={cn("inline-flex items-center gap-3", className)}>
-      <span
-        className={cn(
-          "flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-card",
-          iconClassName,
-        )}
-      >
-        <CarFront className="h-5 w-5" />
-      </span>
+      <img
+        src="/favicon.svg?v=5"
+        alt="Logo de Cargoo"
+        className={cn("h-10 w-10 shrink-0 object-contain drop-shadow-sm", iconClassName)}
+      />
       {showName ? (
         <span className={cn("font-display text-xl font-bold tracking-tight text-foreground", textClassName)}>
           Cargoo
