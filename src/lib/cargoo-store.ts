@@ -550,6 +550,7 @@ const mapTripRow = (row: {
 
 type ConversationRow = Database["public"]["Tables"]["cargoo_conversations"]["Row"];
 type MessageRow = Database["public"]["Tables"]["cargoo_messages"]["Row"];
+type HiddenConversationRow = Database["public"]["Tables"]["cargoo_conversation_hidden_states"]["Row"];
 type ShipmentRow = Database["public"]["Tables"]["cargoo_shipments"]["Row"];
 type TripStopRow = Database["public"]["Tables"]["cargoo_trip_stops"]["Row"];
 
@@ -704,6 +705,29 @@ const mapMessageRow = (row: MessageRow): ChatMessage => ({
   createdAt: row.created_at ?? new Date().toISOString(),
   readAt: row.read_at,
 });
+
+const getHiddenConversationStatesForUser = async (userId: string, conversationIds: string[]) => {
+  if (!conversationIds.length) {
+    return new Map<string, HiddenConversationRow>();
+  }
+
+  const { data, error } = await supabase
+    .from("cargoo_conversation_hidden_states")
+    .select("conversation_id, user_id, hidden_at")
+    .eq("user_id", userId)
+    .in("conversation_id", conversationIds);
+
+  if (isMissingCargooTable(error)) {
+    return new Map<string, HiddenConversationRow>();
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  return new Map(((data as HiddenConversationRow[] | null) ?? []).map((row) => [row.conversation_id, row] as const));
+};
 
 const buildShipmentSummary = (
   row: ShipmentRow,
@@ -994,6 +1018,50 @@ export const getTrips = async () => {
   }
 
   return (data ?? []).map(mapTripRow);
+};
+
+export const deleteCompletedTrip = async (tripId: string) => {
+  const user = await requireUser();
+  const { data, error } = await supabase
+    .from("cargoo_trips")
+    .select("id, status")
+    .eq("user_id", user.id)
+    .eq("id", tripId)
+    .maybeSingle();
+
+  if (isMissingCargooTable(error)) {
+    const metadataTrip = getMetadataTrips(user).find((trip) => trip.id === tripId);
+    if (!metadataTrip) {
+      throw new Error("No encontramos ese viaje.");
+    }
+
+    if (metadataTrip.status !== "completed") {
+      throw new Error("Solo puedes eliminar viajes completados.");
+    }
+
+    const nextTrips = getMetadataTripRecords(user).filter((trip) => trip.id !== tripId);
+    await updateUserMetadata({ cargoo_trips: nextTrips });
+    return;
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  if (!data) {
+    throw new Error("No encontramos ese viaje.");
+  }
+
+  if (data.status !== "completed") {
+    throw new Error("Solo puedes eliminar viajes completados.");
+  }
+
+  const { error: deleteError } = await supabase.from("cargoo_trips").delete().eq("user_id", user.id).eq("id", tripId);
+  const mappedDeleteError = mapSupabaseError(deleteError);
+  if (mappedDeleteError) {
+    throw mappedDeleteError;
+  }
 };
 
 const getTripStopsFromSupabase = async (tripId: string) => {
@@ -1663,6 +1731,45 @@ export const getMyShipments = async () => {
   return buildShipmentSummaries(data ?? []);
 };
 
+export const deleteDeliveredShipment = async (shipmentId: string) => {
+  if (isShipmentFeatureUnavailable()) {
+    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+  }
+
+  const user = await requireUser();
+  const { data, error } = await supabase
+    .from("cargoo_shipments")
+    .select("id, status, sender_id, traveler_id")
+    .eq("id", shipmentId)
+    .maybeSingle();
+
+  if (isMissingCargooTable(error)) {
+    markShipmentFeatureUnavailable();
+    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  if (!data || (data.sender_id !== user.id && data.traveler_id !== user.id)) {
+    throw new Error("No encontramos ese envio.");
+  }
+
+  if (data.status !== "delivered") {
+    throw new Error("Solo puedes eliminar envios entregados.");
+  }
+
+  const { error: deleteError } = await supabase.from("cargoo_shipments").delete().eq("id", shipmentId);
+  const mappedDeleteError = mapSupabaseError(deleteError);
+  if (mappedDeleteError) {
+    throw mappedDeleteError;
+  }
+
+  markShipmentFeatureAvailable();
+};
+
 export const getTripShipments = async (tripId: string) => {
   if (isShipmentFeatureUnavailable()) {
     return [] as ShipmentSummary[];
@@ -2102,21 +2209,37 @@ export const getConversations = async () => {
   }
 
   const conversationIds = conversations.map((conversation) => conversation.id);
-  const otherUserIds = conversations.map((conversation) =>
+  const hiddenStatesByConversationId = await getHiddenConversationStatesForUser(user.id, conversationIds);
+  const visibleConversations = conversations.filter((conversation) => {
+    const hiddenState = hiddenStatesByConversationId.get(conversation.id);
+    if (!hiddenState) {
+      return true;
+    }
+
+    const lastActivityAt = conversation.last_message_at ?? conversation.created_at ?? new Date().toISOString();
+    return new Date(lastActivityAt).getTime() > new Date(hiddenState.hidden_at).getTime();
+  });
+
+  if (!visibleConversations.length) {
+    return [];
+  }
+
+  const visibleConversationIds = visibleConversations.map((conversation) => conversation.id);
+  const otherUserIds = visibleConversations.map((conversation) =>
     conversation.participant_one_id === user.id ? conversation.participant_two_id : conversation.participant_one_id,
   );
-  const shipmentByConversationId = await getShipmentsByConversationIds(conversationIds);
+  const shipmentByConversationId = await getShipmentsByConversationIds(visibleConversationIds);
   const avatarUrlByUserId = await getProfileAvatarUrlsByUserIds(otherUserIds);
   const { data: unreadMessages, error: unreadMessagesError } = await supabase
     .from("cargoo_messages")
     .select("conversation_id")
-    .in("conversation_id", conversationIds)
+    .in("conversation_id", visibleConversationIds)
     .neq("sender_id", user.id)
     .is("read_at", null);
 
   if (isMissingCargooTable(unreadMessagesError)) {
     markChatFeatureUnavailable();
-    return conversations.map((conversation) => mapConversationRow(conversation, user.id));
+    return visibleConversations.map((conversation) => mapConversationRow(conversation, user.id));
   }
 
   const mappedUnreadMessagesError = mapSupabaseError(unreadMessagesError);
@@ -2129,7 +2252,7 @@ export const getConversations = async () => {
     return counts;
   }, {});
 
-  return conversations.map((conversation) =>
+  return visibleConversations.map((conversation) =>
     mapConversationRow(
       conversation,
       user.id,
@@ -2221,6 +2344,59 @@ export const markConversationAsRead = async (conversationId: string) => {
   if (mappedError) {
     throw mappedError;
   }
+};
+
+export const hideConversationForMe = async (conversationId: string) => {
+  if (isChatFeatureUnavailable()) {
+    throw new Error("El chat aun no esta disponible en esta base de datos.");
+  }
+
+  const user = await requireUser();
+  const { data, error } = await supabase
+    .from("cargoo_conversations")
+    .select("id, participant_one_id, participant_two_id")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (isMissingCargooTable(error)) {
+    markChatFeatureUnavailable();
+    throw new Error("El chat aun no esta disponible en esta base de datos.");
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  if (!data) {
+    throw new Error("No encontramos esa conversacion.");
+  }
+
+  if (data.participant_one_id !== user.id && data.participant_two_id !== user.id) {
+    throw new Error("No tienes acceso a esa conversacion.");
+  }
+
+  const { error: hideError } = await supabase
+    .from("cargoo_conversation_hidden_states")
+    .upsert(
+      {
+        conversation_id: conversationId,
+        user_id: user.id,
+        hidden_at: new Date().toISOString(),
+      },
+      { onConflict: "conversation_id,user_id" },
+    );
+
+  if (isMissingCargooTable(hideError)) {
+    throw new Error("La base de datos aun no tiene disponible la opcion de eliminar conversaciones solo para ti.");
+  }
+
+  const mappedHideError = mapSupabaseError(hideError);
+  if (mappedHideError) {
+    throw mappedHideError;
+  }
+
+  markChatFeatureAvailable();
 };
 
 export const getOrCreateConversation = async (input: CreateConversationInput) => {

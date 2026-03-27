@@ -51,6 +51,7 @@ const BottomNav = () => {
       .channel("bottom-nav-unread")
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_conversations" }, () => void loadUnreadState())
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_messages" }, () => void loadUnreadState())
+      .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_conversation_hidden_states", filter: `user_id=eq.${user.id}` }, () => void loadUnreadState())
       .subscribe();
 
     return () => {

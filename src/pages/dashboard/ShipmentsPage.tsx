@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, MessageSquare, Package, Star, Truck } from "lucide-react";
+import { Calendar, MessageSquare, Package, Star, Trash2, Truck } from "lucide-react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import ShipmentReviewDialog from "@/components/ShipmentReviewDialog";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -11,6 +20,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  deleteDeliveredShipment,
   getFriendlyErrorMessage,
   getMyShipments,
   markConversationPackageLoaded,
@@ -41,6 +51,8 @@ const ShipmentsPage = () => {
   const [reviewingShipment, setReviewingShipment] = useState<ShipmentSummary | null>(null);
   const [savingReview, setSavingReview] = useState(false);
   const [loadingConversationId, setLoadingConversationId] = useState<string | null>(null);
+  const [shipmentToDelete, setShipmentToDelete] = useState<ShipmentSummary | null>(null);
+  const [deletingShipmentId, setDeletingShipmentId] = useState<string | null>(null);
 
   const loadShipments = async () => {
     try {
@@ -125,6 +137,25 @@ const ShipmentsPage = () => {
       toast.error(getFriendlyErrorMessage(error));
     } finally {
       setLoadingConversationId(null);
+    }
+  };
+
+  const handleDeleteDeliveredShipment = async () => {
+    if (!shipmentToDelete) {
+      return;
+    }
+
+    setDeletingShipmentId(shipmentToDelete.id);
+
+    try {
+      await deleteDeliveredShipment(shipmentToDelete.id);
+      setShipmentToDelete(null);
+      toast.success("Envio entregado eliminado.");
+      await loadShipments();
+    } catch (error) {
+      toast.error(getFriendlyErrorMessage(error));
+    } finally {
+      setDeletingShipmentId(null);
     }
   };
 
@@ -261,8 +292,20 @@ const ShipmentsPage = () => {
 
                   {shipment.status === "delivered" && !shipment.reviewRating ? (
                     <Button type="button" onClick={() => setReviewingShipment(shipment)}>
-                      <Star className="h-4 w-4" />
+                      <Star className="h-4 w-4 fill-warning text-warning" />
                       Valorar transportista
+                    </Button>
+                  ) : null}
+
+                  {shipment.status === "delivered" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setShipmentToDelete(shipment)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Eliminar envio
                     </Button>
                   ) : null}
                 </div>
@@ -283,6 +326,35 @@ const ShipmentsPage = () => {
         saving={savingReview}
         onSubmit={handleSubmitReview}
       />
+
+      <AlertDialog
+        open={Boolean(shipmentToDelete)}
+        onOpenChange={(open) => {
+          if (!open && !deletingShipmentId) {
+            setShipmentToDelete(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar envio entregado</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este envio se quitara de tu historial. La conversacion seguira disponible para ambas personas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={Boolean(deletingShipmentId)}>Cancelar</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void handleDeleteDeliveredShipment()}
+              disabled={Boolean(deletingShipmentId)}
+            >
+              {deletingShipmentId ? "Eliminando..." : "Eliminar envio"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

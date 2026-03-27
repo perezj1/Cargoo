@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Calendar, CheckCircle2, Clock3, MapPin, MessageSquare, Package, Route, ShieldCheck, Truck, Users } from "lucide-react";
+import { ArrowLeft, Calendar, CheckCircle2, ChevronDown, Clock3, MapPin, MessageSquare, Package, Route, ShieldCheck, Truck, Users } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -63,6 +63,7 @@ const TripDetailsPage = () => {
   const [loading, setLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
   const [updatingShipmentId, setUpdatingShipmentId] = useState<string | null>(null);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
 
   const loadTripData = async () => {
     const [nextTrip, nextShipments, conversations] = await Promise.all([getTripById(tripId), getTripShipments(tripId), getConversations()]);
@@ -87,17 +88,26 @@ const TripDetailsPage = () => {
   }, [tripId]);
 
   useEffect(() => {
+    if (!profile?.userId) {
+      return;
+    }
+
     const channel = supabase
       .channel(`trip-details-${tripId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_shipments", filter: `trip_id=eq.${tripId}` }, () => void loadTripData())
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_trip_stops", filter: `trip_id=eq.${tripId}` }, () => void loadTripData())
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_trips", filter: `id=eq.${tripId}` }, () => void loadTripData())
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "cargoo_conversation_hidden_states", filter: `user_id=eq.${profile.userId}` },
+        () => void loadTripData(),
+      )
       .subscribe();
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [tripId]);
+  }, [profile?.userId, tripId]);
 
   useEffect(() => {
     if (loading || location.hash !== "#paquetes-pendientes") {
@@ -219,8 +229,8 @@ const TripDetailsPage = () => {
 
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-display font-bold">Detalle del viaje</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Un solo boton para confirmar la siguiente ciudad de la ruta.</p>
+          <h1 className="text-2xl font-display font-bold">Detalles del viaje</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Ruta, personas y paquetes en este viaje</p>
         </div>
         <div className="flex flex-col items-end gap-2">
           <Badge variant="outline" className={status.className}>
@@ -235,11 +245,26 @@ const TripDetailsPage = () => {
       </div>
 
       <Card className="mb-4 shadow-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <MapPin className="h-5 w-5 text-primary" />
-            {trip.origin} {"->"} {trip.destination}
-          </CardTitle>
+        <CardHeader className="pb-4">
+          <div className="flex items-start justify-between gap-3">
+            <CardTitle className="flex items-center gap-2 pr-2 text-lg">
+              <MapPin className="h-5 w-5 shrink-0 text-primary" />
+              <span className="break-words">
+                {trip.origin} {"->"} {trip.destination}
+              </span>
+            </CardTitle>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="mt-[-0.25rem] h-8 w-8 shrink-0 rounded-full text-muted-foreground"
+              onClick={() => setDetailsExpanded((currentValue) => !currentValue)}
+              aria-expanded={detailsExpanded}
+              aria-label={detailsExpanded ? "Plegar detalles del viaje" : "Desplegar detalles del viaje"}
+            >
+              <ChevronDown className={`h-4 w-4 transition-transform ${detailsExpanded ? "rotate-180" : ""}`} />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-5 text-sm">
           <div className="space-y-2">
@@ -250,86 +275,90 @@ const TripDetailsPage = () => {
             <Progress value={trip.progressPercent} />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>Salida prevista</span>
-              </div>
-              <p className="mt-2 font-medium text-foreground">{formatTripDate(trip.date)}</p>
-            </div>
+          {detailsExpanded ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>Salida prevista</span>
+                  </div>
+                  <p className="mt-2 font-medium text-foreground">{formatTripDate(trip.date)}</p>
+                </div>
 
-            <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Package className="h-4 w-4" />
-                <span>Capacidad disponible</span>
-              </div>
-              <p className="mt-2 font-medium text-foreground">
-                {Math.max(trip.capacityKg - trip.usedKg, 0)} de {trip.capacityKg} kg
-              </p>
-            </div>
+                <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Package className="h-4 w-4" />
+                    <span>Capacidad disponible</span>
+                  </div>
+                  <p className="mt-2 font-medium text-foreground">
+                    {Math.max(trip.capacityKg - trip.usedKg, 0)} de {trip.capacityKg} kg
+                  </p>
+                </div>
 
-            <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <CheckCircle2 className="h-4 w-4" />
-                <span>Ultimo checkpoint</span>
-              </div>
-              <p className="mt-2 font-medium text-foreground">{trip.lastCheckpointCity}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{formatCheckpointDate(trip.lastCheckpointAt)}</p>
-            </div>
+                <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Ultimo checkpoint</span>
+                  </div>
+                  <p className="mt-2 font-medium text-foreground">{trip.lastCheckpointCity}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{formatCheckpointDate(trip.lastCheckpointAt)}</p>
+                </div>
 
-            <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Clock3 className="h-4 w-4" />
-                <span>Proxima ciudad</span>
+                <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock3 className="h-4 w-4" />
+                    <span>Proxima ciudad</span>
+                  </div>
+                  <p className="mt-2 font-medium text-foreground">
+                    {trip.nextStop?.city ?? (trip.status === "completed" ? "Ruta completada" : "Destino final alcanzado")}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {trip.nextStop
+                      ? "Marca esta ciudad cuando realmente hayas llegado."
+                      : trip.status === "completed"
+                        ? "Ya no quedan checkpoints pendientes."
+                        : "Ahora solo falta marcar los paquetes entregados para cerrar el viaje."}
+                  </p>
+                </div>
               </div>
-              <p className="mt-2 font-medium text-foreground">
-                {trip.nextStop?.city ?? (trip.status === "completed" ? "Ruta completada" : "Destino final alcanzado")}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {trip.nextStop
-                  ? "Marca esta ciudad cuando realmente hayas llegado."
-                  : trip.status === "completed"
-                    ? "Ya no quedan checkpoints pendientes."
-                    : "Ahora solo falta marcar los paquetes entregados para cerrar el viaje."}
-              </p>
-            </div>
-          </div>
 
-          <div className="rounded-xl border border-primary/10 bg-primary/5 px-4 py-4">
-            <div className="flex items-center gap-2 text-foreground">
-              <Route className="h-4 w-4 text-primary" />
-              <span className="font-medium">Ruta publicada</span>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">{routeSummary}</p>
-            {shouldOpenPendingPackages ? (
-              <Button className="mt-4 w-full" size="lg" onClick={openPendingPackagesSection}>
-                Entrega los paquetes pendientes
-              </Button>
-            ) : (
-              <Button
-                className="mt-4 w-full"
-                size="lg"
-                onClick={handleAdvance}
-                disabled={advancing || !trip.nextStop || !trip.trackingAvailable}
-              >
-                {advancing
-                  ? "Guardando checkpoint..."
-                  : trip.nextStop
-                    ? `Llegue a ${trip.nextStop.city}`
-                    : "No quedan ciudades pendientes"}
-              </Button>
-            )}
-            {!trip.trackingAvailable ? (
-              <p className="mt-3 text-xs text-muted-foreground">
-                El viaje existe, pero el seguimiento por ciudades necesita la migracion nueva de Supabase para activarse.
-              </p>
-            ) : !trip.nextStop && trip.status === "active" ? (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Ya has llegado al destino. El viaje se cerrara cuando todos los paquetes esten marcados como entregados.
-              </p>
-            ) : null}
-          </div>
+              <div className="rounded-xl border border-primary/10 bg-primary/5 px-4 py-4">
+                <div className="flex items-center gap-2 text-foreground">
+                  <Route className="h-4 w-4 text-primary" />
+                  <span className="font-medium">Ruta publicada</span>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">{routeSummary}</p>
+                {shouldOpenPendingPackages ? (
+                  <Button className="mt-4 w-full" size="lg" onClick={openPendingPackagesSection}>
+                    Entrega los paquetes pendientes
+                  </Button>
+                ) : (
+                  <Button
+                    className="mt-4 w-full"
+                    size="lg"
+                    onClick={handleAdvance}
+                    disabled={advancing || !trip.nextStop || !trip.trackingAvailable}
+                  >
+                    {advancing
+                      ? "Guardando checkpoint..."
+                      : trip.nextStop
+                        ? `Llegue a ${trip.nextStop.city}`
+                        : "No quedan ciudades pendientes"}
+                  </Button>
+                )}
+                {!trip.trackingAvailable ? (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    El viaje existe, pero el seguimiento por ciudades necesita la migracion nueva de Supabase para activarse.
+                  </p>
+                ) : !trip.nextStop && trip.status === "active" ? (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Ya has llegado al destino. El viaje se cerrara cuando todos los paquetes esten marcados como entregados.
+                  </p>
+                ) : null}
+              </div>
+            </>
+          ) : null}
         </CardContent>
       </Card>
 

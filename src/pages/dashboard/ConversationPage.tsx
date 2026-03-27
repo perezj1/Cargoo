@@ -314,10 +314,10 @@ const ConversationPage = () => {
       </div>
 
       {conversation.tripId ? (
-        <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="mb-4 flex items-center justify-between gap-2">
           {shipment ? (
             <span
-              className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${shipmentStatus?.className ?? ""}`}
+              className={`inline-flex min-w-0 items-center rounded-full border px-3 py-1 text-xs font-medium ${shipmentStatus?.className ?? ""}`}
             >
               {shipment.status === "pending" ? <Clock3 className="mr-1 h-3.5 w-3.5" /> : null}
               {shipment.status === "accepted" ? <Truck className="mr-1 h-3.5 w-3.5" /> : null}
@@ -325,37 +325,36 @@ const ConversationPage = () => {
               {shipmentStatus?.label}
             </span>
           ) : (
-            <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+            <span className="inline-flex min-w-0 items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
               <Package className="mr-1 h-3.5 w-3.5" />
-              Sin seguimiento activo
+              No activo
             </span>
           )}
 
           {canChooseTransport ? (
-            <Button type="button" size="sm" onClick={() => void handleChooseTransport()} disabled={acting !== null}>
+            <Button type="button" size="sm" className="shrink-0" onClick={() => void handleChooseTransport()} disabled={acting !== null}>
               {acting === "choose" ? "Guardando..." : "Elegir este transporte"}
             </Button>
           ) : null}
 
           {canMarkPackageLoaded ? (
-            <Button type="button" size="sm" onClick={() => void handleMarkPackageLoaded()} disabled={acting !== null}>
+            <Button type="button" size="sm" className="shrink-0" onClick={() => void handleMarkPackageLoaded()} disabled={acting !== null}>
               {acting === "loaded" ? "Activando..." : "Paquete cargado"}
             </Button>
           ) : null}
 
           {canAdvanceTrip ? (
-            <Button type="button" size="sm" className="ml-auto" onClick={() => void handleAdvanceTrip()} disabled={acting !== null}>
+            <Button type="button" size="sm" className="shrink-0" onClick={() => void handleAdvanceTrip()} disabled={acting !== null}>
               {acting === "checkpoint" ? "Guardando..." : `Estoy en ${travelerTrip?.nextStop?.city}`}
             </Button>
           ) : null}
 
           {canReviewShipment ? (
-            <Button type="button" size="sm" variant="outline" onClick={() => setReviewDialogOpen(true)}>
-              <Star className="h-4 w-4" />
+            <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={() => setReviewDialogOpen(true)}>
+              <Star className="h-4 w-4 fill-warning text-warning" />
               Valorar
             </Button>
           ) : null}
-
         </div>
       ) : null}
 

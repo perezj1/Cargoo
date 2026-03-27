@@ -1,13 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, ChevronRight, MapPin, Package, Plus } from "lucide-react";
+import { Calendar, ChevronRight, MapPin, Package, Plus, Trash2 } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
-import { getFriendlyErrorMessage, getTrips, type CargooTrip } from "@/lib/cargoo-store";
+import { deleteCompletedTrip, getFriendlyErrorMessage, getTrips, type CargooTrip } from "@/lib/cargoo-store";
 
 const statusConfig = {
   active: { label: "Activo", className: "border-success/20 bg-success/10 text-success" },
@@ -20,18 +29,20 @@ const TripsPage = () => {
   const [tab, setTab] = useState("active");
   const [trips, setTrips] = useState<CargooTrip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tripToDelete, setTripToDelete] = useState<CargooTrip | null>(null);
+  const [deletingTripId, setDeletingTripId] = useState<string | null>(null);
+
+  const loadTrips = async () => {
+    try {
+      setTrips(await getTrips());
+    } catch (error) {
+      toast.error(getFriendlyErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadTrips = async () => {
-      try {
-        setTrips(await getTrips());
-      } catch (error) {
-        toast.error(getFriendlyErrorMessage(error));
-      } finally {
-        setLoading(false);
-      }
-    };
-
     void loadTrips();
   }, []);
 
@@ -50,6 +61,25 @@ const TripsPage = () => {
   if (profile && !profile.isTraveler) {
     return <Navigate to="/app/search" replace />;
   }
+
+  const handleDeleteCompletedTrip = async () => {
+    if (!tripToDelete) {
+      return;
+    }
+
+    setDeletingTripId(tripToDelete.id);
+
+    try {
+      await deleteCompletedTrip(tripToDelete.id);
+      setTripToDelete(null);
+      toast.success("Viaje completado eliminado.");
+      await loadTrips();
+    } catch (error) {
+      toast.error(getFriendlyErrorMessage(error));
+    } finally {
+      setDeletingTripId(null);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-lg px-4 pt-6">
@@ -122,15 +152,26 @@ const TripsPage = () => {
                 </Link>
 
                 {trip.status === "completed" ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-3 w-full"
-                    onClick={() => navigate(`/app/trips/new?reuseTrip=${encodeURIComponent(trip.id)}`)}
-                  >
-                    Reutilizar trayecto
-                  </Button>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/app/trips/new?reuseTrip=${encodeURIComponent(trip.id)}`)}
+                    >
+                      Reutilizar trayecto
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setTripToDelete(trip)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Eliminar
+                    </Button>
+                  </div>
                 ) : null}
               </div>
             );
@@ -143,6 +184,30 @@ const TripsPage = () => {
           ) : null}
         </div>
       )}
+
+      <AlertDialog
+        open={Boolean(tripToDelete)}
+        onOpenChange={(open) => {
+          if (!open && !deletingTripId) {
+            setTripToDelete(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar viaje completado</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este viaje se borrara del historial. Si tiene envios vinculados, tambien desapareceran junto con el viaje.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={Boolean(deletingTripId)}>Cancelar</AlertDialogCancel>
+            <Button type="button" variant="destructive" onClick={() => void handleDeleteCompletedTrip()} disabled={Boolean(deletingTripId)}>
+              {deletingTripId ? "Eliminando..." : "Eliminar viaje"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

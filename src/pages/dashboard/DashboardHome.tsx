@@ -105,6 +105,11 @@ const DashboardHome = () => {
       .channel(`dashboard-home-${profile.userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_conversations" }, reloadDashboard)
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_messages" }, reloadDashboard)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "cargoo_conversation_hidden_states", filter: `user_id=eq.${profile.userId}` },
+        reloadDashboard,
+      )
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_shipments" }, reloadDashboard)
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_trip_stops" }, reloadDashboard)
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_trips" }, reloadDashboard)

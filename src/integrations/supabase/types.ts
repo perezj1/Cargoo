@@ -84,6 +84,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      cargoo_conversation_hidden_states: {
+        Row: {
+          hidden_at: string;
+          conversation_id: string;
+          user_id: string;
+        };
+        Insert: {
+          hidden_at?: string;
+          conversation_id: string;
+          user_id: string;
+        };
+        Update: {
+          hidden_at?: string;
+          conversation_id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       cargoo_profiles: {
         Row: {
           avatar_url: string | null;
