@@ -1,10 +1,11 @@
 {
   "name": "Cargoo",
   "short_name": "Cargoo",
+  "id": "/?app=cargoo",
   "description": "PWA para conectar conductores con espacio libre en su coche y personas que necesitan mover paquetes entre ciudades.",
   "lang": "es",
   "dir": "ltr",
-  "start_url": "/auth",
+  "start_url": "/auth?source=pwa&v=3",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",

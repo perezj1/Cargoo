@@ -15,12 +15,20 @@ const urlBase64ToUint8Array = (base64String: string) => {
   return outputArray;
 };
 
-const ensureBrowserSupport = () => {
+const ensureServiceWorkerSupport = () => {
   if (typeof window === "undefined") {
-    throw new Error("Las notificaciones push solo se pueden configurar en el navegador.");
+    throw new Error("La PWA solo se puede configurar en el navegador.");
   }
 
-  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+  if (!("serviceWorker" in navigator)) {
+    throw new Error("Este navegador no soporta service workers.");
+  }
+};
+
+const ensurePushSupport = () => {
+  ensureServiceWorkerSupport();
+
+  if (!("PushManager" in window) || !("Notification" in window)) {
     throw new Error("Este navegador no soporta notificaciones push.");
   }
 };
@@ -99,7 +107,7 @@ export const getNotificationPermissionState = () => {
 };
 
 export const registerPushServiceWorker = async () => {
-  ensureBrowserSupport();
+  ensureServiceWorkerSupport();
   const registration = await navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
   void registration.update().catch(() => {
     // If the browser cannot check for updates right now, the existing worker still works.
@@ -118,7 +126,7 @@ export const syncPushSubscription = async (
   userId: string,
   options?: { requestPermission?: boolean; forceRefresh?: boolean },
 ) => {
-  ensureBrowserSupport();
+  ensurePushSupport();
 
   if (!VAPID_PUBLIC_KEY) {
     throw new Error("Falta configurar VITE_VAPID_PUBLIC_KEY en el frontend.");
@@ -161,7 +169,7 @@ export const syncPushSubscription = async (
 };
 
 export const removePushSubscription = async () => {
-  ensureBrowserSupport();
+  ensurePushSupport();
   await registerPushServiceWorker();
 
   const registration = await navigator.serviceWorker.ready;

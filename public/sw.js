@@ -1,5 +1,7 @@
-const CACHE_NAME = "cargoo-shell-v7";
-const APP_SHELL = ["/auth", "/manifest.webmanifest?v=2", "/favicon.svg?v=5", "/icons/icon-192.png?v=4", "/icons/icon-512.png?v=4"];
+const CACHE_NAME = "cargoo-shell-v8";
+const PWA_START_URL = "/auth?source=pwa&v=3";
+const OFFLINE_FALLBACK_URL = PWA_START_URL;
+const APP_SHELL = [PWA_START_URL, "/auth", "/manifest.webmanifest?v=3", "/favicon.svg?v=5", "/icons/icon-192.png?v=4", "/icons/icon-512.png?v=4"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -35,16 +37,16 @@ self.addEventListener("fetch", (event) => {
           const preloadResponse = await event.preloadResponse;
           if (preloadResponse) {
             const cache = await caches.open(CACHE_NAME);
-            await cache.put("/auth", preloadResponse.clone());
+            await cache.put(OFFLINE_FALLBACK_URL, preloadResponse.clone());
             return preloadResponse;
           }
 
-          const response = await fetch(request);
+          const response = await fetch(request, { cache: "no-store" });
           const cache = await caches.open(CACHE_NAME);
-          await cache.put("/auth", response.clone());
+          await cache.put(OFFLINE_FALLBACK_URL, response.clone());
           return response;
         } catch (_error) {
-          const cachedPage = await caches.match("/auth");
+          const cachedPage = (await caches.match(OFFLINE_FALLBACK_URL)) || (await caches.match("/auth"));
           return cachedPage || Response.error();
         }
       })(),
