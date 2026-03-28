@@ -115,6 +115,7 @@ export type Database = {
           phone: string | null;
           updated_at: string | null;
           user_id: string;
+          vehicle_type: string | null;
         };
         Insert: {
           avatar_url?: string | null;
@@ -128,6 +129,7 @@ export type Database = {
           phone?: string | null;
           updated_at?: string | null;
           user_id: string;
+          vehicle_type?: string | null;
         };
         Update: {
           avatar_url?: string | null;
@@ -141,6 +143,7 @@ export type Database = {
           phone?: string | null;
           updated_at?: string | null;
           user_id?: string;
+          vehicle_type?: string | null;
         };
         Relationships: [];
       };

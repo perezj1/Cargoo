@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getFriendlyErrorMessage, loginUser } from "@/lib/cargoo-store";
-import { LEGAL_LINKS } from "@/lib/legal";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -98,24 +97,8 @@ const LoginPage = () => {
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
             {loading ? messages.login.submitting : messages.login.submit}
           </Button>
-          <div className="rounded-xl border border-border bg-secondary/60 p-4 text-xs leading-6 text-muted-foreground">
-            {messages.login.legalIntro}{" "}
-            <Link to={LEGAL_LINKS.terms} className="font-medium text-primary hover:underline">
-              {messages.footer.terms}
-            </Link>
-            {messages.login.legalMiddle1}{" "}
-            <Link to={LEGAL_LINKS.privacy} className="font-medium text-primary hover:underline">
-              {messages.footer.privacy}
-            </Link>
-            {messages.login.legalMiddle2}{" "}
-            <Link to={LEGAL_LINKS.disclaimer} className="font-medium text-primary hover:underline">
-              {messages.footer.disclaimer}
-            </Link>{" "}
-            {messages.login.legalMiddle3}{" "}
-            <Link to={LEGAL_LINKS.imprint} className="font-medium text-primary hover:underline">
-              {messages.footer.imprint}
-            </Link>
-            {messages.login.legalOutro}
+          <div className="rounded-xl border border-border bg-secondary/60 p-4 text-xs leading-5 text-muted-foreground">
+            {messages.login.legalNotice}
           </div>
           <p className="text-center text-sm text-muted-foreground">
             {messages.login.noAccount}{" "}

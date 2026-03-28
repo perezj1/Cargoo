@@ -1,109 +1,18 @@
 import { Download, Plus, Share, Smartphone } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 
+import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useAppInstallPrompt } from "@/hooks/use-app-install-prompt";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{
-    outcome: "accepted" | "dismissed";
-    platform: string;
-  }>;
-}
-
-const IOS_SEEN_KEY = "cargoo-install-prompt-ios-seen";
-const ANDROID_SEEN_KEY = "cargoo-install-prompt-android-seen";
-
 const AppInstallPrompt = ({ enabled }: { enabled: boolean }) => {
+  const { profile } = useAuth();
   const { messages } = useLocale();
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [open, setOpen] = useState(false);
-  const [installing, setInstalling] = useState(false);
+  const { closePrompt, handleInstall, installing, isAndroid, isIos, isStandalone, open, setOpen } = useAppInstallPrompt({ enabled });
+  const description = profile?.isTraveler ? messages.installPrompt.travelerDescription : messages.installPrompt.senderDescription;
 
-  const platform = useMemo(() => {
-    if (typeof window === "undefined") {
-      return { isIos: false, isAndroid: false, isStandalone: false };
-    }
-
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean };
-
-    return {
-      isIos: /iphone|ipad|ipod/.test(userAgent),
-      isAndroid: /android/.test(userAgent),
-      isStandalone: window.matchMedia("(display-mode: standalone)").matches || navigatorWithStandalone.standalone === true,
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (event: Event) => {
-      const installEvent = event as BeforeInstallPromptEvent;
-      installEvent.preventDefault();
-      setDeferredPrompt(installEvent);
-    };
-
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!enabled || platform.isStandalone) {
-      setOpen(false);
-      return;
-    }
-
-    const hasSeenIosPrompt = sessionStorage.getItem(IOS_SEEN_KEY) === "1";
-    const hasSeenAndroidPrompt = sessionStorage.getItem(ANDROID_SEEN_KEY) === "1";
-
-    if (platform.isIos && !hasSeenIosPrompt) {
-      setOpen(true);
-      return;
-    }
-
-    if (platform.isAndroid && deferredPrompt && !hasSeenAndroidPrompt) {
-      setOpen(true);
-      return;
-    }
-
-    setOpen(false);
-  }, [deferredPrompt, enabled, platform.isAndroid, platform.isIos, platform.isStandalone]);
-
-  const closePrompt = () => {
-    if (platform.isIos) {
-      sessionStorage.setItem(IOS_SEEN_KEY, "1");
-    }
-
-    if (platform.isAndroid) {
-      sessionStorage.setItem(ANDROID_SEEN_KEY, "1");
-    }
-
-    setOpen(false);
-  };
-
-  const handleInstall = async () => {
-    if (!deferredPrompt) {
-      closePrompt();
-      return;
-    }
-
-    setInstalling(true);
-
-    try {
-      await deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-      setDeferredPrompt(null);
-      closePrompt();
-    } finally {
-      setInstalling(false);
-    }
-  };
-
-  if (!enabled || platform.isStandalone || (!platform.isIos && !platform.isAndroid)) {
+  if (!enabled || isStandalone || (!isIos && !isAndroid)) {
     return null;
   }
 
@@ -116,12 +25,12 @@ const AppInstallPrompt = ({ enabled }: { enabled: boolean }) => {
           </div>
           <DialogHeader>
             <DialogTitle className="text-xl">{messages.installPrompt.title}</DialogTitle>
-            <DialogDescription>{messages.installPrompt.description}</DialogDescription>
+            <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
         </div>
 
         <div className="space-y-4 px-6 pb-6 pt-2">
-          {platform.isIos ? (
+          {isIos ? (
             <div className="space-y-3 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">{messages.installPrompt.iosIntro}</p>
               <div className="rounded-xl border border-border bg-background px-4 py-3">
@@ -153,7 +62,7 @@ const AppInstallPrompt = ({ enabled }: { enabled: boolean }) => {
           )}
 
           <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
-            {platform.isAndroid ? (
+            {isAndroid ? (
               <Button className="w-full gap-2" size="lg" onClick={() => void handleInstall()} disabled={installing}>
                 <Download className="h-4 w-4" />
                 {installing ? messages.installPrompt.installing : messages.installPrompt.install}

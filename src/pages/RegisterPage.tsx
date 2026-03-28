@@ -27,6 +27,7 @@ const RegisterPage = () => {
     password: "",
     isPublic: true,
     isTraveler: false,
+    vehicleType: "",
     acceptedLegal: false,
   });
   const [loading, setLoading] = useState(false);
@@ -55,6 +56,7 @@ const RegisterPage = () => {
         isTraveler: formData.isTraveler,
         isPublic: formData.isPublic,
         locale,
+        vehicleType: formData.vehicleType,
       });
 
       if (result.needsEmailConfirmation) {
@@ -154,53 +156,69 @@ const RegisterPage = () => {
           </div>
 
           {formData.isTraveler ? (
-            <div className="animate-fade-in flex items-center justify-between rounded-lg bg-secondary p-4">
-              <div className="flex items-center gap-3">
-                {formData.isPublic ? (
-                  <Globe className="h-5 w-5 text-primary" />
-                ) : (
-                  <EyeOff className="h-5 w-5 text-muted-foreground" />
-                )}
-                <div>
-                  <p className="text-sm font-medium">{formData.isPublic ? messages.register.publicTitle : messages.register.privateTitle}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formData.isPublic ? messages.register.publicDescription : messages.register.privateDescription}
-                  </p>
+            <div className="animate-fade-in space-y-4">
+              <div className="rounded-lg bg-secondary p-4">
+                <Label htmlFor="register-vehicle-type" className="mb-2 block text-sm">
+                  {messages.register.vehicleTypeLabel}
+                </Label>
+                <div className="relative">
+                  <CarFront className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
+                  <Input
+                    id="register-vehicle-type"
+                    list="register-vehicle-options"
+                    placeholder={messages.register.vehicleTypePlaceholder}
+                    className="bg-card pl-10"
+                    value={formData.vehicleType}
+                    onChange={(event) => update("vehicleType", event.target.value)}
+                  />
                 </div>
+                <datalist id="register-vehicle-options">
+                  {messages.register.vehicleOptions.map((vehicleOption) => (
+                    <option key={vehicleOption} value={vehicleOption} />
+                  ))}
+                </datalist>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {messages.register.vehicleTypeOptional} {messages.register.vehicleTypeHint}
+                </p>
               </div>
-              <Switch checked={formData.isPublic} onCheckedChange={(value) => update("isPublic", value)} />
+
+              <div className="flex items-center justify-between rounded-lg bg-secondary p-4">
+                <div className="flex items-center gap-3">
+                  {formData.isPublic ? (
+                    <Globe className="h-5 w-5 text-primary" />
+                  ) : (
+                    <EyeOff className="h-5 w-5 text-muted-foreground" />
+                  )}
+                  <div>
+                    <p className="text-sm font-medium">{formData.isPublic ? messages.register.publicTitle : messages.register.privateTitle}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formData.isPublic ? messages.register.publicDescription : messages.register.privateDescription}
+                    </p>
+                  </div>
+                </div>
+                <Switch checked={formData.isPublic} onCheckedChange={(value) => update("isPublic", value)} />
+              </div>
             </div>
           ) : null}
 
-          <div className="rounded-xl border border-border bg-secondary/60 p-4">
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="accepted-legal"
-                checked={formData.acceptedLegal}
-                onCheckedChange={(checked) => update("acceptedLegal", checked === true)}
-                className="mt-1"
-              />
-              <Label htmlFor="accepted-legal" className="text-sm font-normal leading-6 text-muted-foreground">
-                {messages.register.legalAcceptance}{" "}
-                <Link to={LEGAL_LINKS.terms} className="font-medium text-primary hover:underline">
-                  {messages.footer.terms}
-                </Link>
-                {messages.register.legalMiddle1}{" "}
-                <Link to={LEGAL_LINKS.privacy} className="font-medium text-primary hover:underline">
-                  {messages.footer.privacy}
-                </Link>
-                {messages.register.legalMiddle2}{" "}
-                <Link to={LEGAL_LINKS.disclaimer} className="font-medium text-primary hover:underline">
-                  {messages.footer.disclaimer}
-                </Link>{" "}
-                {messages.register.legalMiddle3}{" "}
-                <Link to={LEGAL_LINKS.imprint} className="font-medium text-primary hover:underline">
-                  {messages.footer.imprint}
-                </Link>
-                {messages.register.legalEnd}
-              </Label>
-            </div>
-            <p className="mt-3 text-xs leading-5 text-muted-foreground">{messages.register.legalNotice}</p>
+          <div className="flex items-start gap-3 text-xs leading-5 text-muted-foreground">
+            <Checkbox
+              id="accepted-legal"
+              checked={formData.acceptedLegal}
+              onCheckedChange={(checked) => update("acceptedLegal", checked === true)}
+              className="mt-0.5"
+            />
+            <Label htmlFor="accepted-legal" className="font-normal leading-5 text-muted-foreground">
+              {messages.register.legalCompactIntro}{" "}
+              <Link to={LEGAL_LINKS.terms} className="font-medium text-primary hover:underline">
+                {messages.footer.terms}
+              </Link>{" "}
+              {messages.register.legalCompactMiddle}{" "}
+              <Link to={LEGAL_LINKS.privacy} className="font-medium text-primary hover:underline">
+                {messages.footer.privacy}
+              </Link>
+              {messages.register.legalCompactEnd}
+            </Label>
           </div>
           <Button type="submit" className="w-full" size="lg" disabled={loading || !formData.acceptedLegal}>
             {loading ? messages.register.submitting : messages.register.submit}

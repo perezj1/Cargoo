@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, ChevronRight, EyeOff, Globe, LogOut, MapPin, MessageSquare, Package, Settings, Star } from "lucide-react";
+import { Camera, ChevronRight, Download, EyeOff, Globe, LogOut, MapPin, MessageSquare, Package, Settings, Star } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { requestGlobalInstallPrompt, useAppInstallPrompt } from "@/hooks/use-app-install-prompt";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getCurrentUser,
@@ -44,6 +45,7 @@ const ProfilePage = () => {
   });
   const [loading, setLoading] = useState(true);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const { canShowInstallEntry } = useAppInstallPrompt({ enabled: true });
 
   useEffect(() => {
     const loadData = async () => {
@@ -311,6 +313,19 @@ const ProfilePage = () => {
           <Switch checked={notificationsEnabled} onCheckedChange={handleNotificationsChange} disabled={savingNotifications} />
         </div>
       </div>
+
+      {canShowInstallEntry ? (
+        <div className="mb-4 rounded-xl bg-card p-4 shadow-card">
+          <p className="text-sm font-medium">{messages.appProfile.installAppTitle}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {user.isTraveler ? messages.appProfile.installAppDescriptionTraveler : messages.appProfile.installAppDescriptionSender}
+          </p>
+          <Button className="mt-3 w-full gap-2" onClick={requestGlobalInstallPrompt}>
+            <Download className="h-4 w-4" />
+            {messages.appProfile.installAppButton}
+          </Button>
+        </div>
+      ) : null}
 
       <div className="mb-4 overflow-hidden rounded-xl bg-card shadow-card">
         {menuItems.map((item, index) => (

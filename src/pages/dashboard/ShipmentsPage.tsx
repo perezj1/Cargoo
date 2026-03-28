@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, MessageSquare, Package, Star, Trash2, Truck } from "lucide-react";
+import { Calendar, MessageSquare, Package, Phone, Star, Trash2, Truck } from "lucide-react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -209,6 +209,7 @@ const ShipmentsPage = () => {
         <div className="space-y-4 pb-4">
           {filteredShipments.map((shipment) => {
             const status = statusConfig[shipment.status];
+            const travelerPhone = shipment.travelerPhone.replace(/[^\d+]/g, "");
             const formattedTripDate = shipment.tripDate
               ? new Date(`${shipment.tripDate}T00:00:00`).toLocaleDateString(intlLocale, {
                   day: "numeric",
@@ -279,12 +280,23 @@ const ShipmentsPage = () => {
                 ) : null}
 
                 <div className="mt-4 flex flex-col gap-2">
-                  <Button asChild variant="outline">
-                    <Link to={`/app/messages/${shipment.conversationId}`}>
-                      <MessageSquare className="h-4 w-4" />
-                      {messages.shipmentsPage.openChat}
-                    </Link>
-                  </Button>
+                  <div className={travelerPhone ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
+                    <Button asChild variant="outline">
+                      <Link to={`/app/messages/${shipment.conversationId}`}>
+                        <MessageSquare className="h-4 w-4" />
+                        {messages.shipmentsPage.openChat}
+                      </Link>
+                    </Button>
+
+                    {travelerPhone ? (
+                      <Button asChild>
+                        <a href={`tel:${travelerPhone}`}>
+                          <Phone className="h-4 w-4" />
+                          {messages.publicProfile.call}
+                        </a>
+                      </Button>
+                    ) : null}
+                  </div>
 
                   {shipment.status === "pending" ? (
                     <Button

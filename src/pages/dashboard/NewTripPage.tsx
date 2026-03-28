@@ -30,6 +30,7 @@ const NewTripPage = () => {
   const [reusingTrip, setReusingTrip] = useState<CargooTripDetails | null>(null);
   const [reuseLoading, setReuseLoading] = useState(Boolean(reuseTripId));
   const [reuseAppliedId, setReuseAppliedId] = useState("");
+  const [preferredVehicleApplied, setPreferredVehicleApplied] = useState(false);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
 
   const update = (field: string, value: string) => {
@@ -63,6 +64,18 @@ const NewTripPage = () => {
 
     dateInput.click();
   };
+
+  useEffect(() => {
+    if (reuseTripId || preferredVehicleApplied || !profile) {
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      vehicleType: prev.vehicleType || profile.vehicleType,
+    }));
+    setPreferredVehicleApplied(true);
+  }, [preferredVehicleApplied, profile, reuseTripId]);
 
   useEffect(() => {
     if (!reuseTripId) {

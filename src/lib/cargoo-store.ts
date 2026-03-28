@@ -29,6 +29,7 @@ export interface CargooUser {
   locale: Locale;
   isTraveler: boolean;
   isPublic: boolean;
+  vehicleType: string;
   avatarUrl: string;
   phone: string;
   location: string;
@@ -188,6 +189,7 @@ interface RegisterUserInput {
   isTraveler: boolean;
   isPublic: boolean;
   locale: Locale;
+  vehicleType: string;
 }
 
 interface CreateTripInput {
@@ -241,6 +243,14 @@ const isMissingProfileLocaleColumn = (error: { message?: string; code?: string }
   }
 
   return /locale/i.test(error.message ?? "") && /cargoo_profiles/i.test(error.message ?? "");
+};
+
+const isMissingProfileVehicleColumn = (error: { message?: string; code?: string } | null) => {
+  if (!error) {
+    return false;
+  }
+
+  return /vehicle_type/i.test(error.message ?? "") && /cargoo_profiles/i.test(error.message ?? "");
 };
 
 const isMissingTripVehicleColumn = (error: { message?: string; code?: string } | null) => {
@@ -375,6 +385,7 @@ const buildProfileFromMetadata = (user: User): CargooUser => {
     locale: typeof metadata.locale === "string" ? normalizeLocale(metadata.locale) : "es",
     isTraveler: Boolean(metadata.is_traveler),
     isPublic: metadata.is_public === false ? false : true,
+    vehicleType: typeof metadata.vehicle_type === "string" ? metadata.vehicle_type : "",
     avatarUrl: typeof metadata.avatar_url === "string" ? metadata.avatar_url : "",
     phone: typeof metadata.phone === "string" ? metadata.phone : "",
     location: typeof metadata.location === "string" && metadata.location.trim() ? metadata.location : DEFAULT_LOCATION,
@@ -387,6 +398,7 @@ const profileToMetadata = (profile: CargooUser) => ({
   locale: profile.locale,
   is_traveler: profile.isTraveler,
   is_public: profile.isPublic,
+  vehicle_type: profile.vehicleType,
   avatar_url: profile.avatarUrl,
   phone: profile.phone,
   location: profile.location,
@@ -531,6 +543,7 @@ const mapProfileRow = (
     name: string;
     is_traveler: boolean;
     is_public: boolean;
+    vehicle_type?: string | null;
     locale?: string | null;
     avatar_url?: string | null;
     phone?: string | null;
@@ -547,6 +560,7 @@ const mapProfileRow = (
   locale: row.locale ? normalizeLocale(row.locale) : fallbackLocale,
   isTraveler: row.is_traveler,
   isPublic: row.is_public,
+  vehicleType: row.vehicle_type ?? "",
   avatarUrl: row.avatar_url ?? fallbackAvatarUrl,
   phone: row.phone ?? "",
   location: row.location ?? DEFAULT_LOCATION,
@@ -849,6 +863,7 @@ const buildProfilePayload = (user: User) => {
     locale: profile.locale,
     is_traveler: profile.isTraveler,
     is_public: profile.isPublic,
+    vehicle_type: profile.vehicleType,
     avatar_url: profile.avatarUrl,
     phone: profile.phone,
     location: profile.location,
@@ -859,13 +874,14 @@ const buildProfilePayload = (user: User) => {
 const upsertProfilePayload = async (payload: ReturnType<typeof buildProfilePayload>) => {
   const result = await supabase.from("cargoo_profiles").upsert(payload, { onConflict: "user_id" }).select("*").single();
 
-  if (!isMissingProfileAvatarColumn(result.error) && !isMissingProfileLocaleColumn(result.error)) {
+  if (!isMissingProfileAvatarColumn(result.error) && !isMissingProfileLocaleColumn(result.error) && !isMissingProfileVehicleColumn(result.error)) {
     return result;
   }
 
-  let fallbackPayload: Omit<typeof payload, "avatar_url" | "locale"> & {
+  let fallbackPayload: Omit<typeof payload, "avatar_url" | "locale" | "vehicle_type"> & {
     avatar_url?: string;
     locale?: string;
+    vehicle_type?: string;
   } = { ...payload };
 
   if (isMissingProfileAvatarColumn(result.error)) {
@@ -876,6 +892,11 @@ const upsertProfilePayload = async (payload: ReturnType<typeof buildProfilePaylo
   if (isMissingProfileLocaleColumn(result.error)) {
     const { locale: _locale, ...payloadWithoutLocale } = fallbackPayload;
     fallbackPayload = payloadWithoutLocale;
+  }
+
+  if (isMissingProfileVehicleColumn(result.error)) {
+    const { vehicle_type: _vehicleType, ...payloadWithoutVehicle } = fallbackPayload;
+    fallbackPayload = payloadWithoutVehicle;
   }
 
   return supabase.from("cargoo_profiles").upsert(fallbackPayload, { onConflict: "user_id" }).select("*").single();
@@ -937,7 +958,7 @@ export const loginUser = async (email: string, password: string) => {
   return ensureProfile(data.user);
 };
 
-export const registerUser = async ({ name, email, password, isTraveler, isPublic, locale }: RegisterUserInput) => {
+export const registerUser = async ({ name, email, password, isTraveler, isPublic, locale, vehicleType }: RegisterUserInput) => {
   const { data, error } = await supabase.auth.signUp({
     email: email.trim().toLowerCase(),
     password,
@@ -947,6 +968,7 @@ export const registerUser = async ({ name, email, password, isTraveler, isPublic
         locale,
         is_traveler: isTraveler,
         is_public: isPublic,
+        vehicle_type: isTraveler ? vehicleType.trim() : "",
         phone: "",
         location: DEFAULT_LOCATION,
         bio: DEFAULT_BIO,
@@ -997,6 +1019,7 @@ export const updateCurrentUser = async (updates: Partial<CargooUser>) => {
     locale: nextProfile.locale,
     is_traveler: nextProfile.isTraveler,
     is_public: nextProfile.isPublic,
+    vehicle_type: nextProfile.vehicleType,
     phone: nextProfile.phone,
     location: nextProfile.location,
     bio: nextProfile.bio,
@@ -1008,6 +1031,7 @@ export const updateCurrentUser = async (updates: Partial<CargooUser>) => {
     locale: nextProfile.locale,
     is_traveler: nextProfile.isTraveler,
     is_public: nextProfile.isPublic,
+    vehicle_type: nextProfile.vehicleType,
     avatar_url: nextProfile.avatarUrl,
     phone: nextProfile.phone,
     location: nextProfile.location,
@@ -1350,9 +1374,10 @@ const syncTripCompletionState = async (userId: string, tripId: string) => {
 
 export const createTrip = async (trip: CreateTripInput) => {
   const user = await requireUser();
+  const profile = await ensureProfile(user);
   const normalizedOrigin = trip.origin.trim();
   const normalizedDestination = trip.destination.trim();
-  const normalizedVehicleType = trip.vehicleType.trim();
+  const normalizedVehicleType = trip.vehicleType.trim() || profile.vehicleType.trim();
   const normalizedNotes = trip.notes.trim() || "Sin notas adicionales.";
   if (parseDateInput(trip.date) < parseDateInput(getTodayDateString())) {
     throw new Error("La fecha del viaje no puede ser anterior a hoy.");
