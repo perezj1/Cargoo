@@ -1,6 +1,9 @@
 import type { Locale } from "@/locales";
 
 type TravelerCityKey =
+  | "zurich"
+  | "lucerne"
+  | "lausanne"
   | "madrid"
   | "barcelona"
   | "valencia"
@@ -15,7 +18,7 @@ type TravelerCityKey =
   | "bilbao"
   | "sanSebastian";
 
-type TravelerCountryKey = "spain" | "serbia" | "france" | "portugal" | "italy";
+type TravelerCountryKey = "switzerland" | "spain" | "serbia" | "france" | "portugal" | "italy";
 
 export interface TravelerPlace {
   city: TravelerCityKey;
@@ -36,6 +39,9 @@ export interface Traveler {
 }
 
 const CITY_NAMES: Record<TravelerCityKey, Record<Locale, string>> = {
+  zurich: { es: "Zúrich", en: "Zurich", de: "Zürich", sr: "Cirih" },
+  lucerne: { es: "Lucerna", en: "Lucerne", de: "Luzern", sr: "Lucern" },
+  lausanne: { es: "Lausana", en: "Lausanne", de: "Lausanne", sr: "Lozana" },
   madrid: { es: "Madrid", en: "Madrid", de: "Madrid", sr: "Madrid" },
   barcelona: { es: "Barcelona", en: "Barcelona", de: "Barcelona", sr: "Barselona" },
   valencia: { es: "Valencia", en: "Valencia", de: "Valencia", sr: "Valensija" },
@@ -52,6 +58,7 @@ const CITY_NAMES: Record<TravelerCityKey, Record<Locale, string>> = {
 };
 
 const COUNTRY_NAMES: Record<TravelerCountryKey, Record<Locale, string>> = {
+  switzerland: { es: "Suiza", en: "Switzerland", de: "Schweiz", sr: "Švajcarska" },
   spain: { es: "España", en: "Spain", de: "Spanien", sr: "Spanija" },
   serbia: { es: "Serbia", en: "Serbia", de: "Serbien", sr: "Srbija" },
   france: { es: "Francia", en: "France", de: "Frankreich", sr: "Francuska" },
@@ -66,10 +73,10 @@ export const formatTravelerPlace = (place: TravelerPlace, locale: Locale) => {
 export const MOCK_TRAVELERS: Traveler[] = [
   {
     id: "1",
-    name: "Maria Garcia",
+    name: "Nikola Jovanovic",
     avatar: "",
-    origin: { city: "madrid", country: "spain" },
-    destination: { city: "barcelona", country: "spain" },
+    origin: { city: "zurich", country: "switzerland" },
+    destination: { city: "belgrade", country: "serbia" },
     date: "2026-04-15",
     capacity: "10 kg",
     rating: 4.8,
@@ -78,10 +85,10 @@ export const MOCK_TRAVELERS: Traveler[] = [
   },
   {
     id: "2",
-    name: "Carlos Lopez",
+    name: "Anna Meier",
     avatar: "",
-    origin: { city: "barcelona", country: "spain" },
-    destination: { city: "valencia", country: "spain" },
+    origin: { city: "lucerne", country: "switzerland" },
+    destination: { city: "madrid", country: "spain" },
     date: "2026-04-20",
     capacity: "5 kg",
     rating: 4.9,
@@ -90,10 +97,10 @@ export const MOCK_TRAVELERS: Traveler[] = [
   },
   {
     id: "3",
-    name: "Nikola Jovanovic",
+    name: "Claire Dubois",
     avatar: "",
-    origin: { city: "belgrade", country: "serbia" },
-    destination: { city: "noviSad", country: "serbia" },
+    origin: { city: "lausanne", country: "switzerland" },
+    destination: { city: "lisbon", country: "portugal" },
     date: "2026-05-01",
     capacity: "8 kg",
     rating: 4.7,
