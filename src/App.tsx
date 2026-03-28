@@ -15,6 +15,7 @@ import LoginPage from "./pages/LoginPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import PublicCarrierProfilePage from "./pages/PublicCarrierProfilePage.tsx";
 import RegisterPage from "./pages/RegisterPage.tsx";
+import ResetPasswordPage from "./pages/ResetPasswordPage.tsx";
 import SearchPage from "./pages/SearchPage.tsx";
 import AppSearchPage from "./pages/app/AppSearchPage.tsx";
 import ConversationPage from "./pages/dashboard/ConversationPage.tsx";
@@ -49,6 +50,7 @@ const App = () => (
               <Route path="/transportistas/:userId" element={<PublicCarrierProfilePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/auth" element={<AuthEntryPage />} />
               <Route path="/how-it-works" element={<HowItWorksPage />} />
               <Route path="/legal/agb" element={<TermsPage />} />
