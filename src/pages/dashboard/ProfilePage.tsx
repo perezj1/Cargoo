@@ -355,23 +355,25 @@ const ProfilePage = () => {
               </div>
             </div>
           </div>
-          <div className="rounded-xl bg-secondary/70 p-3">
-            <div className="flex items-start gap-3">
-              <Phone className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{messages.editProfilePage.phone}</p>
-                <Input
-                  type="tel"
-                  value={profileForm.phone}
-                  onChange={(event) => updateProfileField("phone", event.target.value)}
-                  onFocus={() => setPhoneFieldFocused(true)}
-                  onBlur={() => setPhoneFieldFocused(false)}
-                  placeholder={phoneFieldFocused ? "" : messages.appProfile.phoneMissing}
-                  className={`mt-1 h-auto border-0 bg-transparent px-0.5 py-0 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 ${needsPhoneAttention ? "placeholder:text-destructive text-destructive" : "text-foreground"}`}
-                />
+          {user.isTraveler ? (
+            <div className="rounded-xl bg-secondary/70 p-3">
+              <div className="flex items-start gap-3">
+                <Phone className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{messages.editProfilePage.phone}</p>
+                  <Input
+                    type="tel"
+                    value={profileForm.phone}
+                    onChange={(event) => updateProfileField("phone", event.target.value)}
+                    onFocus={() => setPhoneFieldFocused(true)}
+                    onBlur={() => setPhoneFieldFocused(false)}
+                    placeholder={phoneFieldFocused ? "" : messages.appProfile.phoneMissing}
+                    className={`mt-1 h-auto border-0 bg-transparent px-0.5 py-0 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 ${needsPhoneAttention ? "placeholder:text-destructive text-destructive" : "text-foreground"}`}
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          ) : null}
           <div className="rounded-xl bg-secondary/70 p-3">
             <div className="flex items-start gap-3">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
