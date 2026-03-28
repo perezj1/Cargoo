@@ -38,7 +38,7 @@ export const de = {
     closeMenü: "Menü schliessen",
   },
   footer: {
-    description: "Wir verbinden Fahrer mit freiem Platz und Menschen, die Pakete zwischen Städten transportieren müssen.",
+    description: "Wir verbinden Fahrer mit freiem Platz und Menschen, die Pakete in eine andere Stadt oder ein anderes Land senden müssen.",
     platform: "Plattform",
     account: "Konto",
     legal: "Rechtliches",
@@ -54,7 +54,7 @@ export const de = {
   },
   landing: {
     heroImageAlt: "Fahrt auf der Strasse",
-    heroTitle: "Bewege, was du brauchst, mit vertrauenswurdigen Fahrern",
+    heroTitle: "Sende, was du brauchst, mit vertrauenswurdigen Fahrern",
     heroDescription: "Cargoo verbindet Menschen, die Pakete senden müssen, mit Fahrern, die bereits freien Platz im Auto haben.",
     originPlaceholder: "Startort (z. B. Madrid)",
     destinationPlaceholder: "Zielort (z. B. Barcelona)",
@@ -64,7 +64,7 @@ export const de = {
     steps: [
       {
         title: "Fahrer finden",
-        desc: "Entdecke Menschen mit einer ähnlichen Route und verfügbarem Platz im Auto.",
+        desc: "Finde Menschen, die auf der Strecke reisen, die du für den Versand deines Pakets brauchst.",
       },
       {
         title: "Sendung abstimmen",

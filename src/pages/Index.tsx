@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Globe, MapPin, Package, Search, Shield, Users } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -10,17 +10,66 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MOCK_TRAVELERS } from "@/lib/mock-travelers";
+import type { Locale } from "@/locales";
+
+const CITY_EXAMPLES: Record<Locale, { origins: string[]; destinations: string[] }> = {
+  es: {
+    origins: ["Zúrich", "Lucerna", "Lausana", "Milán"],
+    destinations: ["Madrid", "Belgrado", "Lisboa", "Roma", "París"],
+  },
+  en: {
+    origins: ["Zurich", "Lucerne", "Lausanne", "Milan"],
+    destinations: ["Madrid", "Belgrade", "Lisbon", "Rome", "Paris"],
+  },
+  de: {
+    origins: ["Zürich", "Luzern", "Lausanne", "Mailand"],
+    destinations: ["Madrid", "Belgrad", "Lissabon", "Rom", "Paris"],
+  },
+};
 
 const Index = () => {
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const navigate = useNavigate();
-  const { messages } = useLocale();
+  const { locale, messages } = useLocale();
+  const examples = useMemo(() => CITY_EXAMPLES[locale], [locale]);
+  const [originExample, setOriginExample] = useState(examples.origins[0]);
+  const [destinationExample, setDestinationExample] = useState(examples.destinations[0]);
+
+  useEffect(() => {
+    const pickRandomPair = () => {
+      const nextOrigin = examples.origins[Math.floor(Math.random() * examples.origins.length)];
+      const nextDestination = examples.destinations[Math.floor(Math.random() * examples.destinations.length)];
+      setOriginExample(nextOrigin);
+      setDestinationExample(nextDestination);
+    };
+
+    pickRandomPair();
+    const intervalId = window.setInterval(pickRandomPair, 4000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [examples]);
 
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
     navigate(`/search?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`);
   };
+
+  const originPlaceholder =
+    locale === "de"
+      ? `Startort (z. B. ${originExample})`
+      : locale === "en"
+        ? `Origin (e.g. ${originExample})`
+        : `Origen (ej. ${originExample})`;
+
+  const destinationPlaceholder =
+    locale === "de"
+      ? `Zielort (z. B. ${destinationExample})`
+      : locale === "en"
+        ? `Destination (e.g. ${destinationExample})`
+        : `Destino (ej. ${destinationExample})`;
 
   return (
     <div className="min-h-screen overflow-x-hidden">
@@ -51,7 +100,7 @@ const Index = () => {
               <div className="flex min-w-0 flex-1 items-center gap-2 px-3">
                 <MapPin className="h-5 w-5 shrink-0 text-primary" />
                 <Input
-                  placeholder={messages.landing.originPlaceholder}
+                  placeholder={originPlaceholder}
                   className="border-0 bg-transparent shadow-none focus-visible:ring-0"
                   value={origin}
                   onChange={(event) => setOrigin(event.target.value)}
@@ -61,7 +110,7 @@ const Index = () => {
               <div className="flex min-w-0 flex-1 items-center gap-2 px-3">
                 <MapPin className="h-5 w-5 shrink-0 text-accent" />
                 <Input
-                  placeholder={messages.landing.destinationPlaceholder}
+                  placeholder={destinationPlaceholder}
                   className="border-0 bg-transparent shadow-none focus-visible:ring-0"
                   value={destination}
                   onChange={(event) => setDestination(event.target.value)}

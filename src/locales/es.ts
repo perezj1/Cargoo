@@ -38,7 +38,7 @@ export const es = {
     closeMenu: "Cerrar menu",
   },
   footer: {
-    description: "Conectamos conductores con espacio libre y personas que necesitan mover paquetes entre ciudades.",
+    description: "Conectamos conductores con espacio libre y personas que necesitan enviar paquetes a otra ciudad o pais.",
     platform: "Plataforma",
     account: "Cuenta",
     legal: "Legal",
@@ -54,7 +54,7 @@ export const es = {
   },
   landing: {
     heroImageAlt: "Trayecto por carretera",
-    heroTitle: "Mueve lo que necesites con conductores de confianza",
+    heroTitle: "Envía lo que necesites con conductores de confianza",
     heroDescription: "Cargoo conecta personas que necesitan enviar paquetes con conductores que ya tienen espacio libre en su coche.",
     originPlaceholder: "Origen (ej. Madrid)",
     destinationPlaceholder: "Destino (ej. Barcelona)",
@@ -64,7 +64,7 @@ export const es = {
     steps: [
       {
         title: "Busca un conductor",
-        desc: "Encuentra personas con una ruta parecida a la tuya y espacio disponible en su coche.",
+        desc: "Encuentra personas que viajan por la ruta que necesitas para enviar tu paquete.",
       },
       {
         title: "Acordad el envío",

@@ -38,7 +38,7 @@ export const en = {
     closeMenu: "Close menu",
   },
   footer: {
-    description: "We connect drivers with free space and people who need to move packages between cities.",
+    description: "We connect drivers with free space and people who need to send packages to another city or country.",
     platform: "Platform",
     account: "Account",
     legal: "Legal",
@@ -54,7 +54,7 @@ export const en = {
   },
   landing: {
     heroImageAlt: "Road trip",
-    heroTitle: "Move what you need with trusted drivers",
+    heroTitle: "Send what you need with trusted drivers",
     heroDescription: "Cargoo connects people who need to send packages with drivers who already have free space in their car.",
     originPlaceholder: "Origin (e.g. Madrid)",
     destinationPlaceholder: "Destination (e.g. Barcelona)",
@@ -64,7 +64,7 @@ export const en = {
     steps: [
       {
         title: "Find a driver",
-        desc: "Discover people following a route similar to yours with available space in their car.",
+        desc: "Find people travelling along the route you need to send your package.",
       },
       {
         title: "Agree on the shipment",

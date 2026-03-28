@@ -63,9 +63,8 @@ export const LocaleProvider = ({ children }: { children: ReactNode }) => {
 
   const setLocale = async (nextLocale: Locale) => {
     const normalizedLocale = normalizeLocale(nextLocale);
-    const previousLocale = locale;
 
-    if (normalizedLocale === previousLocale) {
+    if (normalizedLocale === locale) {
       return;
     }
 
@@ -79,8 +78,7 @@ export const LocaleProvider = ({ children }: { children: ReactNode }) => {
       await updateCurrentUser({ locale: normalizedLocale });
       await refreshProfile();
     } catch (error) {
-      setLocaleState(previousLocale);
-      throw error;
+      console.error("The locale could not be persisted in the user profile.", error);
     }
   };
 

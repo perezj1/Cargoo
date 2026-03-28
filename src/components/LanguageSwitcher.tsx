@@ -1,7 +1,6 @@
-import { Globe } from "lucide-react";
 import { toast } from "sonner";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { useLocale } from "@/contexts/LocaleContext";
 import type { Locale } from "@/locales";
 
@@ -12,6 +11,13 @@ interface LanguageSwitcherProps {
 
 const LanguageSwitcher = ({ compact = false, className = "" }: LanguageSwitcherProps) => {
   const { locale, messages, setLocale, supportedLocales } = useLocale();
+  const flagsByLocale: Record<Locale, string> = {
+    es: "🇪🇸",
+    en: "🇬🇧",
+    de: "🇩🇪",
+  };
+  const currentFlag = flagsByLocale[locale];
+  const currentLanguageName = messages.languageNames[locale];
 
   const handleLocaleChange = async (value: string) => {
     try {
@@ -25,13 +31,14 @@ const LanguageSwitcher = ({ compact = false, className = "" }: LanguageSwitcherP
     return (
       <Select value={locale} onValueChange={handleLocaleChange}>
         <SelectTrigger className={`min-w-0 max-w-full bg-card sm:w-[140px] ${className}`.trim()} aria-label={messages.localeSwitcher.label}>
-          <Globe className="mr-2 h-4 w-4" />
-          <SelectValue />
+          <span className="mr-2 text-base leading-none">{currentFlag}</span>
+          <span className="truncate">{currentLanguageName}</span>
         </SelectTrigger>
         <SelectContent>
           {supportedLocales.map((item) => (
             <SelectItem key={item} value={item}>
-              {messages.languageNames[item]}
+              <span className="mr-2">{flagsByLocale[item]}</span>
+              <span>{messages.languageNames[item]}</span>
             </SelectItem>
           ))}
         </SelectContent>
@@ -42,18 +49,20 @@ const LanguageSwitcher = ({ compact = false, className = "" }: LanguageSwitcherP
   return (
     <div className={className}>
       <div className="mb-2 flex items-center gap-2">
-        <Globe className="h-4 w-4 text-primary" />
+        <span className="text-base leading-none">{currentFlag}</span>
         <p className="text-sm font-medium">{messages.localeSwitcher.label}</p>
       </div>
       <p className="mb-3 text-xs text-muted-foreground">{messages.localeSwitcher.helper}</p>
       <Select value={locale} onValueChange={handleLocaleChange}>
         <SelectTrigger className="w-full bg-background" aria-label={messages.localeSwitcher.label}>
-          <SelectValue />
+          <span className="mr-2 text-base leading-none">{currentFlag}</span>
+          <span className="truncate">{currentLanguageName}</span>
         </SelectTrigger>
         <SelectContent>
           {supportedLocales.map((item) => (
             <SelectItem key={item} value={item}>
-              {messages.languageNames[item]}
+              <span className="mr-2">{flagsByLocale[item]}</span>
+              <span>{messages.languageNames[item]}</span>
             </SelectItem>
           ))}
         </SelectContent>

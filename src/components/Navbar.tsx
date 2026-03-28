@@ -63,9 +63,9 @@ const Navbar = () => {
       </div>
 
       {mobileOpen ? (
-        <div className="animate-fade-in overflow-x-hidden border-b border-border bg-background px-4 pb-4 lg:hidden">
+        <div className="animate-fade-in overflow-x-hidden border-b border-border bg-background px-4 pb-4 pt-3 lg:hidden">
           <div className="flex flex-col gap-3">
-            <LanguageSwitcher compact className="w-full" />
+            <LanguageSwitcher compact className="mt-1 w-full" />
             <Link to="/search" className="break-words py-2 text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>
               {messages.navbar.searchDrivers}
             </Link>
