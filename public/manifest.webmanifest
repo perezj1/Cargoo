@@ -4,7 +4,7 @@
   "description": "PWA para conectar conductores con espacio libre en su coche y personas que necesitan mover paquetes entre ciudades.",
   "lang": "es",
   "dir": "ltr",
-  "start_url": "/home",
+  "start_url": "/auth",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",

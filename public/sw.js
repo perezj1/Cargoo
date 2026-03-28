@@ -1,5 +1,5 @@
-const CACHE_NAME = "cargoo-shell-v4";
-const APP_SHELL = ["/", "/home", "/manifest.webmanifest", "/favicon.svg?v=5", "/icons/icon-192.png?v=4", "/icons/icon-512.png?v=4"];
+const CACHE_NAME = "cargoo-shell-v5";
+const APP_SHELL = ["/", "/auth", "/manifest.webmanifest", "/favicon.svg?v=5", "/icons/icon-192.png?v=4", "/icons/icon-512.png?v=4"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -27,12 +27,12 @@ self.addEventListener("fetch", (event) => {
       fetch(request)
         .then((response) => {
           const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put("/home", copy));
+          caches.open(CACHE_NAME).then((cache) => cache.put("/auth", copy));
           return response;
         })
         .catch(async () => {
           const cachedPage = await caches.match(request);
-          return cachedPage || caches.match("/home") || caches.match("/");
+          return cachedPage || caches.match("/auth") || caches.match("/");
         }),
     );
     return;
@@ -66,7 +66,7 @@ self.addEventListener("push", (event) => {
     body: data.body || "Tienes una actualizacion sobre una ruta o entrega.",
     icon: "/icons/icon-192.png?v=4",
     tag: data.tag || "cargoo-notification",
-    data: { url: data.url || "/home" },
+    data: { url: data.url || "/auth" },
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -74,7 +74,7 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = new URL(event.notification.data?.url || "/home", self.location.origin).toString();
+  const targetUrl = new URL(event.notification.data?.url || "/auth", self.location.origin).toString();
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {

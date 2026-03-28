@@ -7,6 +7,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import DashboardLayout from "./layouts/DashboardLayout.tsx";
+import AuthEntryPage from "./pages/AuthEntryPage.tsx";
 import HowItWorksPage from "./pages/HowItWorksPage.tsx";
 import Index from "./pages/Index.tsx";
 import LoginPage from "./pages/LoginPage.tsx";
@@ -45,7 +46,7 @@ const App = () => (
               <Route path="/transportistas/:userId" element={<PublicCarrierProfilePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
-              <Route path="/auth" element={<Navigate to="/login" replace />} />
+              <Route path="/auth" element={<AuthEntryPage />} />
               <Route path="/how-it-works" element={<HowItWorksPage />} />
               <Route path="/legal/agb" element={<TermsPage />} />
               <Route path="/legal/privacy" element={<PrivacyPage />} />
