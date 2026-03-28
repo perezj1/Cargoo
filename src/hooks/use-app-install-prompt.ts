@@ -8,8 +8,6 @@ export interface BeforeInstallPromptEvent extends Event {
   }>;
 }
 
-export const IOS_SEEN_KEY = "cargoo-install-prompt-ios-seen";
-export const ANDROID_SEEN_KEY = "cargoo-install-prompt-android-seen";
 const OPEN_INSTALL_PROMPT_EVENT = "cargoo:open-install-prompt";
 
 type InstallPromptSnapshot = {
@@ -109,36 +107,6 @@ const subscribeToInstallPrompt = (listener: (snapshot: InstallPromptSnapshot) =>
   };
 };
 
-const markPromptSeen = (snapshot: InstallPromptSnapshot) => {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (snapshot.isIos) {
-    window.sessionStorage.setItem(IOS_SEEN_KEY, "1");
-  }
-
-  if (snapshot.isAndroid) {
-    window.sessionStorage.setItem(ANDROID_SEEN_KEY, "1");
-  }
-};
-
-const hasSeenPrompt = (snapshot: InstallPromptSnapshot) => {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  if (snapshot.isIos) {
-    return window.sessionStorage.getItem(IOS_SEEN_KEY) === "1";
-  }
-
-  if (snapshot.isAndroid) {
-    return window.sessionStorage.getItem(ANDROID_SEEN_KEY) === "1";
-  }
-
-  return false;
-};
-
 export const requestGlobalInstallPrompt = () => {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(OPEN_INSTALL_PROMPT_EVENT));
@@ -156,18 +124,12 @@ export const useAppInstallPrompt = ({ enabled = true }: { enabled?: boolean } = 
     () => enabled && !snapshot.isStandalone && (snapshot.isIos || (snapshot.isAndroid && Boolean(snapshot.deferredPrompt))),
     [enabled, snapshot.deferredPrompt, snapshot.isAndroid, snapshot.isIos, snapshot.isStandalone],
   );
-  const shouldAutoOpen = canShowInstallEntry && !hasSeenPrompt(snapshot);
 
   useEffect(() => {
     if (!enabled || snapshot.isStandalone) {
       setOpen(false);
-      return;
     }
-
-    if (shouldAutoOpen) {
-      setOpen(true);
-    }
-  }, [enabled, shouldAutoOpen, snapshot.isStandalone]);
+  }, [enabled, snapshot.isStandalone]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -188,7 +150,6 @@ export const useAppInstallPrompt = ({ enabled = true }: { enabled?: boolean } = 
   }, [canShowInstallEntry]);
 
   const closePrompt = () => {
-    markPromptSeen(snapshot);
     setOpen(false);
   };
 
