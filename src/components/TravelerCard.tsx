@@ -4,14 +4,16 @@ import { Link } from "react-router-dom";
 import RouteInline from "@/components/RouteInline";
 import { Badge } from "@/components/ui/badge";
 import { useLocale } from "@/contexts/LocaleContext";
-import type { Traveler } from "@/lib/mock-travelers";
+import { formatTravelerPlace, type Traveler } from "@/lib/mock-travelers";
 
 const TravelerCard = ({ traveler }: { traveler: Traveler }) => {
-  const { intlLocale, messages } = useLocale();
+  const { intlLocale, locale, messages } = useLocale();
   const initials = traveler.name
     .split(" ")
     .map((namePart) => namePart[0])
     .join("");
+  const originLabel = formatTravelerPlace(traveler.origin, locale);
+  const destinationLabel = formatTravelerPlace(traveler.destination, locale);
 
   const formattedDate = new Date(traveler.date).toLocaleDateString(intlLocale, {
     day: "numeric",
@@ -21,7 +23,7 @@ const TravelerCard = ({ traveler }: { traveler: Traveler }) => {
 
   return (
     <Link
-      to={`/search?origin=${encodeURIComponent(traveler.origin)}&destination=${encodeURIComponent(traveler.destination)}`}
+      to={`/search?origin=${encodeURIComponent(originLabel)}&destination=${encodeURIComponent(destinationLabel)}`}
       className="group block rounded-xl border border-border bg-card p-6 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover"
     >
       <div className="mb-4 flex items-start gap-4">
@@ -49,8 +51,8 @@ const TravelerCard = ({ traveler }: { traveler: Traveler }) => {
       <div className="space-y-2.5">
         <div className="flex justify-start">
           <RouteInline
-            origin={traveler.origin}
-            destination={traveler.destination}
+            origin={originLabel}
+            destination={destinationLabel}
             className="text-sm"
             labelClassName="text-card-foreground"
           />
