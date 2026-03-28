@@ -33,6 +33,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(true);
 
+  const syncPushForActiveUser = async (activeUser: User | null) => {
+    if (!activeUser || getNotificationPermissionState() !== "granted") {
+      return;
+    }
+
+    try {
+      await syncPushSubscription(activeUser.id, { requestPermission: false });
+    } catch {
+      // Push sync should not block auth or app startup.
+    }
+  };
+
   const refreshProfile = async () => {
     const {
       data: { session: activeSession },
@@ -64,6 +76,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(nextSession?.user ?? null);
       if (nextSession?.user) {
         void refreshProfile();
+        void syncPushForActiveUser(nextSession.user);
       } else {
         setProfile(null);
         setProfileLoading(false);
@@ -84,11 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(nextSession?.user ?? null);
         if (nextSession?.user) {
           void refreshProfile();
-          if (getNotificationPermissionState() === "granted") {
-            void syncPushSubscription(nextSession.user.id, { requestPermission: false }).catch(() => {
-              // Push sync should not block auth.
-            });
-          }
+          void syncPushForActiveUser(nextSession.user);
         } else {
           setProfile(null);
           setProfileLoading(false);
