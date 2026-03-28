@@ -343,7 +343,7 @@ const PublicCarrierProfilePage = () => {
                       </span>
                       <span className="flex items-center gap-1.5">
                         <Package className="h-4 w-4" />
-                        {messages.publicProfile.availableKg(trip.availableKg, trip.capacityKg)}
+                        {messages.publicTripCard.totalCapacity(trip.capacityKg)}
                       </span>
                     </div>
                     {trip.vehicleType ? (

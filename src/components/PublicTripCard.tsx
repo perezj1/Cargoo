@@ -64,7 +64,7 @@ const PublicTripCard = ({ trip }: { trip: PublicTripListing }) => {
           </div>
           <div className="flex min-w-0 items-center gap-1.5">
             <Package className="h-4 w-4" />
-            <span className="break-words [overflow-wrap:anywhere]">{messages.publicTripCard.availableKg(trip.availableKg)}</span>
+            <span className="break-words [overflow-wrap:anywhere]">{messages.publicTripCard.totalCapacity(trip.capacityKg)}</span>
           </div>
         </div>
         {trip.vehicleType ? (
@@ -75,10 +75,6 @@ const PublicTripCard = ({ trip }: { trip: PublicTripListing }) => {
             </span>
           </div>
         ) : null}
-        <div className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
-          <Package className="h-4 w-4" />
-          <span className="break-words [overflow-wrap:anywhere]">{messages.publicTripCard.totalCapacity(trip.capacityKg)}</span>
-        </div>
         {trip.notes ? <p className="line-clamp-2 break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">{trip.notes}</p> : null}
       </div>
     </Link>

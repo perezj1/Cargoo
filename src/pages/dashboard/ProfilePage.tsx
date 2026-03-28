@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, ChevronRight, Download, EyeOff, Globe, LogOut, MapPin, MessageSquare, Package, Settings, Star } from "lucide-react";
+import { Camera, ChevronRight, Download, EyeOff, Globe, LogOut, Mail, MapPin, MessageSquare, Package, Phone, Star, User } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -7,8 +7,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { requestGlobalInstallPrompt, useAppInstallPrompt } from "@/hooks/use-app-install-prompt";
@@ -36,14 +38,23 @@ const ProfilePage = () => {
   const [trips, setTrips] = useState<CargooTrip[]>([]);
   const [savingVisibility, setSavingVisibility] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
   const [savingNotifications, setSavingNotifications] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState(getNotificationPermissionState());
+  const [phoneFieldFocused, setPhoneFieldFocused] = useState(false);
   const [ratingSummary, setRatingSummary] = useState<TravelerRatingSummary>({
     averageRating: null,
     reviewsCount: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [profileForm, setProfileForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    location: "",
+    bio: "",
+  });
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const { canShowInstallEntry } = useAppInstallPrompt({ enabled: true });
 
@@ -52,6 +63,13 @@ const ProfilePage = () => {
       try {
         const profile = await getCurrentUser();
         setUser(profile);
+        setProfileForm({
+          name: profile.name,
+          email: profile.email,
+          phone: profile.phone,
+          location: profile.location,
+          bio: profile.bio,
+        });
 
         const { data: preferences, error: preferencesError } = await supabase
           .from("preferences")
@@ -118,6 +136,36 @@ const ProfilePage = () => {
       navigate("/login");
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
+    }
+  };
+
+  const updateProfileField = (field: keyof typeof profileForm, value: string) => {
+    setProfileForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user) {
+      return;
+    }
+
+    setSavingProfile(true);
+
+    try {
+      const updatedUser = await updateCurrentUser(profileForm);
+      setUser(updatedUser);
+      setProfileForm({
+        name: updatedUser.name,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        location: updatedUser.location,
+        bio: updatedUser.bio,
+      });
+      await refreshProfile();
+      toast.success(messages.editProfilePage.updatedSuccess);
+    } catch (error) {
+      toast.error(getFriendlyErrorMessage(error));
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -201,17 +249,17 @@ const ProfilePage = () => {
 
   const menuItems = user.isTraveler
     ? [
-        { label: messages.appProfile.editProfile, to: "/app/profile/edit", icon: Settings },
         { label: messages.appProfile.messages, to: "/app/messages", icon: MessageSquare },
         { label: messages.appProfile.myTrips, to: "/app/trips", icon: Package },
       ]
-    : [{ label: messages.appProfile.editProfile, to: "/app/profile/edit", icon: Settings }];
+    : [];
   const ratingLabel =
     ratingSummary.averageRating !== null
       ? new Intl.NumberFormat(intlLocale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(ratingSummary.averageRating)
       : messages.common.newLabel;
   const ratingCaption =
     ratingSummary.averageRating !== null ? messages.appProfile.reviewsCount(ratingSummary.reviewsCount) : messages.common.noReviewsYet;
+  const needsPhoneAttention = Boolean(user.isTraveler && !profileForm.phone.trim());
 
   return (
     <div className="mx-auto max-w-lg px-4 pt-6">
@@ -244,7 +292,7 @@ const ProfilePage = () => {
           <MapPin className="h-3 w-3" /> {user.location}
         </p>
         {user.isTraveler ? (
-          <div className="mt-3 flex items-center justify-center gap-4">
+          <div className="mt-3 flex items-center justify-center gap-5">
             <div className="text-center">
               <p className="text-lg font-bold">{stats.totalTrips}</p>
               <p className="text-[10px] text-muted-foreground">{messages.appProfile.trips}</p>
@@ -255,11 +303,6 @@ const ProfilePage = () => {
                 {ratingLabel} <Star className="h-3 w-3 fill-warning text-warning" />
               </p>
               <p className="text-[10px] text-muted-foreground">{ratingCaption}</p>
-            </div>
-            <Separator orientation="vertical" className="h-8" />
-            <div className="text-center">
-              <p className="text-lg font-bold">{stats.pendingRequests}</p>
-              <p className="text-[10px] text-muted-foreground">{messages.appProfile.requests}</p>
             </div>
           </div>
         ) : null}
@@ -279,6 +322,87 @@ const ProfilePage = () => {
           </div>
         </div>
       )}
+
+      <div className="mb-4 rounded-xl bg-card p-4 shadow-card">
+        <p className="text-sm font-medium">{messages.appProfile.profileDetailsTitle}</p>
+        <div className="mt-3 space-y-3">
+          <div className="rounded-xl bg-secondary/70 p-3">
+            <div className="flex items-start gap-3">
+              <User className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{messages.editProfilePage.fullName}</p>
+                <Input
+                  value={profileForm.name}
+                  onChange={(event) => updateProfileField("name", event.target.value)}
+                  className="mt-1 h-auto border-0 bg-transparent p-0 text-sm text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="rounded-xl bg-secondary/70 p-3">
+            <div className="flex items-start gap-3">
+              <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{messages.editProfilePage.email}</p>
+                <Input
+                  type="email"
+                  value={profileForm.email}
+                  onChange={(event) => updateProfileField("email", event.target.value)}
+                  className="mt-1 h-auto border-0 bg-transparent p-0 text-sm text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="rounded-xl bg-secondary/70 p-3">
+            <div className="flex items-start gap-3">
+              <Phone className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{messages.editProfilePage.phone}</p>
+                <Input
+                  type="tel"
+                  value={profileForm.phone}
+                  onChange={(event) => updateProfileField("phone", event.target.value)}
+                  onFocus={() => setPhoneFieldFocused(true)}
+                  onBlur={() => setPhoneFieldFocused(false)}
+                  placeholder={phoneFieldFocused ? "" : messages.appProfile.phoneMissing}
+                  className={`mt-1 h-auto border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 ${needsPhoneAttention ? "placeholder:text-destructive text-destructive" : "text-foreground"}`}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="rounded-xl bg-secondary/70 p-3">
+            <div className="flex items-start gap-3">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{messages.editProfilePage.location}</p>
+                <Input
+                  value={profileForm.location}
+                  onChange={(event) => updateProfileField("location", event.target.value)}
+                  className="mt-1 h-auto border-0 bg-transparent p-0 text-sm text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="rounded-xl bg-secondary/70 p-3">
+            <div className="flex items-start gap-3">
+              <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{messages.editProfilePage.bio}</p>
+                <Textarea
+                  rows={3}
+                  value={profileForm.bio}
+                  onChange={(event) => updateProfileField("bio", event.target.value)}
+                  className="mt-1 block min-h-0 w-full resize-none border-0 bg-transparent p-0 text-sm leading-relaxed text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        {needsPhoneAttention ? <p className="mt-3 text-xs text-destructive">{messages.appProfile.phoneMissingHint}</p> : null}
+        <Button className="mt-4 w-full" size="lg" onClick={() => void handleSaveProfile()} disabled={savingProfile}>
+          {savingProfile ? messages.common.saving : messages.editProfilePage.saveChanges}
+        </Button>
+      </div>
 
       <div className="mb-4 flex items-center gap-3 rounded-xl bg-card p-4 shadow-card">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-success/10">
@@ -327,21 +451,23 @@ const ProfilePage = () => {
         </div>
       ) : null}
 
-      <div className="mb-4 overflow-hidden rounded-xl bg-card shadow-card">
-        {menuItems.map((item, index) => (
-          <Link
-            key={item.to}
-            to={item.to}
-            className={`flex items-center justify-between p-4 transition-colors hover:bg-secondary ${index < menuItems.length - 1 ? "border-b border-border" : ""}`}
-          >
-            <div className="flex items-center gap-3">
-              <item.icon className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">{item.label}</span>
-            </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </Link>
-        ))}
-      </div>
+      {menuItems.length > 0 ? (
+        <div className="mb-4 overflow-hidden rounded-xl bg-card shadow-card">
+          {menuItems.map((item, index) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={`flex items-center justify-between p-4 transition-colors hover:bg-secondary ${index < menuItems.length - 1 ? "border-b border-border" : ""}`}
+            >
+              <div className="flex items-center gap-3">
+                <item.icon className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">{item.label}</span>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </Link>
+          ))}
+        </div>
+      ) : null}
 
       <Button
         variant="ghost"

@@ -12,6 +12,7 @@ const BottomNav = () => {
   const { profile, user } = useAuth();
   const { messages } = useLocale();
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+  const needsProfileAttention = Boolean(profile?.isTraveler && !profile.phone.trim());
   const items = profile?.isTraveler
     ? [
         { to: "/app", icon: Home, label: messages.bottomNav.home },
@@ -66,8 +67,9 @@ const BottomNav = () => {
       items.map((item) => ({
         ...item,
         showUnreadDot: item.to === "/app/messages" && hasUnreadMessages,
+        showAlertDot: item.to === "/app/profile" && needsProfileAttention,
       })),
-    [hasUnreadMessages, items],
+    [hasUnreadMessages, items, needsProfileAttention],
   );
 
   return (
@@ -85,7 +87,7 @@ const BottomNav = () => {
             >
               <span className="relative">
                 <item.icon className="h-5 w-5" />
-                {item.showUnreadDot ? (
+                {item.showUnreadDot || item.showAlertDot ? (
                   <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-card" />
                 ) : null}
               </span>
