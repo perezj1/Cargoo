@@ -2,8 +2,11 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { registerPushServiceWorker } from "@/lib/push-notifications";
+import { initializeAppInstallPrompt } from "@/hooks/use-app-install-prompt";
 
 if (typeof window !== "undefined") {
+  initializeAppInstallPrompt();
+
   const hadActiveServiceWorker = "serviceWorker" in navigator && Boolean(navigator.serviceWorker.controller);
   let refreshingForServiceWorkerUpdate = false;
 

@@ -107,6 +107,10 @@ const subscribeToInstallPrompt = (listener: (snapshot: InstallPromptSnapshot) =>
   };
 };
 
+export const initializeAppInstallPrompt = () => {
+  initializeInstallPromptStore();
+};
+
 export const requestGlobalInstallPrompt = () => {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(OPEN_INSTALL_PROMPT_EVENT));
