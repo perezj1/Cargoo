@@ -251,10 +251,12 @@ const PublicCarrierProfilePage = () => {
                     <h1 className="text-3xl font-display font-bold">{profile.name}</h1>
                     <Badge variant="secondary">{messages.publicProfile.publicProfileBadge}</Badge>
                   </div>
-                  <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4" />
-                    {profile.location}
-                  </p>
+                  {profile.location.trim() ? (
+                    <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="h-4 w-4" />
+                      {profile.location}
+                    </p>
+                  ) : null}
                   <p className="mt-4 max-w-2xl text-sm text-muted-foreground">{profile.bio}</p>
                   <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
                     <div className="flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-foreground shadow-card">

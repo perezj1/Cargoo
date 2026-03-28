@@ -142,6 +142,12 @@ export interface TravelerRatingSummary {
   reviewsCount: number;
 }
 
+export interface TravelerReviewsResult {
+  averageRating: number | null;
+  reviewsCount: number;
+  reviews: PublicTravelerReview[];
+}
+
 export interface ConversationSummary {
   id: string;
   tripId: string | null;
@@ -204,7 +210,8 @@ interface CreateTripInput {
 
 type MetadataRecord = Record<string, unknown>;
 
-const DEFAULT_LOCATION = "Madrid, Espana";
+const LEGACY_DEFAULT_LOCATION = "Madrid, Espana";
+const DEFAULT_LOCATION = "";
 const DEFAULT_BIO = "Conductor habitual con espacio disponible para mover paquetes entre ciudades.";
 let chatFeatureAvailable: boolean | null = null;
 let shipmentFeatureAvailable: boolean | null = null;
@@ -280,6 +287,11 @@ const deriveNameFromEmail = (email: string) => {
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(" ") || "Usuario Cargoo"
   );
+};
+
+const normalizeOptionalLocation = (value: string | null | undefined) => {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return normalized === LEGACY_DEFAULT_LOCATION ? "" : normalized;
 };
 
 const parseDateInput = (value: string) => {
@@ -388,7 +400,7 @@ const buildProfileFromMetadata = (user: User): CargooUser => {
     vehicleType: typeof metadata.vehicle_type === "string" ? metadata.vehicle_type : "",
     avatarUrl: typeof metadata.avatar_url === "string" ? metadata.avatar_url : "",
     phone: typeof metadata.phone === "string" ? metadata.phone : "",
-    location: typeof metadata.location === "string" && metadata.location.trim() ? metadata.location : DEFAULT_LOCATION,
+    location: normalizeOptionalLocation(typeof metadata.location === "string" ? metadata.location : DEFAULT_LOCATION),
     bio: typeof metadata.bio === "string" && metadata.bio.trim() ? metadata.bio : DEFAULT_BIO,
   };
 };
@@ -563,7 +575,7 @@ const mapProfileRow = (
   vehicleType: row.vehicle_type ?? "",
   avatarUrl: row.avatar_url ?? fallbackAvatarUrl,
   phone: row.phone ?? "",
-  location: row.location ?? DEFAULT_LOCATION,
+  location: normalizeOptionalLocation(row.location),
   bio: row.bio ?? DEFAULT_BIO,
 });
 
@@ -667,7 +679,7 @@ const buildPublicTripListing = (
     userId: trip.user_id,
     carrierName: profile?.name ?? "Conductor Cargoo",
     carrierAvatarUrl: profile?.avatarUrl ?? "",
-    carrierLocation: profile?.location ?? DEFAULT_LOCATION,
+    carrierLocation: normalizeOptionalLocation(profile?.location),
     averageRating: profile?.averageRating ?? null,
     reviewsCount: profile?.reviewsCount ?? 0,
     origin: trip.origin,
@@ -1581,7 +1593,7 @@ export const getPublicTripListings = async () => {
       {
         name: profile.name,
         avatarUrl: profile.avatar_url ?? "",
-        location: profile.location ?? DEFAULT_LOCATION,
+        location: normalizeOptionalLocation(profile.location),
       },
     ]),
   );
@@ -1633,55 +1645,12 @@ export const getPublicTripListings = async () => {
 };
 
 const getPublicTravelerReviews = async (travelerId: string) => {
-  if (isShipmentFeatureUnavailable()) {
-    return {
-      averageRating: null,
-      reviewsCount: 0,
-      reviews: [],
-    } satisfies Pick<PublicCarrierProfile, "averageRating" | "reviewsCount" | "reviews">;
-  }
-
-  const { data, error } = await supabase
-    .from("cargoo_shipments")
-    .select("id, sender_name, review_rating, review_comment, reviewed_at, route_origin, route_destination")
-    .eq("traveler_id", travelerId)
-    .eq("status", "delivered")
-    .not("review_rating", "is", null)
-    .order("reviewed_at", { ascending: false });
-
-  if (isMissingCargooTable(error)) {
-    markShipmentFeatureUnavailable();
-    return {
-      averageRating: null,
-      reviewsCount: 0,
-      reviews: [],
-    } satisfies Pick<PublicCarrierProfile, "averageRating" | "reviewsCount" | "reviews">;
-  }
-
-  const mappedError = mapSupabaseError(error);
-  if (mappedError) {
-    throw mappedError;
-  }
-
-  markShipmentFeatureAvailable();
-  const ratings = (data ?? []).map((item) => item.review_rating).filter((rating): rating is number => typeof rating === "number");
-  const reviews = (data ?? [])
-    .filter((item) => typeof item.review_rating === "number" && Boolean(item.review_comment?.trim()))
-    .map((item) => ({
-      id: item.id,
-      senderName: item.sender_name,
-      rating: item.review_rating as number,
-      comment: item.review_comment?.trim() ?? "",
-      reviewedAt: item.reviewed_at,
-      routeOrigin: item.route_origin,
-      routeDestination: item.route_destination,
-    }))
-    .slice(0, 6);
+  const allReviews = await getTravelerReviews(travelerId);
 
   return {
-    averageRating: ratings.length ? Number((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length).toFixed(1)) : null,
-    reviewsCount: ratings.length,
-    reviews,
+    averageRating: allReviews.averageRating,
+    reviewsCount: allReviews.reviewsCount,
+    reviews: allReviews.reviews.filter((review) => Boolean(review.comment.trim())).slice(0, 6),
   } satisfies Pick<PublicCarrierProfile, "averageRating" | "reviewsCount" | "reviews">;
 };
 
@@ -1737,7 +1706,7 @@ export const getPublicCarrierProfile = async (userId: string) => {
     userId: profile.user_id,
     name: profile.name,
     avatarUrl: profile.avatar_url ?? "",
-    location: profile.location ?? DEFAULT_LOCATION,
+    location: normalizeOptionalLocation(profile.location),
     bio: profile.bio ?? DEFAULT_BIO,
     phone: profile.phone ?? "",
     isTraveler: profile.is_traveler,
@@ -1750,7 +1719,7 @@ export const getPublicCarrierProfile = async (userId: string) => {
         {
           name: profile.name,
           avatarUrl: profile.avatar_url ?? "",
-          location: profile.location ?? DEFAULT_LOCATION,
+          location: normalizeOptionalLocation(profile.location),
           averageRating: publicReviews.averageRating,
           reviewsCount: publicReviews.reviewsCount,
         },
@@ -2298,6 +2267,56 @@ export const getTravelerRatingSummary = async (travelerId: string) => {
     averageRating: Number((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length).toFixed(1)),
     reviewsCount: ratings.length,
   } satisfies TravelerRatingSummary;
+};
+
+export const getTravelerReviews = async (travelerId: string) => {
+  if (isShipmentFeatureUnavailable()) {
+    return {
+      averageRating: null,
+      reviewsCount: 0,
+      reviews: [],
+    } satisfies TravelerReviewsResult;
+  }
+
+  const { data, error } = await supabase
+    .from("cargoo_shipments")
+    .select("id, sender_name, review_rating, review_comment, reviewed_at, route_origin, route_destination")
+    .eq("traveler_id", travelerId)
+    .eq("status", "delivered")
+    .not("review_rating", "is", null)
+    .order("reviewed_at", { ascending: false });
+
+  if (isMissingCargooTable(error)) {
+    markShipmentFeatureUnavailable();
+    return {
+      averageRating: null,
+      reviewsCount: 0,
+      reviews: [],
+    } satisfies TravelerReviewsResult;
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  markShipmentFeatureAvailable();
+  const ratings = (data ?? []).map((item) => item.review_rating).filter((rating): rating is number => typeof rating === "number");
+  const reviews = (data ?? []).map((item) => ({
+    id: item.id,
+    senderName: item.sender_name,
+    rating: item.review_rating as number,
+    comment: item.review_comment?.trim() ?? "",
+    reviewedAt: item.reviewed_at,
+    routeOrigin: item.route_origin,
+    routeDestination: item.route_destination,
+  }));
+
+  return {
+    averageRating: ratings.length ? Number((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length).toFixed(1)) : null,
+    reviewsCount: ratings.length,
+    reviews,
+  } satisfies TravelerReviewsResult;
 };
 
 export const getConversations = async () => {

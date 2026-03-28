@@ -5,7 +5,6 @@ import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -249,6 +248,7 @@ const ProfilePage = () => {
 
   const menuItems = user.isTraveler
     ? [
+        { label: messages.appProfile.reviews, to: "/app/profile/reviews", icon: Star },
         { label: messages.appProfile.messages, to: "/app/messages", icon: MessageSquare },
         { label: messages.appProfile.myTrips, to: "/app/trips", icon: Package },
       ]
@@ -288,9 +288,11 @@ const ProfilePage = () => {
           />
         </div>
         <h1 className="text-xl font-display font-bold">{user.name}</h1>
-        <p className="mt-1 flex items-center justify-center gap-1 text-sm text-muted-foreground">
-          <MapPin className="h-3 w-3" /> {user.location}
-        </p>
+        {user.location.trim() ? (
+          <p className="mt-1 flex items-center justify-center gap-1 text-sm text-muted-foreground">
+            <MapPin className="h-3 w-3" /> {user.location}
+          </p>
+        ) : null}
         {user.isTraveler ? (
           <div className="mt-3 flex items-center justify-center gap-5">
             <div className="text-center">
@@ -334,7 +336,7 @@ const ProfilePage = () => {
                 <Input
                   value={profileForm.name}
                   onChange={(event) => updateProfileField("name", event.target.value)}
-                  className="mt-1 h-auto border-0 bg-transparent p-0 text-sm text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="mt-1 h-auto border-0 bg-transparent px-0.5 py-0 text-sm text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
             </div>
@@ -348,7 +350,7 @@ const ProfilePage = () => {
                   type="email"
                   value={profileForm.email}
                   onChange={(event) => updateProfileField("email", event.target.value)}
-                  className="mt-1 h-auto border-0 bg-transparent p-0 text-sm text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="mt-1 h-auto border-0 bg-transparent px-0.5 py-0 text-sm text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
             </div>
@@ -365,7 +367,7 @@ const ProfilePage = () => {
                   onFocus={() => setPhoneFieldFocused(true)}
                   onBlur={() => setPhoneFieldFocused(false)}
                   placeholder={phoneFieldFocused ? "" : messages.appProfile.phoneMissing}
-                  className={`mt-1 h-auto border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 ${needsPhoneAttention ? "placeholder:text-destructive text-destructive" : "text-foreground"}`}
+                  className={`mt-1 h-auto border-0 bg-transparent px-0.5 py-0 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 ${needsPhoneAttention ? "placeholder:text-destructive text-destructive" : "text-foreground"}`}
                 />
               </div>
             </div>
@@ -378,7 +380,7 @@ const ProfilePage = () => {
                 <Input
                   value={profileForm.location}
                   onChange={(event) => updateProfileField("location", event.target.value)}
-                  className="mt-1 h-auto border-0 bg-transparent p-0 text-sm text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="mt-1 h-auto border-0 bg-transparent px-0.5 py-0 text-sm text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
             </div>
@@ -392,7 +394,7 @@ const ProfilePage = () => {
                   rows={3}
                   value={profileForm.bio}
                   onChange={(event) => updateProfileField("bio", event.target.value)}
-                  className="mt-1 block min-h-0 w-full resize-none border-0 bg-transparent p-0 text-sm leading-relaxed text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="mt-1 block min-h-0 w-full resize-none border-0 bg-transparent px-0.5 py-0 text-sm leading-relaxed text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
             </div>
@@ -402,18 +404,6 @@ const ProfilePage = () => {
         <Button className="mt-4 w-full" size="lg" onClick={() => void handleSaveProfile()} disabled={savingProfile}>
           {savingProfile ? messages.common.saving : messages.editProfilePage.saveChanges}
         </Button>
-      </div>
-
-      <div className="mb-4 flex items-center gap-3 rounded-xl bg-card p-4 shadow-card">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-success/10">
-          <Badge className="bg-success px-2 text-[10px] text-success-foreground">OK</Badge>
-        </div>
-        <div>
-          <p className="text-sm font-medium">{user.isTraveler ? messages.appProfile.verifiedIdentity : messages.appProfile.activeAccount}</p>
-          <p className="text-xs text-muted-foreground">
-            {user.isTraveler ? messages.appProfile.verifiedDescription : messages.appProfile.activeDescription}
-          </p>
-        </div>
       </div>
 
       <div className="mb-4 rounded-xl bg-card p-4 shadow-card">

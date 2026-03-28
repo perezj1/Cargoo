@@ -274,7 +274,7 @@ const DashboardHome = () => {
         <div>
           <p className="text-sm text-muted-foreground">{messages.dashboardHome.greeting}</p>
           <h1 className="text-2xl font-display font-bold">{profile.name}</h1>
-          <p className="text-sm text-muted-foreground">{profile.location}</p>
+          {profile.location.trim() ? <p className="text-sm text-muted-foreground">{profile.location}</p> : null}
         </div>
         <Link to="/app/profile">
           <Avatar className="h-11 w-11 border-2 border-primary">

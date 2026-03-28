@@ -24,6 +24,7 @@ import MessagesPage from "./pages/dashboard/MessagesPage.tsx";
 import NewTripPage from "./pages/dashboard/NewTripPage.tsx";
 import ProfilePage from "./pages/dashboard/ProfilePage.tsx";
 import ShipmentsPage from "./pages/dashboard/ShipmentsPage.tsx";
+import TravelerReviewsPage from "./pages/dashboard/TravelerReviewsPage.tsx";
 import TripDetailsPage from "./pages/dashboard/TripDetailsPage.tsx";
 import TripsPage from "./pages/dashboard/TripsPage.tsx";
 import DisclaimerPage from "./pages/legal/DisclaimerPage.tsx";
@@ -65,6 +66,7 @@ const App = () => (
                 <Route path="messages" element={<MessagesPage />} />
                 <Route path="messages/:conversationId" element={<ConversationPage />} />
                 <Route path="profile" element={<ProfilePage />} />
+                <Route path="profile/reviews" element={<TravelerReviewsPage />} />
                 <Route path="profile/edit" element={<EditProfilePage />} />
               </Route>
               <Route path="/dashboard/*" element={<Navigate to="/app" replace />} />
