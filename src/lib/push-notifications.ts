@@ -100,7 +100,11 @@ export const getNotificationPermissionState = () => {
 
 export const registerPushServiceWorker = async () => {
   ensureBrowserSupport();
-  return navigator.serviceWorker.register("/sw.js");
+  const registration = await navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
+  void registration.update().catch(() => {
+    // If the browser cannot check for updates right now, the existing worker still works.
+  });
+  return registration;
 };
 
 const deleteRemoteSubscriptionByEndpoint = async (endpoint: string) => {

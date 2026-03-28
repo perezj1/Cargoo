@@ -1,5 +1,5 @@
-const CACHE_NAME = "cargoo-shell-v5";
-const APP_SHELL = ["/", "/auth", "/manifest.webmanifest", "/favicon.svg?v=5", "/icons/icon-192.png?v=4", "/icons/icon-512.png?v=4"];
+const CACHE_NAME = "cargoo-shell-v6";
+const APP_SHELL = ["/auth", "/manifest.webmanifest", "/favicon.svg?v=5", "/icons/icon-192.png?v=4", "/icons/icon-512.png?v=4"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -9,10 +9,16 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
-      .then(() => self.clients.claim()),
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+
+      if ("navigationPreload" in self.registration) {
+        await self.registration.navigationPreload.enable();
+      }
+
+      await self.clients.claim();
+    })(),
   );
 });
 
@@ -24,24 +30,32 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put("/auth", copy));
+      (async () => {
+        try {
+          const preloadResponse = await event.preloadResponse;
+          if (preloadResponse) {
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put("/auth", preloadResponse.clone());
+            return preloadResponse;
+          }
+
+          const response = await fetch(request);
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put("/auth", response.clone());
           return response;
-        })
-        .catch(async () => {
-          const cachedPage = await caches.match(request);
-          return cachedPage || caches.match("/auth") || caches.match("/");
-        }),
+        } catch (_error) {
+          const cachedPage = await caches.match("/auth");
+          return cachedPage || Response.error();
+        }
+      })(),
     );
     return;
   }
 
-  if (url.origin === self.location.origin) {
+  if (url.origin === self.location.origin && APP_SHELL.includes(url.pathname + url.search)) {
     event.respondWith(
       caches.match(request).then((cached) => {
-        const networkFetch = fetch(request)
+        const networkFetch = fetch(request, { cache: "no-cache" })
           .then((response) => {
             const copy = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
