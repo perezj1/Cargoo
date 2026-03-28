@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocaleProvider } from "@/contexts/LocaleContext";
+import ThemeColorSync from "@/components/ThemeColorSync";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -40,6 +41,7 @@ const App = () => (
       <AuthProvider>
         <LocaleProvider>
           <BrowserRouter>
+            <ThemeColorSync />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/search" element={<SearchPage />} />

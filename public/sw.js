@@ -1,5 +1,5 @@
-const CACHE_NAME = "cargoo-shell-v6";
-const APP_SHELL = ["/auth", "/manifest.webmanifest", "/favicon.svg?v=5", "/icons/icon-192.png?v=4", "/icons/icon-512.png?v=4"];
+const CACHE_NAME = "cargoo-shell-v7";
+const APP_SHELL = ["/auth", "/manifest.webmanifest?v=2", "/favicon.svg?v=5", "/icons/icon-192.png?v=4", "/icons/icon-512.png?v=4"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
