@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
+import RouteInline from "@/components/RouteInline";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -270,11 +271,6 @@ const PublicCarrierProfilePage = () => {
                   <CardTitle className="text-lg">{messages.publicProfile.contactTitle}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="rounded-xl bg-secondary p-4 text-sm">
-                    <p className="font-medium text-foreground">{messages.publicProfile.phoneLabel}</p>
-                    <p className="mt-2 text-muted-foreground">{profile.phone || messages.publicProfile.noDirectContact}</p>
-                  </div>
-
                   {profile.phone ? (
                     <div className="flex flex-col gap-3">
                       <Button size="lg" className="w-full gap-2" onClick={() => void handleStartChat()} disabled={startingChat || isOwnProfile}>
@@ -295,10 +291,16 @@ const PublicCarrierProfilePage = () => {
                       </Button>
                     </div>
                   ) : (
-                    <Button size="lg" className="w-full gap-2" onClick={() => void handleStartChat()} disabled={startingChat || isOwnProfile}>
-                      <MessageCircle className="h-4 w-4" />
-                      {isOwnProfile ? messages.publicProfile.ownProfile : startingChat ? messages.publicProfile.openingChat : messages.publicProfile.openChat}
-                    </Button>
+                    <>
+                      <div className="rounded-xl bg-secondary p-4 text-sm">
+                        <p className="font-medium text-foreground">{messages.publicProfile.phoneLabel}</p>
+                        <p className="mt-2 text-muted-foreground">{messages.publicProfile.noDirectContact}</p>
+                      </div>
+                      <Button size="lg" className="w-full gap-2" onClick={() => void handleStartChat()} disabled={startingChat || isOwnProfile}>
+                        <MessageCircle className="h-4 w-4" />
+                        {isOwnProfile ? messages.publicProfile.ownProfile : startingChat ? messages.publicProfile.openingChat : messages.publicProfile.openChat}
+                      </Button>
+                    </>
                   )}
                 </CardContent>
               </Card>
@@ -307,12 +309,12 @@ const PublicCarrierProfilePage = () => {
         </div>
 
         <div className="container py-8">
-          <div className="mb-6 flex items-center justify-between gap-4">
+          <div className="mb-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-2xl font-display font-bold">{messages.publicProfile.visibleTripsTitle}</h2>
               <p className="text-sm text-muted-foreground">{messages.publicProfile.visibleTripsCount(orderedTrips.length)}</p>
             </div>
-            <Badge variant="outline" className="bg-card">
+            <Badge variant="outline" className="max-w-full bg-card whitespace-normal text-left leading-tight">
               <CarFront className="mr-1 h-3.5 w-3.5" />
               {profile.isTraveler ? messages.common.travelerBadge : "Cargoo"}
             </Badge>
@@ -330,19 +332,11 @@ const PublicCarrierProfilePage = () => {
               return (
                 <Card key={trip.id} className={`shadow-card ${isSelected ? "border-primary ring-1 ring-primary/30" : ""}`}>
                   <CardContent className="p-5">
-                    <div className="mb-3 flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2 text-sm font-medium">
-                        <MapPin className="h-4 w-4 shrink-0 text-primary" />
-                        <span>{trip.origin}</span>
-                        <span className="text-muted-foreground">-&gt;</span>
-                        <span>{trip.destination}</span>
-                      </div>
-                      {isSelected ? (
-                        <Badge className="shrink-0">{messages.publicProfile.selectedRoute}</Badge>
-                      ) : null}
+                    <div className="mb-3 flex justify-start">
+                      <RouteInline origin={trip.origin} destination={trip.destination} className="text-sm font-medium" />
                     </div>
 
-                    <div className="mb-3 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                    <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1.5">
                         <Calendar className="h-4 w-4" />
                         {formattedDate}
@@ -352,20 +346,28 @@ const PublicCarrierProfilePage = () => {
                         {messages.publicProfile.availableKg(trip.availableKg, trip.capacityKg)}
                       </span>
                     </div>
+                    {trip.vehicleType ? (
+                      <div className="mb-3 flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+                        <CarFront className="h-4 w-4" />
+                        <span className="break-words [overflow-wrap:anywhere]">
+                          {messages.common.vehicle}: {trip.vehicleType}
+                        </span>
+                      </div>
+                    ) : null}
 
                     {trip.stopCities.length > 0 ? (
-                      <div className="mb-3 rounded-xl bg-secondary p-3 text-sm text-muted-foreground">
+                      <div className="mb-3 break-words rounded-xl bg-secondary p-3 text-sm text-muted-foreground [overflow-wrap:anywhere]">
                         <span className="font-medium text-foreground">{messages.publicProfile.availableStops}</span> {trip.stopCities.join(", ")}
                       </div>
                     ) : null}
 
-                    {trip.notes ? <p className="text-sm text-muted-foreground">{trip.notes}</p> : null}
+                    {trip.notes ? <p className="break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">{trip.notes}</p> : null}
 
                     <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                       <Button
                         type="button"
                         variant={isSelected ? "default" : "outline"}
-                        className="flex-1"
+                        className="flex-1 whitespace-normal text-center leading-tight"
                         onClick={() => void handleChooseTransport(trip.id)}
                         disabled={startingChat || Boolean(selectingTripId) || isOwnProfile}
                       >
@@ -374,7 +376,7 @@ const PublicCarrierProfilePage = () => {
                       <Button
                         type="button"
                         variant="outline"
-                        className="flex-1"
+                        className="flex-1 whitespace-normal text-center leading-tight"
                         onClick={() =>
                           isSelected
                             ? void handleStartChat(trip.id)

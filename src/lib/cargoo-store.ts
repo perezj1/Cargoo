@@ -40,6 +40,7 @@ export interface CargooTrip {
   origin: string;
   destination: string;
   date: string;
+  vehicleType: string;
   capacityKg: number;
   usedKg: number;
   requests: number;
@@ -76,6 +77,7 @@ export interface PublicTripListing {
   origin: string;
   destination: string;
   date: string;
+  vehicleType: string;
   capacityKg: number;
   availableKg: number;
   notes: string;
@@ -118,6 +120,7 @@ export interface ShipmentSummary {
   senderName: string;
   travelerId: string;
   travelerName: string;
+  travelerPhone: string;
   routeOrigin: string;
   routeDestination: string;
   tripDate: string;
@@ -191,6 +194,7 @@ interface CreateTripInput {
   origin: string;
   destination: string;
   date: string;
+  vehicleType: string;
   capacityKg: number;
   notes: string;
   routeStops?: string[];
@@ -237,6 +241,14 @@ const isMissingProfileLocaleColumn = (error: { message?: string; code?: string }
   }
 
   return /locale/i.test(error.message ?? "") && /cargoo_profiles/i.test(error.message ?? "");
+};
+
+const isMissingTripVehicleColumn = (error: { message?: string; code?: string } | null) => {
+  if (!error) {
+    return false;
+  }
+
+  return /vehicle_type/i.test(error.message ?? "") && /cargoo_trips/i.test(error.message ?? "");
 };
 
 const mapSupabaseError = (error: { message?: string } | null) => {
@@ -415,6 +427,7 @@ const getMetadataTrips = (user: User): CargooTrip[] => {
         origin: item.origin,
         destination: item.destination,
         date: item.date,
+        vehicleType: typeof item.vehicleType === "string" ? item.vehicleType : "",
         capacityKg: item.capacityKg,
         usedKg: item.usedKg,
         requests: item.requests,
@@ -489,7 +502,7 @@ const updateUserMetadata = async (updates: MetadataRecord) => {
   }
 
   if (!data.user) {
-    throw new Error("No se pudo actualizar la sesion de usuario.");
+    throw new Error("No se pudo actualizar la sesión de usuario.");
   }
 
   return data.user;
@@ -506,7 +519,7 @@ const requireUser = async () => {
   }
 
   if (!user) {
-    throw new Error("No hay una sesion activa.");
+    throw new Error("No hay una sesión activa.");
   }
 
   return user;
@@ -545,6 +558,7 @@ const mapTripRow = (row: {
   origin: string;
   destination: string;
   trip_date: string;
+  vehicle_type: string | null;
   capacity_kg: number;
   used_kg: number;
   requests: number;
@@ -556,6 +570,7 @@ const mapTripRow = (row: {
   origin: row.origin,
   destination: row.destination,
   date: row.trip_date,
+  vehicleType: row.vehicle_type ?? "",
   capacityKg: row.capacity_kg,
   usedKg: row.used_kg,
   requests: row.requests,
@@ -616,6 +631,7 @@ const buildPublicTripListing = (
     origin: string;
     destination: string;
     trip_date: string;
+    vehicle_type: string | null;
     capacity_kg: number;
     used_kg: number;
     notes: string | null;
@@ -643,6 +659,7 @@ const buildPublicTripListing = (
     origin: trip.origin,
     destination: trip.destination,
     date: trip.trip_date,
+    vehicleType: trip.vehicle_type ?? "",
     capacityKg: trip.capacity_kg,
     availableKg: Math.max(trip.capacity_kg - trip.used_kg, 0),
     notes: trip.notes ?? "",
@@ -705,7 +722,7 @@ const mapConversationRow = (
     otherUserIsTraveler: isParticipantOne ? row.participant_two_is_traveler : row.participant_one_is_traveler,
     routeOrigin: row.route_origin ?? "",
     routeDestination: row.route_destination ?? "",
-    lastMessageText: row.last_message_text ?? "Sin mensajes todavia.",
+    lastMessageText: row.last_message_text ?? "Sin mensajes todavía.",
     lastMessageAt: row.last_message_at ?? row.created_at ?? new Date().toISOString(),
     unreadCount,
     shipmentId: shipment?.id ?? null,
@@ -748,6 +765,7 @@ const getHiddenConversationStatesForUser = async (userId: string, conversationId
 const buildShipmentSummary = (
   row: ShipmentRow,
   tripDetails: CargooTripDetails | null,
+  travelerPhone = "",
 ): ShipmentSummary => ({
   id: row.id,
   tripId: row.trip_id,
@@ -756,6 +774,7 @@ const buildShipmentSummary = (
   senderName: row.sender_name,
   travelerId: row.traveler_id,
   travelerName: row.traveler_name,
+  travelerPhone,
   routeOrigin: row.route_origin,
   routeDestination: row.route_destination,
   tripDate: tripDetails?.date ?? "",
@@ -770,6 +789,29 @@ const buildShipmentSummary = (
   reviewComment: row.review_comment ?? "",
   reviewedAt: row.reviewed_at,
 });
+
+const getProfilePhonesByUserIds = async (userIds: string[]) => {
+  if (!userIds.length) {
+    return new Map<string, string>();
+  }
+
+  const uniqueUserIds = Array.from(new Set(userIds));
+  const { data, error } = await supabase
+    .from("cargoo_profiles")
+    .select("user_id, phone")
+    .in("user_id", uniqueUserIds);
+
+  if (isMissingCargooTable(error)) {
+    return new Map<string, string>();
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  return new Map((data ?? []).map((profile) => [profile.user_id, profile.phone ?? ""] as const));
+};
 
 const getProfileAvatarUrlsByUserIds = async (userIds: string[]) => {
   if (!userIds.length) {
@@ -889,7 +931,7 @@ export const loginUser = async (email: string, password: string) => {
   }
 
   if (!data.user) {
-    throw new Error("No se pudo iniciar sesion.");
+    throw new Error("No se pudo iniciar sesión.");
   }
 
   return ensureProfile(data.user);
@@ -1310,7 +1352,11 @@ export const createTrip = async (trip: CreateTripInput) => {
   const user = await requireUser();
   const normalizedOrigin = trip.origin.trim();
   const normalizedDestination = trip.destination.trim();
+  const normalizedVehicleType = trip.vehicleType.trim();
   const normalizedNotes = trip.notes.trim() || "Sin notas adicionales.";
+  if (parseDateInput(trip.date) < parseDateInput(getTodayDateString())) {
+    throw new Error("La fecha del viaje no puede ser anterior a hoy.");
+  }
   const nextStatus = getTripStatusFromDate(trip.date);
   const routeCities = buildRouteCities(normalizedOrigin, normalizedDestination, trip.routeStops ?? []);
   const nextTrip: CargooTrip = {
@@ -1318,6 +1364,7 @@ export const createTrip = async (trip: CreateTripInput) => {
     origin: normalizedOrigin,
     destination: normalizedDestination,
     date: trip.date,
+    vehicleType: normalizedVehicleType,
     capacityKg: trip.capacityKg,
     usedKg: 0,
     requests: 0,
@@ -1331,6 +1378,7 @@ export const createTrip = async (trip: CreateTripInput) => {
     origin: normalizedOrigin,
     destination: normalizedDestination,
     trip_date: nextTrip.date,
+    vehicle_type: normalizedVehicleType || null,
     capacity_kg: nextTrip.capacityKg,
     used_kg: nextTrip.usedKg,
     requests: nextTrip.requests,
@@ -1338,7 +1386,14 @@ export const createTrip = async (trip: CreateTripInput) => {
     status: nextStatus,
   };
 
-  const { data, error } = await supabase.from("cargoo_trips").insert(payload).select("*").single();
+  let insertResult = await supabase.from("cargoo_trips").insert(payload).select("*").single();
+
+  if (isMissingTripVehicleColumn(insertResult.error)) {
+    const { vehicle_type: _vehicleType, ...legacyPayload } = payload;
+    insertResult = await supabase.from("cargoo_trips").insert(legacyPayload).select("*").single();
+  }
+
+  const { data, error } = insertResult;
 
   if (isMissingCargooTable(error)) {
     const nextTrips = [
@@ -1438,7 +1493,7 @@ export const advanceTripToNextStop = async (tripId: string) => {
   }
 
   if (!tripDetails.trackingAvailable) {
-    throw new Error("El seguimiento por ciudades aun no esta disponible en esta base de datos.");
+    throw new Error("El seguimiento por ciudades aún no esta disponible en esta base de datos.");
   }
 
   const nextStop = tripDetails.nextStop;
@@ -1710,8 +1765,12 @@ const getShipmentsByConversationIds = async (conversationIds: string[]) => {
 };
 
 const buildShipmentSummaries = async (rows: ShipmentRow[]) => {
-  const tripDetailsById = await getAccessibleTripDetailsByIds(Array.from(new Set(rows.map((row) => row.trip_id))));
-  return rows.map((row) => buildShipmentSummary(row, tripDetailsById.get(row.trip_id) ?? null));
+  const [tripDetailsById, travelerPhonesByUserId] = await Promise.all([
+    getAccessibleTripDetailsByIds(Array.from(new Set(rows.map((row) => row.trip_id)))),
+    getProfilePhonesByUserIds(rows.map((row) => row.traveler_id)),
+  ]);
+
+  return rows.map((row) => buildShipmentSummary(row, tripDetailsById.get(row.trip_id) ?? null, travelerPhonesByUserId.get(row.traveler_id) ?? ""));
 };
 
 const getShipmentByIdInternal = async (shipmentId: string) => {
@@ -1769,7 +1828,7 @@ export const getMyShipments = async () => {
 
 export const deleteDeliveredShipment = async (shipmentId: string) => {
   if (isShipmentFeatureUnavailable()) {
-    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+    throw new Error("Los envíos aún no estan disponibles en esta base de datos.");
   }
 
   const user = await requireUser();
@@ -1781,7 +1840,7 @@ export const deleteDeliveredShipment = async (shipmentId: string) => {
 
   if (isMissingCargooTable(error)) {
     markShipmentFeatureUnavailable();
-    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+    throw new Error("Los envíos aún no estan disponibles en esta base de datos.");
   }
 
   const mappedError = mapSupabaseError(error);
@@ -1790,11 +1849,11 @@ export const deleteDeliveredShipment = async (shipmentId: string) => {
   }
 
   if (!data || (data.sender_id !== user.id && data.traveler_id !== user.id)) {
-    throw new Error("No encontramos ese envio.");
+    throw new Error("No encontramos ese envío.");
   }
 
   if (data.status !== "delivered") {
-    throw new Error("Solo puedes eliminar envios entregados.");
+    throw new Error("Solo puedes eliminar envíos entregados.");
   }
 
   const { error: deleteError } = await supabase.from("cargoo_shipments").delete().eq("id", shipmentId);
@@ -1833,7 +1892,7 @@ export const getTripShipments = async (tripId: string) => {
 
 export const createShipmentRequest = async (conversationId: string) => {
   if (isShipmentFeatureUnavailable()) {
-    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+    throw new Error("Los envíos aún no estan disponibles en esta base de datos.");
   }
 
   const user = await requireUser();
@@ -1846,7 +1905,7 @@ export const createShipmentRequest = async (conversationId: string) => {
 
   if (isMissingCargooTable(conversationError)) {
     markShipmentFeatureUnavailable();
-    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+    throw new Error("Los envíos aún no estan disponibles en esta base de datos.");
   }
 
   const mappedConversationError = mapSupabaseError(conversationError);
@@ -1879,13 +1938,13 @@ export const createShipmentRequest = async (conversationId: string) => {
     }
   } else {
     markShipmentFeatureUnavailable();
-    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+    throw new Error("Los envíos aún no estan disponibles en esta base de datos.");
   }
 
   if (existingShipment?.id) {
     const shipment = await getShipmentByIdInternal(existingShipment.id);
     if (!shipment) {
-      throw new Error("No pudimos recuperar el envio ya creado.");
+      throw new Error("No pudimos recuperar el envío ya creado.");
     }
 
     return shipment;
@@ -1913,7 +1972,7 @@ export const createShipmentRequest = async (conversationId: string) => {
 
   if (isMissingCargooTable(error)) {
     markShipmentFeatureUnavailable();
-    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+    throw new Error("Los envíos aún no estan disponibles en esta base de datos.");
   }
 
   const mappedError = mapSupabaseError(error);
@@ -1928,7 +1987,7 @@ export const createShipmentRequest = async (conversationId: string) => {
 
 export const markConversationPackageLoaded = async (conversationId: string) => {
   if (isShipmentFeatureUnavailable()) {
-    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+    throw new Error("Los envíos aún no estan disponibles en esta base de datos.");
   }
 
   const user = await requireUser();
@@ -1940,7 +1999,7 @@ export const markConversationPackageLoaded = async (conversationId: string) => {
 
   if (isMissingCargooTable(conversationError)) {
     markShipmentFeatureUnavailable();
-    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+    throw new Error("Los envíos aún no estan disponibles en esta base de datos.");
   }
 
   const mappedConversationError = mapSupabaseError(conversationError);
@@ -1971,7 +2030,7 @@ export const markConversationPackageLoaded = async (conversationId: string) => {
 
   if (isMissingCargooTable(existingShipmentError)) {
     markShipmentFeatureUnavailable();
-    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+    throw new Error("Los envíos aún no estan disponibles en esta base de datos.");
   }
 
   const mappedExistingShipmentError = mapSupabaseError(existingShipmentError);
@@ -1982,7 +2041,7 @@ export const markConversationPackageLoaded = async (conversationId: string) => {
   if (existingShipment?.id) {
     const shipment = await getShipmentByIdInternal(existingShipment.id);
     if (!shipment) {
-      throw new Error("No pudimos recuperar el envio ya creado.");
+      throw new Error("No pudimos recuperar el envío ya creado.");
     }
 
     if (shipment.status === "accepted" || shipment.status === "delivered") {
@@ -2002,7 +2061,7 @@ export const markConversationPackageLoaded = async (conversationId: string) => {
 
     const updatedShipment = await getShipmentByIdInternal(shipment.id);
     if (!updatedShipment) {
-      throw new Error("No pudimos recargar el envio cargado.");
+      throw new Error("No pudimos recargar el envío cargado.");
     }
 
     return updatedShipment;
@@ -2032,7 +2091,7 @@ export const markConversationPackageLoaded = async (conversationId: string) => {
 
   if (isMissingCargooTable(error)) {
     markShipmentFeatureUnavailable();
-    throw new Error("Los envios aun no estan disponibles en esta base de datos.");
+    throw new Error("Los envíos aún no estan disponibles en esta base de datos.");
   }
 
   const mappedError = mapSupabaseError(error);
@@ -2050,11 +2109,11 @@ export const acceptShipment = async (shipmentId: string) => {
   const shipment = await getShipmentByIdInternal(shipmentId);
 
   if (!shipment) {
-    throw new Error("No encontramos ese envio.");
+    throw new Error("No encontramos ese envío.");
   }
 
   if (shipment.travelerId !== user.id) {
-    throw new Error("Solo el transportista puede aceptar este envio.");
+    throw new Error("Solo el transportista puede aceptar este envío.");
   }
 
   if (shipment.status !== "pending") {
@@ -2074,7 +2133,7 @@ export const acceptShipment = async (shipmentId: string) => {
 
   const updatedShipment = await getShipmentByIdInternal(shipmentId);
   if (!updatedShipment) {
-    throw new Error("No pudimos recargar el envio aceptado.");
+    throw new Error("No pudimos recargar el envío aceptado.");
   }
 
   return updatedShipment;
@@ -2085,7 +2144,7 @@ export const markShipmentDelivered = async (shipmentId: string) => {
   const shipment = await getShipmentByIdInternal(shipmentId);
 
   if (!shipment) {
-    throw new Error("No encontramos ese envio.");
+    throw new Error("No encontramos ese envío.");
   }
 
   if (shipment.travelerId !== user.id) {
@@ -2097,7 +2156,7 @@ export const markShipmentDelivered = async (shipmentId: string) => {
   }
 
   if (shipment.status !== "accepted") {
-    throw new Error("Primero debes aceptar el envio antes de marcarlo como entregado.");
+    throw new Error("Primero debes aceptar el envío antes de marcarlo como entregado.");
   }
 
   const { error } = await supabase
@@ -2122,7 +2181,7 @@ export const markShipmentDelivered = async (shipmentId: string) => {
 
   const updatedShipment = await getShipmentByIdInternal(shipmentId);
   if (!updatedShipment) {
-    throw new Error("No pudimos recargar el envio entregado.");
+    throw new Error("No pudimos recargar el envío entregado.");
   }
 
   return updatedShipment;
@@ -2133,19 +2192,19 @@ export const submitShipmentReview = async ({ shipmentId, rating, comment }: Subm
   const shipment = await getShipmentByIdInternal(shipmentId);
 
   if (!shipment) {
-    throw new Error("No encontramos ese envio.");
+    throw new Error("No encontramos ese envío.");
   }
 
   if (shipment.senderId !== user.id) {
-    throw new Error("Solo el emisor puede valorar este envio.");
+    throw new Error("Solo el emisor puede valorar este envío.");
   }
 
   if (shipment.status !== "delivered") {
-    throw new Error("Solo puedes valorar envios ya entregados.");
+    throw new Error("Solo puedes valorar envíos ya entregados.");
   }
 
   if (shipment.reviewRating) {
-    throw new Error("Este envio ya tiene una valoracion registrada.");
+    throw new Error("Este envío ya tiene una valoracion registrada.");
   }
 
   const cleanComment = comment.trim();
@@ -2384,7 +2443,7 @@ export const markConversationAsRead = async (conversationId: string) => {
 
 export const hideConversationForMe = async (conversationId: string) => {
   if (isChatFeatureUnavailable()) {
-    throw new Error("El chat aun no esta disponible en esta base de datos.");
+    throw new Error("El chat aún no esta disponible en esta base de datos.");
   }
 
   const user = await requireUser();
@@ -2396,7 +2455,7 @@ export const hideConversationForMe = async (conversationId: string) => {
 
   if (isMissingCargooTable(error)) {
     markChatFeatureUnavailable();
-    throw new Error("El chat aun no esta disponible en esta base de datos.");
+    throw new Error("El chat aún no esta disponible en esta base de datos.");
   }
 
   const mappedError = mapSupabaseError(error);
@@ -2424,7 +2483,7 @@ export const hideConversationForMe = async (conversationId: string) => {
     );
 
   if (isMissingCargooTable(hideError)) {
-    throw new Error("La base de datos aun no tiene disponible la opcion de eliminar conversaciones solo para ti.");
+    throw new Error("La base de datos aún no tiene disponible la opcion de eliminar conversaciones solo para ti.");
   }
 
   const mappedHideError = mapSupabaseError(hideError);
@@ -2437,7 +2496,7 @@ export const hideConversationForMe = async (conversationId: string) => {
 
 export const getOrCreateConversation = async (input: CreateConversationInput) => {
   if (isChatFeatureUnavailable()) {
-    throw new Error("El chat aun no esta disponible en esta base de datos.");
+    throw new Error("El chat aún no esta disponible en esta base de datos.");
   }
 
   const user = await requireUser();
@@ -2499,7 +2558,7 @@ export const getOrCreateConversation = async (input: CreateConversationInput) =>
 
   if (isMissingCargooTable(error)) {
     markChatFeatureUnavailable();
-    throw new Error("El chat aun no esta disponible en esta base de datos.");
+    throw new Error("El chat aún no esta disponible en esta base de datos.");
   }
 
   const mappedError = mapSupabaseError(error);
@@ -2514,7 +2573,7 @@ export const getOrCreateConversation = async (input: CreateConversationInput) =>
 
 export const sendConversationMessage = async (conversationId: string, content: string) => {
   if (isChatFeatureUnavailable()) {
-    throw new Error("El chat aun no esta disponible en esta base de datos.");
+    throw new Error("El chat aún no esta disponible en esta base de datos.");
   }
 
   const user = await requireUser();
@@ -2536,7 +2595,7 @@ export const sendConversationMessage = async (conversationId: string, content: s
 
   if (isMissingCargooTable(error)) {
     markChatFeatureUnavailable();
-    throw new Error("El chat aun no esta disponible en esta base de datos.");
+    throw new Error("El chat aún no esta disponible en esta base de datos.");
   }
 
   const mappedError = mapSupabaseError(error);

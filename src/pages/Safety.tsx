@@ -10,7 +10,7 @@ import { installBenefits, safetyLayers, trackingItems, trips } from "@/lib/cargo
 const Safety = () => {
   return (
     <PlatformLayout
-      title="Como funciona y que inspira confianza"
+      title="Cómo funciona y qué inspira confianza"
       subtitle="Cargoo es simple, pero aun asi ensena lo necesario para que emisor y transportista se entiendan bien."
     >
       <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
@@ -48,8 +48,8 @@ const Safety = () => {
               {[
                 { icon: Eye, title: "Perfil visible", text: "Se ve quien conduce, su ruta y como responde." },
                 { icon: CheckCircle2, title: "Estado simple", text: "Reservado, recogido, en ruta o entregado." },
-                { icon: BellRing, title: "Ultima actualizacion", text: "Cada envio muestra el checkpoint mas reciente." },
-                { icon: ShieldCheck, title: "Uso claro", text: "Buscar, contactar y seguir. Nada mas." },
+                { icon: BellRing, title: "Última actualización", text: "Cada envío muestra el checkpoint más reciente." },
+                { icon: ShieldCheck, title: "Uso claro", text: "Buscar, contactar y seguir. Nada más." },
               ].map((item) => {
                 const Icon = item.icon;
 

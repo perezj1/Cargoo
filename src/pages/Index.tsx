@@ -31,13 +31,13 @@ const Index = () => {
           <img src={heroImage} alt={messages.landing.heroImageAlt} className="h-full w-full object-cover" width={1920} height={1080} />
           <div className="absolute inset-0 bg-foreground/60" />
         </div>
-        <div className="container relative z-10 py-20">
-          <div className="max-w-2xl min-w-0">
-            <h1 className="mb-6 max-w-full animate-fade-in-up break-words text-4xl font-display font-bold text-background [overflow-wrap:anywhere] md:text-6xl">
+        <div className="container relative z-10 py-16 sm:py-20 lg:py-24">
+          <div className="max-w-3xl min-w-0 lg:max-w-4xl">
+            <h1 className="mb-6 max-w-full animate-fade-in-up break-words font-display font-bold leading-[0.92] text-background [overflow-wrap:anywhere] [text-wrap:balance] text-[clamp(3rem,8vw,6rem)]">
               {messages.landing.heroTitle}
             </h1>
             <p
-              className="mb-10 max-w-full break-words animate-fade-in-up text-lg text-background/80 [overflow-wrap:anywhere] md:text-xl"
+              className="mb-10 max-w-3xl animate-fade-in-up break-words text-base text-background/80 [overflow-wrap:anywhere] sm:text-lg lg:text-xl"
               style={{ animationDelay: "0.15s" }}
             >
               {messages.landing.heroDescription}
@@ -45,7 +45,7 @@ const Index = () => {
 
             <form
               onSubmit={handleSearch}
-              className="animate-fade-in-up flex max-w-full flex-col gap-3 overflow-hidden rounded-xl bg-card p-3 shadow-card-hover md:flex-row"
+              className="animate-fade-in-up flex max-w-3xl flex-col gap-3 overflow-hidden rounded-xl bg-card p-3 shadow-card-hover md:flex-row lg:max-w-[54rem]"
               style={{ animationDelay: "0.3s" }}
             >
               <div className="flex min-w-0 flex-1 items-center gap-2 px-3">

@@ -21,6 +21,7 @@ interface LocaleContextValue {
 }
 
 const LocaleContext = createContext<LocaleContextValue | undefined>(undefined);
+let warnedMissingLocaleProvider = false;
 
 const applyLocaleSideEffects = (locale: Locale) => {
   if (typeof document !== "undefined") {
@@ -101,9 +102,24 @@ export const LocaleProvider = ({ children }: { children: ReactNode }) => {
 export const useLocale = () => {
   const context = useContext(LocaleContext);
 
-  if (!context) {
-    throw new Error("useLocale must be used within LocaleProvider.");
+  if (context) {
+    return context;
   }
 
-  return context;
+  const fallbackLocale = getInitialLocale();
+
+  if (!warnedMissingLocaleProvider && typeof window !== "undefined") {
+    warnedMissingLocaleProvider = true;
+    console.warn("useLocale was used outside LocaleProvider. Falling back to the stored or browser locale.");
+  }
+
+  return {
+    locale: fallbackLocale,
+    intlLocale: getIntlLocale(fallbackLocale),
+    messages: localeMessages[fallbackLocale],
+    supportedLocales: SUPPORTED_LOCALES,
+    setLocale: async () => {
+      throw new Error("setLocale is unavailable outside LocaleProvider.");
+    },
+  };
 };

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Calendar, CheckCircle2, ChevronDown, Clock3, MapPin, MessageSquare, Package, Route, ShieldCheck, Truck, Users } from "lucide-react";
+import { ArrowLeft, Calendar, CarFront, CheckCircle2, ChevronDown, Clock3, MessageSquare, Package, Route, ShieldCheck, Truck, Users } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
+import RouteInline from "@/components/RouteInline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -250,17 +251,21 @@ const TripDetailsPage = () => {
       <Card className="mb-4 shadow-card">
         <CardHeader className="pb-4">
           <div className="flex items-start justify-between gap-3">
-            <CardTitle className="flex items-center gap-2 pr-2 text-lg">
-              <MapPin className="h-5 w-5 shrink-0 text-primary" />
-              <span className="break-words">
-                {trip.origin} {"->"} {trip.destination}
-              </span>
+            <CardTitle className="min-w-0 pr-2 text-lg">
+              <RouteInline
+                origin={trip.origin}
+                destination={trip.destination}
+                className="w-full text-lg"
+                labelClassName="font-semibold text-foreground"
+                pinClassName="h-5 w-5"
+                arrowClassName="mt-1 h-5 w-5"
+              />
             </CardTitle>
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="mt-[-0.25rem] h-8 w-8 shrink-0 rounded-full text-muted-foreground"
+              className="mt-[-0.25rem] h-10 w-10 shrink-0 rounded-full bg-accent text-accent-foreground shadow-sm hover:bg-accent/90 hover:text-accent-foreground"
               onClick={() => setDetailsExpanded((currentValue) => !currentValue)}
               aria-expanded={detailsExpanded}
               aria-label={detailsExpanded ? messages.tripDetailsPage.collapseDetails : messages.tripDetailsPage.expandDetails}
@@ -297,6 +302,14 @@ const TripDetailsPage = () => {
                   <p className="mt-2 font-medium text-foreground">
                     {Math.max(trip.capacityKg - trip.usedKg, 0)} de {trip.capacityKg} kg
                   </p>
+                  {trip.vehicleType ? (
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <CarFront className="h-3.5 w-3.5" />
+                      <span>
+                        {messages.common.vehicle}: {trip.vehicleType}
+                      </span>
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
@@ -406,9 +419,16 @@ const TripDetailsPage = () => {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-foreground">{conversation.otherUserName}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {conversation.routeOrigin} {"->"} {conversation.routeDestination}
-                        </p>
+                        <div className="mt-1">
+                          <RouteInline
+                            origin={conversation.routeOrigin}
+                            destination={conversation.routeDestination}
+                            className="w-full text-xs"
+                            labelClassName="text-xs text-muted-foreground"
+                            pinClassName="h-3 w-3 text-primary/70"
+                            arrowClassName="mt-0.5 h-3 w-3 text-muted-foreground"
+                          />
+                        </div>
                       </div>
                       <Badge
                         variant="outline"

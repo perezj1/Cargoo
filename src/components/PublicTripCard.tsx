@@ -1,8 +1,9 @@
-import { Calendar, CarFront, MapPin, Package, Star } from "lucide-react";
+import { Calendar, CarFront, Package, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import RouteInline from "@/components/RouteInline";
 import { useLocale } from "@/contexts/LocaleContext";
 import type { PublicTripListing } from "@/lib/cargoo-store";
 
@@ -53,27 +54,32 @@ const PublicTripCard = ({ trip }: { trip: PublicTripListing }) => {
       </div>
 
       <div className="space-y-2.5">
-        <div className="flex items-center gap-2 text-sm">
-          <MapPin className="h-4 w-4 shrink-0 text-primary" />
-          <span className="text-card-foreground">{trip.origin}</span>
-          <span className="text-muted-foreground">-&gt;</span>
-          <span className="text-card-foreground">{trip.destination}</span>
+        <div className="flex justify-start">
+          <RouteInline origin={trip.origin} destination={trip.destination} className="text-sm" labelClassName="text-card-foreground" />
         </div>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+          <div className="flex min-w-0 items-center gap-1.5">
             <Calendar className="h-4 w-4" />
-            <span>{formattedDate}</span>
+            <span className="break-words [overflow-wrap:anywhere]">{formattedDate}</span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <Package className="h-4 w-4" />
+            <span className="break-words [overflow-wrap:anywhere]">{messages.publicTripCard.availableKg(trip.availableKg)}</span>
+          </div>
+        </div>
+        {trip.vehicleType ? (
+          <div className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
             <CarFront className="h-4 w-4" />
-            <span>{messages.publicTripCard.availableKg(trip.availableKg)}</span>
+            <span className="break-words [overflow-wrap:anywhere]">
+              {messages.common.vehicle}: {trip.vehicleType}
+            </span>
           </div>
-        </div>
-        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        ) : null}
+        <div className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
           <Package className="h-4 w-4" />
-          <span>{messages.publicTripCard.totalCapacity(trip.capacityKg)}</span>
+          <span className="break-words [overflow-wrap:anywhere]">{messages.publicTripCard.totalCapacity(trip.capacityKg)}</span>
         </div>
-        {trip.notes ? <p className="line-clamp-2 text-sm text-muted-foreground">{trip.notes}</p> : null}
+        {trip.notes ? <p className="line-clamp-2 break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">{trip.notes}</p> : null}
       </div>
     </Link>
   );

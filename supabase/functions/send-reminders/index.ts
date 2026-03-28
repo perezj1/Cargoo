@@ -69,7 +69,7 @@ class HttpError extends Error {
 
 const strings = {
   es: {
-    checkpointTitle: "Cargoo - Actualizacion de ruta",
+    checkpointTitle: "Cargoo - Actualización de ruta",
     checkpointBody: (travelerName: string, city: string) => `${travelerName} ha llegado a ${city}.`,
     deliveredTitle: "Cargoo - Paquete entregado",
     deliveredBody: (travelerName: string, destination: string) =>

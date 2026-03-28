@@ -263,7 +263,7 @@ const ProfilePage = () => {
         ) : null}
       </div>
 
-      {user.isTraveler ? (
+      {user.isTraveler && (
         <div className="mb-4 rounded-xl bg-card p-4 shadow-card">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -274,16 +274,6 @@ const ProfilePage = () => {
               </div>
             </div>
             <Switch checked={user.isPublic} onCheckedChange={handleVisibilityChange} disabled={savingVisibility} />
-          </div>
-        </div>
-      ) : (
-        <div className="mb-4 rounded-xl bg-card p-4 shadow-card">
-          <div className="flex items-center gap-3">
-            <Settings className="h-5 w-5 text-primary" />
-            <div>
-              <p className="text-sm font-medium">{messages.appProfile.accountSettings}</p>
-              <p className="text-xs text-muted-foreground">{messages.appProfile.accountSettingsDescription}</p>
-            </div>
           </div>
         </div>
       )}

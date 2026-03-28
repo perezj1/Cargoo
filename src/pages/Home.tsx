@@ -45,7 +45,7 @@ const steps = [
   {
     icon: Package,
     title: "Habla y cierra el acuerdo",
-    description: "Eliges una ficha clara, entras en contacto y acordais el envio fuera de la app.",
+    description: "Eliges una ficha clara, entras en contacto y acordais el envío fuera de la app.",
   },
   {
     icon: Shield,
@@ -117,7 +117,7 @@ const Home = () => {
           <div className="container relative py-16 md:py-24">
             <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
               <div className="max-w-2xl">
-                <Badge className="bg-primary/10 px-4 py-1.5 text-primary shadow-none">Landing clara para envios reales</Badge>
+                <Badge className="bg-primary/10 px-4 py-1.5 text-primary shadow-none">Landing clara para envíos reales</Badge>
                 <h1 className="mt-6 text-4xl font-bold leading-tight text-foreground md:text-6xl">
                   Encuentra a quien <span className="text-gradient-hero">ya va de viaje</span> y contactalo.
                 </h1>
@@ -315,7 +315,7 @@ const Home = () => {
         <section id="como-funciona" className="bg-secondary py-20">
           <div className="container">
             <div className="mx-auto max-w-2xl text-center">
-              <Badge className="bg-white px-4 py-1.5 text-primary shadow-none">Como funciona</Badge>
+              <Badge className="bg-white px-4 py-1.5 text-primary shadow-none">Cómo funciona</Badge>
               <h2 className="mt-4 text-3xl font-bold text-foreground md:text-4xl">Tres pasos y nada mas</h2>
               <p className="mt-3 text-muted-foreground">
                 Cargoo no intenta hacer de todo. Solo te ayuda a encontrar, contactar y seguir.
@@ -354,7 +354,7 @@ const Home = () => {
           <div className="container text-center">
             <h2 className="text-3xl font-bold text-foreground md:text-4xl">Viajas pronto y te sobra espacio?</h2>
             <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-              Entra como transportista, publica tu ficha y decide si quieres que tu contacto sea publico o solo visible para usuarios con cuenta.
+              Entra como transportista, publica tu ficha y decide si quieres que tu contacto sea público o solo visible para usuarios con cuenta.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Button variant="hero" size="lg" asChild>

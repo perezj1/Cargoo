@@ -202,7 +202,7 @@ const CarrierHub = () => {
                   <h3 className="font-heading text-2xl font-semibold text-foreground">{profile.displayName}</h3>
                 </div>
                 <Badge className="rounded-full border-primary/10 bg-primary/5 px-3 py-1 text-primary shadow-none">
-                  {profile.contactVisibility === "public" ? "Contacto publico" : "Solo usuarios"}
+                  {profile.contactVisibility === "public" ? "Contacto público" : "Solo usuarios"}
                 </Badge>
               </div>
 

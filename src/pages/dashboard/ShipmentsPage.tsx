@@ -3,6 +3,7 @@ import { Calendar, MessageSquare, Package, Star, Trash2, Truck } from "lucide-re
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
+import RouteInline from "@/components/RouteInline";
 import ShipmentReviewDialog from "@/components/ShipmentReviewDialog";
 import {
   AlertDialog,
@@ -219,8 +220,13 @@ const ShipmentsPage = () => {
             return (
               <div key={shipment.id} className="rounded-xl bg-card p-4 shadow-card">
                 <div className="mb-3 flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{shipment.routeOrigin} {"->"} {shipment.routeDestination}</p>
+                  <div className="min-w-0 flex-1 pr-3">
+                    <RouteInline
+                      origin={shipment.routeOrigin}
+                      destination={shipment.routeDestination}
+                      className="text-sm font-medium"
+                      labelClassName="text-foreground"
+                    />
                     <p className="mt-1 text-xs text-muted-foreground">{messages.shipmentsPage.travelerLabel(shipment.travelerName)}</p>
                   </div>
                   <Badge variant="outline" className={status.className}>

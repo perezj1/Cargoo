@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, ChevronRight, MapPin, Package, Plus, Trash2 } from "lucide-react";
+import { Calendar, CarFront, ChevronRight, Package, Plus, Trash2 } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import RouteInline from "@/components/RouteInline";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -126,11 +127,8 @@ const TripsPage = () => {
               <div key={trip.id} className="rounded-xl bg-card p-4 shadow-card transition-shadow hover:shadow-card-hover">
                 <Link to={`/app/trips/${trip.id}`} className="block">
                   <div className="mb-3 flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 shrink-0 text-primary" />
-                      <span className="text-sm font-medium">
-                        {trip.origin} {"->"} {trip.destination}
-                      </span>
+                    <div className="min-w-0 flex-1 pr-3">
+                      <RouteInline origin={trip.origin} destination={trip.destination} className="text-sm font-medium" />
                     </div>
                     <Badge variant="outline" className={status.className}>
                       {status.label}
@@ -146,6 +144,14 @@ const TripsPage = () => {
                       {trip.usedKg}/{trip.capacityKg} kg
                     </span>
                   </div>
+                  {trip.vehicleType ? (
+                    <div className="mb-3 flex items-center gap-1 text-xs text-muted-foreground">
+                      <CarFront className="h-3 w-3" />
+                      <span>
+                        {messages.common.vehicle}: {trip.vehicleType}
+                      </span>
+                    </div>
+                  ) : null}
                   {trip.status === "active" && trip.requests > 0 ? (
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-medium text-accent">{messages.tripsPage.pendingRequests(trip.requests)}</span>

@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, CarFront, CheckCircle2, MapPin, MessageSquare, Package, Plus, Route, Search, Star, Truck } from "lucide-react";
+import { ArrowRight, CarFront, CheckCircle2, MapPin, MessageSquare, Package, Phone, Plus, Route, Search, Star, Truck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
+import RouteInline from "@/components/RouteInline";
+import ShipmentReviewDialog from "@/components/ShipmentReviewDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +23,7 @@ import {
   getTrips,
   getTripStats,
   markConversationPackageLoaded,
+  submitShipmentReview,
   type CargooTripDetails,
   type CargooTrip,
   type ConversationSummary,
@@ -41,6 +45,8 @@ const DashboardHome = () => {
   const [loading, setLoading] = useState(true);
   const [advancingTrip, setAdvancingTrip] = useState(false);
   const [loadingShipmentConversationId, setLoadingShipmentConversationId] = useState<string | null>(null);
+  const [reviewingShipment, setReviewingShipment] = useState<ShipmentSummary | null>(null);
+  const [savingReview, setSavingReview] = useState(false);
   const [searchOrigin, setSearchOrigin] = useState("");
   const [searchDestination, setSearchDestination] = useState("");
   const shipmentStatusConfig = {
@@ -179,6 +185,10 @@ const DashboardHome = () => {
   const sectionLink = profile.isTraveler ? "/app/messages" : "/app/shipments";
   const activeRouteSummary = activeTripDetails?.stops.map((stop) => stop.city).join(" -> ") ?? "";
   const shouldOpenPendingPackages = profile.isTraveler && activeTripDetails && !activeTripDetails.nextStop && activeTripDetails.status === "active";
+  const featuredShipment = !profile.isTraveler ? shipments.find((shipment) => shipment.status === "accepted") ?? null : null;
+  const recentSenderShipments = !profile.isTraveler
+    ? shipments.filter((shipment) => shipment.id !== featuredShipment?.id).slice(0, 4)
+    : [];
   const searchPageParams = new URLSearchParams();
 
   if (searchOrigin.trim()) {
@@ -190,6 +200,7 @@ const DashboardHome = () => {
   }
 
   const emitterSearchLink = searchPageParams.toString() ? `/app/search?${searchPageParams.toString()}` : "/app/search";
+  const featuredShipmentPhone = featuredShipment?.travelerPhone.replace(/[^\d+]/g, "") ?? "";
 
   const handleAdvanceActiveTrip = async () => {
     if (!activeTripDetails?.nextStop) {
@@ -231,6 +242,29 @@ const DashboardHome = () => {
       toast.error(getFriendlyErrorMessage(error));
     } finally {
       setLoadingShipmentConversationId(null);
+    }
+  };
+
+  const handleSubmitReview = async (rating: number, comment: string) => {
+    if (!reviewingShipment) {
+      return;
+    }
+
+    setSavingReview(true);
+
+    try {
+      await submitShipmentReview({
+        shipmentId: reviewingShipment.id,
+        rating,
+        comment,
+      });
+      toast.success(messages.shipmentsPage.reviewSaved);
+      setReviewingShipment(null);
+      await loadDashboardData();
+    } catch (error) {
+      toast.error(getFriendlyErrorMessage(error));
+    } finally {
+      setSavingReview(false);
     }
   };
 
@@ -332,6 +366,80 @@ const DashboardHome = () => {
         </div>
       ) : null}
 
+      {!profile.isTraveler && featuredShipment ? (
+        <div className="mb-6 rounded-xl border border-primary/15 bg-primary/5 p-5 shadow-card">
+          <div className="mb-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2 text-foreground">
+                <Truck className="h-4 w-4 shrink-0 text-primary" />
+                <span className="font-medium">{messages.dashboardHome.activeShipmentTitle}</span>
+              </div>
+              <Badge variant="outline" className="shrink-0 border-primary/20 bg-primary/10 text-primary">
+                {messages.shipmentStatus.accepted}
+              </Badge>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">{messages.dashboardHome.activeShipmentSubtitle}</p>
+          </div>
+
+          <div className="rounded-xl border border-border/70 bg-card p-4">
+            <RouteInline
+              origin={featuredShipment.routeOrigin}
+              destination={featuredShipment.routeDestination}
+              className="text-sm font-medium"
+              labelClassName="text-foreground"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">{featuredShipment.travelerName}</p>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-border/70 bg-background px-3 py-3 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <MapPin className="h-4 w-4" />
+                  <span>{messages.shipmentsPage.currentCheckpoint}</span>
+                </div>
+                <p className="mt-2 font-medium text-foreground">{featuredShipment.currentCheckpointCity}</p>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-background px-3 py-3 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Route className="h-4 w-4" />
+                  <span>{messages.tripDetailsPage.nextCity}</span>
+                </div>
+                <p className="mt-2 font-medium text-foreground">
+                  {featuredShipment.nextCheckpointCity ?? messages.shipmentsPage.noNextCheckpoint}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+                <span>{messages.shipmentsPage.tracking}</span>
+                <span>{featuredShipment.trackingProgressPercent}%</span>
+              </div>
+              <Progress value={featuredShipment.trackingProgressPercent} />
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button asChild variant="outline">
+                <Link to={`/app/messages/${featuredShipment.conversationId}`}>
+                  <MessageSquare className="h-4 w-4" />
+                  {messages.shipmentsPage.openChat}
+                </Link>
+              </Button>
+
+              {featuredShipmentPhone ? (
+                <Button asChild>
+                  <a href={`tel:${featuredShipmentPhone}`}>
+                    <Phone className="h-4 w-4" />
+                    {messages.publicProfile.call}
+                  </a>
+                </Button>
+              ) : (
+                <div />
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="mb-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-display font-semibold">{sectionTitle}</h2>
@@ -360,11 +468,20 @@ const DashboardHome = () => {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{conversation.otherUserName}</p>
                     <p className="truncate text-xs text-muted-foreground">{conversation.lastMessageText}</p>
-                    <p className="mt-0.5 text-[10px] text-primary/70">
-                      {conversation.routeOrigin && conversation.routeDestination
-                        ? `${conversation.routeOrigin} -> ${conversation.routeDestination}`
-                        : messages.dashboardHome.directChat}
-                    </p>
+                    {conversation.routeOrigin && conversation.routeDestination ? (
+                      <div className="mt-0.5">
+                        <RouteInline
+                          origin={conversation.routeOrigin}
+                          destination={conversation.routeDestination}
+                          className="max-w-full text-[10px]"
+                          labelClassName="text-[10px] text-primary/70"
+                          pinClassName="h-3 w-3 text-primary/70"
+                          arrowClassName="mt-0.5 h-3 w-3 text-primary/60"
+                        />
+                      </div>
+                    ) : (
+                      <p className="mt-0.5 text-[10px] text-primary/70">{messages.dashboardHome.directChat}</p>
+                    )}
                   </div>
                   {conversation.unreadCount > 0 ? (
                     <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-bold text-accent-foreground">
@@ -373,17 +490,19 @@ const DashboardHome = () => {
                   ) : null}
                 </Link>
               ))
-            : shipments.slice(0, 4).map((shipment) => {
+            : recentSenderShipments.map((shipment) => {
                 const status = shipmentStatusConfig[shipment.status];
 
                 return (
                   <div key={shipment.id} className="rounded-xl bg-card p-4 shadow-card">
                     <Link to={`/app/messages/${shipment.conversationId}`} className="block">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">
-                            {shipment.routeOrigin} {"->"} {shipment.routeDestination}
-                          </p>
+                        <div className="min-w-0 flex-1 pr-3">
+                          <RouteInline
+                            origin={shipment.routeOrigin}
+                            destination={shipment.routeDestination}
+                            className="text-sm font-medium"
+                          />
                           <p className="mt-1 text-xs text-muted-foreground">{shipment.travelerName}</p>
                         </div>
                         <Badge variant="outline" className={status.className}>
@@ -409,19 +528,40 @@ const DashboardHome = () => {
                         {loadingShipmentConversationId === shipment.conversationId ? messages.shipmentsPage.activating : messages.shipmentsPage.packageLoaded}
                       </Button>
                     ) : null}
+
+                    {shipment.status === "delivered" && !shipment.reviewRating ? (
+                      <Button type="button" className="mt-4 w-full" onClick={() => setReviewingShipment(shipment)}>
+                        <Star className="h-4 w-4 fill-warning text-warning" />
+                        {messages.shipmentsPage.rateTraveler}
+                      </Button>
+                    ) : null}
                   </div>
                 );
               })}
 
-          {(profile.isTraveler ? conversations.length === 0 : shipments.length === 0) ? (
+          {(profile.isTraveler ? conversations.length === 0 : recentSenderShipments.length === 0) ? (
             <div className="rounded-xl bg-card p-4 text-sm text-muted-foreground shadow-card">
               {profile.isTraveler
                 ? messages.dashboardHome.noTravelerConversations
-                : messages.dashboardHome.noSenderShipments}
+                : featuredShipment
+                  ? messages.dashboardHome.noOtherRecentShipments
+                  : messages.dashboardHome.noSenderShipments}
             </div>
           ) : null}
         </div>
       </div>
+
+      <ShipmentReviewDialog
+        open={Boolean(reviewingShipment)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReviewingShipment(null);
+          }
+        }}
+        onSubmit={handleSubmitReview}
+        saving={savingReview}
+        travelerName={reviewingShipment?.travelerName ?? ""}
+      />
     </div>
   );
 };

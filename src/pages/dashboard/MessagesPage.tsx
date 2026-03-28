@@ -3,6 +3,7 @@ import { MessageSquare, Search, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
+import RouteInline from "@/components/RouteInline";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AlertDialog,
@@ -164,11 +165,20 @@ const MessagesPage = () => {
                   </div>
                   <p className="truncate text-xs text-muted-foreground">{conversation.lastMessageText}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <p className="text-[10px] text-primary/70">
-                      {conversation.routeOrigin && conversation.routeDestination
-                        ? `${conversation.routeOrigin} -> ${conversation.routeDestination}`
-                        : messages.messagesPage.directChat}
-                    </p>
+                    {conversation.routeOrigin && conversation.routeDestination ? (
+                      <RouteInline
+                        origin={conversation.routeOrigin}
+                        destination={conversation.routeDestination}
+                        className="max-w-full text-[10px]"
+                        labelClassName="text-[10px] text-primary/70"
+                        pinClassName="h-3 w-3 text-primary/70"
+                        arrowClassName="mt-0.5 h-3 w-3 text-primary/60"
+                      />
+                    ) : (
+                      <p className="text-[10px] text-primary/70">
+                        {messages.messagesPage.directChat}
+                      </p>
+                    )}
                     {conversation.shipmentStatus ? (
                       <Badge variant="outline" className={`text-[10px] ${shipmentStatusConfig[conversation.shipmentStatus].className}`}>
                         {shipmentStatusConfig[conversation.shipmentStatus].label}

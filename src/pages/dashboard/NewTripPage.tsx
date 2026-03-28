@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Calendar, MapPin, Package, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Calendar, CarFront, MapPin, Package, Plus, Trash2 } from "lucide-react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -21,6 +21,7 @@ const NewTripPage = () => {
     origin: "",
     destination: "",
     date: "",
+    vehicleType: "",
     capacity: "",
     notes: "",
   });
@@ -87,6 +88,7 @@ const NewTripPage = () => {
           origin: trip.origin,
           destination: trip.destination,
           date: trip.status === "completed" ? "" : trip.date,
+          vehicleType: trip.vehicleType,
           capacity: String(trip.capacityKg),
           notes: trip.notes,
         });
@@ -115,8 +117,22 @@ const NewTripPage = () => {
     });
   }, [intlLocale, reusingTrip]);
 
+  const minTripDate = useMemo(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = `${today.getMonth() + 1}`.padStart(2, "0");
+    const day = `${today.getDate()}`.padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (form.date < minTripDate) {
+      toast.error(messages.newTripPage.pastDateError);
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -126,6 +142,7 @@ const NewTripPage = () => {
         origin: form.origin,
         destination: form.destination,
         date: form.date,
+        vehicleType: form.vehicleType,
         capacityKg: Number(form.capacity),
         routeStops: cleanedRouteStops,
         notes: form.notes || messages.newTripPage.defaultNotes,
@@ -248,6 +265,7 @@ const NewTripPage = () => {
                 type="date"
                 className="cargoo-date-input cursor-pointer pl-10 pr-3"
                 value={form.date}
+                min={minTripDate}
                 onChange={(event) => update("date", event.target.value)}
                 required
               />
@@ -268,6 +286,27 @@ const NewTripPage = () => {
               />
             </div>
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>{messages.newTripPage.vehicleLabel}</Label>
+          <div className="relative">
+            <CarFront className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              list="cargoo-vehicle-options"
+              placeholder={messages.newTripPage.vehiclePlaceholder}
+              className="pl-10"
+              value={form.vehicleType}
+              onChange={(event) => update("vehicleType", event.target.value)}
+              required
+            />
+          </div>
+          <datalist id="cargoo-vehicle-options">
+            {messages.newTripPage.vehicleOptions.map((vehicleOption) => (
+              <option key={vehicleOption} value={vehicleOption} />
+            ))}
+          </datalist>
+          <p className="text-xs text-muted-foreground">{messages.newTripPage.vehicleHint}</p>
         </div>
 
         <div className="space-y-2">

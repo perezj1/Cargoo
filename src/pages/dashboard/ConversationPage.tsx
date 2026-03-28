@@ -3,6 +3,7 @@ import { ArrowLeft, CheckCircle2, Clock3, Package, Send, Star, Truck } from "luc
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
+import RouteInline from "@/components/RouteInline";
 import ShipmentReviewDialog from "@/components/ShipmentReviewDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -298,11 +299,20 @@ const ConversationPage = () => {
             </Avatar>
             <div className="min-w-0">
               <h1 className="truncate text-lg font-display font-bold">{conversation.otherUserName}</h1>
-              <p className="truncate text-xs text-muted-foreground">
-                {conversation.routeOrigin && conversation.routeDestination
-                  ? `${conversation.routeOrigin} -> ${conversation.routeDestination}`
-                  : localeMessages.conversationPage.directChat}
-              </p>
+              {conversation.routeOrigin && conversation.routeDestination ? (
+                <div className="mt-1">
+                  <RouteInline
+                    origin={conversation.routeOrigin}
+                    destination={conversation.routeDestination}
+                    className="w-full text-xs"
+                    labelClassName="text-xs text-muted-foreground"
+                    pinClassName="h-3 w-3 text-primary/70"
+                    arrowClassName="mt-0.5 h-3 w-3 text-muted-foreground"
+                  />
+                </div>
+              ) : (
+                <p className="truncate text-xs text-muted-foreground">{localeMessages.conversationPage.directChat}</p>
+              )}
             </div>
           </div>
 

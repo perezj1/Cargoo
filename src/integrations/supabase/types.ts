@@ -218,6 +218,7 @@ export type Database = {
           updated_at: string | null;
           used_kg: number;
           user_id: string;
+          vehicle_type: string | null;
         };
         Insert: {
           capacity_kg: number;
@@ -232,6 +233,7 @@ export type Database = {
           updated_at?: string | null;
           used_kg?: number;
           user_id: string;
+          vehicle_type?: string | null;
         };
         Update: {
           capacity_kg?: number;
@@ -246,6 +248,7 @@ export type Database = {
           updated_at?: string | null;
           used_kg?: number;
           user_id?: string;
+          vehicle_type?: string | null;
         };
         Relationships: [];
       };

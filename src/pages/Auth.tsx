@@ -36,12 +36,12 @@ const authSlides = [
   },
   {
     title: "Un transportista gestiona el viaje",
-    text: "Entra, revisa solicitudes, cierra el acuerdo, comparte codigo y marca cada etapa del envio.",
+    text: "Entra, revisa solicitudes, cierra el acuerdo, comparte codigo y marca cada etapa del envío.",
     icon: CarFront,
     tone: "sky-card",
   },
   {
-    title: "La app sigue el envio",
+    title: "La app sigue el envío",
     text: "Una vez acordado, Cargoo deja visible si esta reservado, recogido, en ruta o entregado.",
     icon: Smartphone,
     tone: "peach-card",
@@ -115,7 +115,7 @@ const Auth = () => {
         if (error.message.includes("Invalid login credentials")) {
           toast.error("Credenciales incorrectas. Revisa email y contrasena.");
         } else if (error.message.includes("User already registered")) {
-          toast.error("Ese email ya existe. Puedes iniciar sesion.");
+          toast.error("Ese email ya existe. Puedes iniciar sesión.");
         } else {
           toast.error(error.message);
         }
@@ -130,7 +130,7 @@ const Auth = () => {
 
       navigate(nextPath ?? getPostAuthPath(accountMode), { replace: true });
     } catch (_error) {
-      toast.error("No se pudo completar la autenticacion.");
+      toast.error("No se pudo completar la autenticación.");
     } finally {
       setLoading(false);
     }
@@ -233,7 +233,7 @@ const Auth = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Contrasena</Label>
+                  <Label htmlFor="password">Contraseña</Label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -259,12 +259,12 @@ const Auth = () => {
               <div className="mt-6 rounded-[1.5rem] border border-black/5 bg-secondary/70 p-4 text-sm text-muted-foreground">
                 {accountMode === "traveler"
                   ? "Entraras al panel del transportista para revisar solicitudes, compartir codigos y marcar el avance real del viaje."
-                  : "Entraras directamente a la busqueda para filtrar transportistas y luego revisar tus envios."}
+                  : "Entraras directamente a la búsqueda para filtrar transportistas y luego revisar tus envíos."}
               </div>
 
               <div className="mt-6 text-center">
                 <button type="button" onClick={() => setIsLogin((current) => !current)} className="text-sm font-medium text-primary">
-                  {isLogin ? "No tienes cuenta? Registrate" : "Ya tienes cuenta? Inicia sesion"}
+                  {isLogin ? "?No tienes cuenta? Regístrate" : "?¿Ya tienes cuenta? Inicia sesión"}
                 </button>
               </div>
 

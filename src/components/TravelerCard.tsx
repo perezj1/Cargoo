@@ -1,6 +1,7 @@
-import { Calendar, CarFront, MapPin, Star } from "lucide-react";
+import { Calendar, CarFront, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import RouteInline from "@/components/RouteInline";
 import { Badge } from "@/components/ui/badge";
 import { useLocale } from "@/contexts/LocaleContext";
 import type { Traveler } from "@/lib/mock-travelers";
@@ -46,20 +47,22 @@ const TravelerCard = ({ traveler }: { traveler: Traveler }) => {
       </div>
 
       <div className="space-y-2.5">
-        <div className="flex items-center gap-2 text-sm">
-          <MapPin className="h-4 w-4 shrink-0 text-primary" />
-          <span className="text-card-foreground">{traveler.origin}</span>
-          <span className="text-muted-foreground">-&gt;</span>
-          <span className="text-card-foreground">{traveler.destination}</span>
+        <div className="flex justify-start">
+          <RouteInline
+            origin={traveler.origin}
+            destination={traveler.destination}
+            className="text-sm"
+            labelClassName="text-card-foreground"
+          />
         </div>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+          <div className="flex min-w-0 items-center gap-1.5">
             <Calendar className="h-4 w-4" />
-            <span>{formattedDate}</span>
+            <span className="break-words [overflow-wrap:anywhere]">{formattedDate}</span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5">
             <CarFront className="h-4 w-4" />
-            <span>{messages.travelerCard.available(traveler.capacity)}</span>
+            <span className="break-words [overflow-wrap:anywhere]">{messages.travelerCard.available(traveler.capacity)}</span>
           </div>
         </div>
       </div>
