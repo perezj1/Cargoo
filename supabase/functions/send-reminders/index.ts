@@ -26,7 +26,7 @@ const corsHeaders = {
   "Content-Type": "application/json",
 };
 
-type Locale = "es" | "en" | "de";
+type Locale = "es" | "en" | "de" | "sr";
 
 type PushEventPayload =
   | { eventType: "trip_checkpoint_reached"; tripId: string; stopId: string; city?: string }
@@ -101,6 +101,17 @@ const strings = {
     messageTitle: (senderName: string) => `Cargoo - Neue Nachricht von ${senderName}`,
     messageBody: (content: string) => content || "Du hast eine neue Nachricht erhalten.",
   },
+  sr: {
+    checkpointTitle: "Cargoo - Ažuriranje rute",
+    checkpointBody: (travelerName: string, city: string) => `${travelerName} je stigao u ${city}.`,
+    deliveredTitle: "Cargoo - Paket isporučen",
+    deliveredBody: (travelerName: string, destination: string) =>
+      destination
+        ? `${travelerName} je označio da je tvoj paket isporučen u ${destination}.`
+        : `${travelerName} je označio da je tvoj paket isporučen.`,
+    messageTitle: (senderName: string) => `Cargoo - Nova poruka od ${senderName}`,
+    messageBody: (content: string) => content || "Primljena je nova poruka.",
+  },
 } satisfies Record<
   Locale,
   {
@@ -124,6 +135,7 @@ function pickLocale(raw: string | null | undefined): Locale {
   const value = (raw || "").toLowerCase();
   if (value.startsWith("de")) return "de";
   if (value.startsWith("en")) return "en";
+  if (value.startsWith("sr")) return "sr";
   return "es";
 }
 

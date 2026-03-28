@@ -25,6 +25,10 @@ const CITY_EXAMPLES: Record<Locale, { origins: string[]; destinations: string[] 
     origins: ["Zürich", "Luzern", "Lausanne", "Mailand"],
     destinations: ["Madrid", "Belgrad", "Lissabon", "Rom", "Paris"],
   },
+  sr: {
+    origins: ["Cirih", "Lucern", "Lozana", "Milano"],
+    destinations: ["Madrid", "Beograd", "Lisabon", "Rim", "Pariz"],
+  },
 };
 
 const Index = () => {
@@ -62,6 +66,8 @@ const Index = () => {
       ? `Startort (z. B. ${originExample})`
       : locale === "en"
         ? `Origin (e.g. ${originExample})`
+        : locale === "sr"
+          ? `Polazište (npr. ${originExample})`
         : `Origen (ej. ${originExample})`;
 
   const destinationPlaceholder =
@@ -69,6 +75,8 @@ const Index = () => {
       ? `Zielort (z. B. ${destinationExample})`
       : locale === "en"
         ? `Destination (e.g. ${destinationExample})`
+        : locale === "sr"
+          ? `Odredište (npr. ${destinationExample})`
         : `Destino (ej. ${destinationExample})`;
 
   return (

@@ -15,6 +15,7 @@ const LanguageSwitcher = ({ compact = false, className = "" }: LanguageSwitcherP
     es: "🇪🇸",
     en: "🇬🇧",
     de: "🇩🇪",
+    sr: "🇷🇸",
   };
   const currentFlag = flagsByLocale[locale];
   const currentLanguageName = messages.languageNames[locale];

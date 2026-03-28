@@ -5,6 +5,7 @@ export const es = {
     es: "Español",
     en: "English",
     de: "Deutsch",
+    sr: "Srpski",
   },
   common: {
     back: "Volver",
