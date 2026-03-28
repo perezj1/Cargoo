@@ -164,7 +164,7 @@ const MessagesPage = () => {
                     </span>
                   </div>
                   <p className="truncate text-xs text-muted-foreground">{conversation.lastMessageText}</p>
-                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <div className={`mt-1 ${profile?.isTraveler ? "space-y-1.5" : "flex flex-wrap items-center gap-2"}`}>
                     {conversation.routeOrigin && conversation.routeDestination ? (
                       <RouteInline
                         origin={conversation.routeOrigin}
@@ -175,12 +175,13 @@ const MessagesPage = () => {
                         arrowClassName="mt-0.5 h-3 w-3 text-primary/60"
                       />
                     ) : (
-                      <p className="text-[10px] text-primary/70">
-                        {messages.messagesPage.directChat}
-                      </p>
+                      <p className="text-[10px] text-primary/70">{messages.messagesPage.directChat}</p>
                     )}
                     {conversation.shipmentStatus ? (
-                      <Badge variant="outline" className={`text-[10px] ${shipmentStatusConfig[conversation.shipmentStatus].className}`}>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] ${profile?.isTraveler ? "inline-flex" : ""} ${shipmentStatusConfig[conversation.shipmentStatus].className}`}
+                      >
                         {shipmentStatusConfig[conversation.shipmentStatus].label}
                       </Badge>
                     ) : null}
