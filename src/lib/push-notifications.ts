@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+const SERVICE_WORKER_URL = "/sw.js?v=9";
 
 const urlBase64ToUint8Array = (base64String: string) => {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -108,7 +109,7 @@ export const getNotificationPermissionState = () => {
 
 export const registerPushServiceWorker = async () => {
   ensureServiceWorkerSupport();
-  const registration = await navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
+  const registration = await navigator.serviceWorker.register(SERVICE_WORKER_URL, { updateViaCache: "none" });
   void registration.update().catch(() => {
     // If the browser cannot check for updates right now, the existing worker still works.
   });
