@@ -283,6 +283,7 @@ export const es = {
     notificationsEnabledDescription: "Recibe avisos de mensajes, checkpoints y entregas.",
     notificationsDeniedDescription: "El navegador ha bloqueado los permisos. Tienes que reactivarlos en la configuracion del sitio.",
     notificationsDefaultDescription: "Recibe avisos de mensajes, checkpoints y entregas al activar esta opcion.",
+    notificationsMissingHint: "Activa las notificaciones para recibir avisos en tiempo real de mensajes, envios y checkpoints.",
     notificationsEnabledToast: "Notificaciones push activadas.",
     notificationsDisabledToast: "Notificaciones push desactivadas.",
     visibilityUpdated: "Visibilidad actualizada.",

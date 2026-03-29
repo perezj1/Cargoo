@@ -283,6 +283,7 @@ export const en = {
     notificationsEnabledDescription: "Receive alerts for messages, checkpoints and deliveries.",
     notificationsDeniedDescription: "The browser has blocked permissions. You need to enable them again in the site settings.",
     notificationsDefaultDescription: "Receive alerts for messages, checkpoints and deliveries when you enable this option.",
+    notificationsMissingHint: "Turn on notifications to receive real-time alerts for messages, shipments and checkpoints.",
     notificationsEnabledToast: "Push notifications enabled.",
     notificationsDisabledToast: "Push notifications disabled.",
     visibilityUpdated: "Visibility updated.",

@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocaleProvider } from "@/contexts/LocaleContext";
+import ScrollToTop from "@/components/ScrollToTop";
 import ThemeColorSync from "@/components/ThemeColorSync";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -43,6 +44,7 @@ const App = () => (
       <AuthProvider>
         <LocaleProvider>
           <BrowserRouter>
+            <ScrollToTop />
             <ThemeColorSync />
             <Routes>
               <Route path="/" element={<Index />} />

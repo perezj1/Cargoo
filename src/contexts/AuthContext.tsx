@@ -39,6 +39,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
+      const { data: preferences, error } = await supabase
+        .from("preferences")
+        .select("notifications_enabled")
+        .eq("user_id", activeUser.id)
+        .maybeSingle();
+
+      if (error || preferences?.notifications_enabled !== true) {
+        return;
+      }
+
       await syncPushSubscription(activeUser.id, { requestPermission: false });
     } catch {
       // Push sync should not block auth or app startup.

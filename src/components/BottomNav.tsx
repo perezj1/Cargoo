@@ -12,7 +12,9 @@ const BottomNav = () => {
   const { profile, user } = useAuth();
   const { messages } = useLocale();
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
-  const needsProfileAttention = Boolean(profile?.isTraveler && !profile.phone.trim());
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const needsProfileAttention = Boolean((profile?.isTraveler && !profile.phone.trim()) || (preferencesLoaded && !notificationsEnabled));
   const items = profile?.isTraveler
     ? [
         { to: "/app", icon: Home, label: messages.bottomNav.home },
@@ -41,8 +43,38 @@ const BottomNav = () => {
     }
   };
 
+  const loadPreferencesState = async () => {
+    if (!user) {
+      setNotificationsEnabled(false);
+      setPreferencesLoaded(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("preferences")
+        .select("notifications_enabled")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      setNotificationsEnabled(data?.notifications_enabled ?? false);
+      setPreferencesLoaded(true);
+    } catch {
+      setNotificationsEnabled(false);
+      setPreferencesLoaded(true);
+    }
+  };
+
   useEffect(() => {
     void loadUnreadState();
+  }, [user]);
+
+  useEffect(() => {
+    void loadPreferencesState();
   }, [user]);
 
   useEffect(() => {
@@ -55,6 +87,7 @@ const BottomNav = () => {
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_conversations" }, () => void loadUnreadState())
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_messages" }, () => void loadUnreadState())
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_conversation_hidden_states", filter: `user_id=eq.${user.id}` }, () => void loadUnreadState())
+      .on("postgres_changes", { event: "*", schema: "public", table: "preferences", filter: `user_id=eq.${user.id}` }, () => void loadPreferencesState())
       .subscribe();
 
     return () => {
