@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-const SERVICE_WORKER_URL = "/sw.js?v=9";
+const SERVICE_WORKER_URL = "/sw.js?v=10";
 
 const urlBase64ToUint8Array = (base64String: string) => {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -32,6 +32,30 @@ const ensurePushSupport = () => {
   if (!("PushManager" in window) || !("Notification" in window)) {
     throw new Error("Este navegador no soporta notificaciones push.");
   }
+};
+
+const cleanupLegacyServiceWorkers = async () => {
+  ensureServiceWorkerSupport();
+
+  const currentScriptUrl = new URL(SERVICE_WORKER_URL, window.location.origin).toString();
+  const registrations = await navigator.serviceWorker.getRegistrations();
+
+  await Promise.all(
+    registrations.map(async (registration) => {
+      const scriptUrls = [registration.active?.scriptURL, registration.waiting?.scriptURL, registration.installing?.scriptURL].filter(
+        (value): value is string => Boolean(value),
+      );
+
+      if (!registration.scope.startsWith(window.location.origin) || scriptUrls.length === 0) {
+        return;
+      }
+
+      const usesCurrentScript = scriptUrls.some((scriptUrl) => scriptUrl === currentScriptUrl);
+      if (!usesCurrentScript) {
+        await registration.unregister();
+      }
+    }),
+  );
 };
 
 const getSubscriptionKeys = (subscription: PushSubscription) => {
@@ -109,7 +133,8 @@ export const getNotificationPermissionState = () => {
 
 export const registerPushServiceWorker = async () => {
   ensureServiceWorkerSupport();
-  const registration = await navigator.serviceWorker.register(SERVICE_WORKER_URL, { updateViaCache: "none" });
+  await cleanupLegacyServiceWorkers();
+  const registration = await navigator.serviceWorker.register(SERVICE_WORKER_URL, { scope: "/", updateViaCache: "none" });
   void registration.update().catch(() => {
     // If the browser cannot check for updates right now, the existing worker still works.
   });

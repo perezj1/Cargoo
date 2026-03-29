@@ -19,6 +19,7 @@ import {
   getPublicCarrierProfile,
   type PublicCarrierProfile,
 } from "@/lib/cargoo-store";
+import { formatTripScheduleLabel } from "@/lib/trip-schedule";
 
 const PublicCarrierProfilePage = () => {
   const navigate = useNavigate();
@@ -324,10 +325,13 @@ const PublicCarrierProfilePage = () => {
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {orderedTrips.map((trip) => {
-              const formattedDate = new Date(trip.date).toLocaleDateString(intlLocale, {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
+              const formattedDate = formatTripScheduleLabel({
+                date: trip.date,
+                recurrence: trip.recurrence,
+                intlLocale,
+                weeklyLabel: messages.common.weeklyRoute,
+                monthlyLabel: messages.common.monthlyRoute,
+                format: "short",
               });
               const isSelected = trip.id === selectedTripId;
 

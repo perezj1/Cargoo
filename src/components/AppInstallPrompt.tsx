@@ -9,10 +9,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 const AppInstallPrompt = ({ enabled }: { enabled: boolean }) => {
   const { profile } = useAuth();
   const { messages } = useLocale();
-  const { closePrompt, handleInstall, installing, isAndroid, isIos, isStandalone, open, setOpen } = useAppInstallPrompt({ enabled });
+  const { closePrompt, deferredPrompt, handleInstall, installing, isAndroid, isIos, isStandalone, open, setOpen } = useAppInstallPrompt({ enabled });
   const description = profile?.isTraveler ? messages.installPrompt.travelerDescription : messages.installPrompt.senderDescription;
+  const showAndroidManualState = isAndroid && !deferredPrompt;
 
-  if (!enabled || isStandalone || (!isIos && !isAndroid)) {
+  if (!enabled || (!isIos && !isAndroid && !isStandalone)) {
     return null;
   }
 
@@ -30,7 +31,17 @@ const AppInstallPrompt = ({ enabled }: { enabled: boolean }) => {
         </div>
 
         <div className="space-y-4 px-6 pb-6 pt-2">
-          {isIos ? (
+          {isStandalone ? (
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">{messages.installPrompt.installedTitle}</p>
+              <div className="rounded-xl border border-border bg-background px-4 py-3">
+                <div className="flex items-center gap-2 font-medium text-foreground">
+                  <Smartphone className="h-4 w-4 text-primary" />
+                  {messages.installPrompt.installedDescription}
+                </div>
+              </div>
+            </div>
+          ) : isIos ? (
             <div className="space-y-3 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">{messages.installPrompt.iosIntro}</p>
               <div className="rounded-xl border border-border bg-background px-4 py-3">
@@ -54,15 +65,15 @@ const AppInstallPrompt = ({ enabled }: { enabled: boolean }) => {
               <div className="rounded-xl border border-border bg-background px-4 py-3">
                 <div className="flex items-center gap-2 font-medium text-foreground">
                   <Download className="h-4 w-4 text-primary" />
-                  {messages.installPrompt.androidDirectTitle}
+                  {showAndroidManualState ? messages.installPrompt.androidManualTitle : messages.installPrompt.androidDirectTitle}
                 </div>
-                <p className="mt-1">{messages.installPrompt.androidDirectText}</p>
+                <p className="mt-1">{showAndroidManualState ? messages.installPrompt.androidManualText : messages.installPrompt.androidDirectText}</p>
               </div>
             </div>
           )}
 
           <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
-            {isAndroid ? (
+            {isAndroid && !showAndroidManualState ? (
               <Button className="w-full gap-2" size="lg" onClick={() => void handleInstall()} disabled={installing}>
                 <Download className="h-4 w-4" />
                 {installing ? messages.installPrompt.installing : messages.installPrompt.install}

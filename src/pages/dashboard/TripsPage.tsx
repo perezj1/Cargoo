@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { deleteCompletedTrip, getFriendlyErrorMessage, getTrips, type CargooTrip } from "@/lib/cargoo-store";
+import { formatTripScheduleLabel } from "@/lib/trip-schedule";
 
 const TripsPage = () => {
   const navigate = useNavigate();
@@ -117,10 +118,13 @@ const TripsPage = () => {
         <div className="space-y-3">
           {filteredTrips.map((trip) => {
             const status = statusConfig[trip.status];
-            const formattedDate = new Date(trip.date).toLocaleDateString(intlLocale, {
-              day: "numeric",
-              month: "short",
-              year: "numeric",
+            const formattedDate = formatTripScheduleLabel({
+              date: trip.date,
+              recurrence: trip.recurrence,
+              intlLocale,
+              weeklyLabel: messages.common.weeklyRoute,
+              monthlyLabel: messages.common.monthlyRoute,
+              format: "short",
             });
 
             return (
