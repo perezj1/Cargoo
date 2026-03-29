@@ -293,6 +293,7 @@ export const sr = {
     notificationsEnabledDescription: "Primaj upozorenja za poruke, kontrolne tačke i isporuke.",
     notificationsDeniedDescription: "Pregledač je blokirao dozvole. Moraš ih ponovo omogućiti u podešavanjima sajta.",
     notificationsDefaultDescription: "Primaj upozorenja za poruke, kontrolne tačke i isporuke kada uključiš ovu opciju.",
+    notificationsMissingHint: "Uključi obaveštenja da bi primao/la upozorenja u realnom vremenu za poruke, pošiljke i kontrolne tačke.",
     notificationsEnabledToast: "Push obaveštenja su uključena.",
     notificationsDisabledToast: "Push obaveštenja su isključena.",
     visibilityUpdated: "Vidljivost je ažurirana.",

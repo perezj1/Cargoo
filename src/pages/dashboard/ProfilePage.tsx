@@ -39,7 +39,7 @@ const ProfilePage = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingNotifications, setSavingNotifications] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState(getNotificationPermissionState());
   const [phoneFieldFocused, setPhoneFieldFocused] = useState(false);
   const [ratingSummary, setRatingSummary] = useState<TravelerRatingSummary>({
@@ -80,7 +80,7 @@ const ProfilePage = () => {
           throw preferencesError;
         }
 
-        const pushEnabled = preferences?.notifications_enabled ?? true;
+        const pushEnabled = preferences?.notifications_enabled ?? false;
         setNotificationsEnabled(pushEnabled);
         setNotificationPermission(getNotificationPermissionState());
 
@@ -184,8 +184,7 @@ const ProfilePage = () => {
 
       const { error } = await supabase
         .from("preferences")
-        .update({ notifications_enabled: enabled })
-        .eq("user_id", user.userId);
+        .upsert({ user_id: user.userId, notifications_enabled: enabled }, { onConflict: "user_id" });
 
       if (error) {
         throw error;
@@ -260,6 +259,7 @@ const ProfilePage = () => {
   const ratingCaption =
     ratingSummary.averageRating !== null ? messages.appProfile.reviewsCount(ratingSummary.reviewsCount) : messages.common.noReviewsYet;
   const needsPhoneAttention = Boolean(user.isTraveler && !profileForm.phone.trim());
+  const needsNotificationsAttention = !notificationsEnabled;
   const handleOpenInstallPrompt = () => {
     if (isStandalone) {
       toast.success(messages.appProfile.installAppAlreadyInstalled);
@@ -364,23 +364,28 @@ const ProfilePage = () => {
             </div>
           </div>
           {user.isTraveler ? (
-            <div className="rounded-xl bg-secondary/70 p-3">
-              <div className="flex items-start gap-3">
-                <Phone className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{messages.editProfilePage.phone}</p>
-                  <Input
-                    type="tel"
-                    value={profileForm.phone}
-                    onChange={(event) => updateProfileField("phone", event.target.value)}
-                    onFocus={() => setPhoneFieldFocused(true)}
-                    onBlur={() => setPhoneFieldFocused(false)}
-                    placeholder={phoneFieldFocused ? "" : messages.appProfile.phoneMissing}
-                    className={`mt-1 h-auto border-0 bg-transparent px-0.5 py-0 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 ${needsPhoneAttention ? "placeholder:text-destructive text-destructive" : "text-foreground"}`}
-                  />
+            <>
+              <div className="space-y-2">
+                <div className="rounded-xl bg-secondary/70 p-3">
+                  <div className="flex items-start gap-3">
+                    <Phone className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{messages.editProfilePage.phone}</p>
+                      <Input
+                        type="tel"
+                        value={profileForm.phone}
+                        onChange={(event) => updateProfileField("phone", event.target.value)}
+                        onFocus={() => setPhoneFieldFocused(true)}
+                        onBlur={() => setPhoneFieldFocused(false)}
+                        placeholder={phoneFieldFocused ? "" : messages.appProfile.phoneMissing}
+                        className={`mt-1 h-auto border-0 bg-transparent px-0.5 py-0 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 ${needsPhoneAttention ? "placeholder:text-destructive text-destructive" : "text-foreground"}`}
+                      />
+                    </div>
+                  </div>
                 </div>
+                {needsPhoneAttention ? <p className="px-1 text-xs text-destructive">{messages.appProfile.phoneMissingHint}</p> : null}
               </div>
-            </div>
+            </>
           ) : null}
           <div className="rounded-xl bg-secondary/70 p-3">
             <div className="flex items-start gap-3">
@@ -410,7 +415,6 @@ const ProfilePage = () => {
             </div>
           </div>
         </div>
-        {needsPhoneAttention ? <p className="mt-3 text-xs text-destructive">{messages.appProfile.phoneMissingHint}</p> : null}
         <Button className="mt-4 w-full" size="lg" onClick={() => void handleSaveProfile()} disabled={savingProfile}>
           {savingProfile ? messages.common.saving : messages.editProfilePage.saveChanges}
         </Button>
@@ -422,12 +426,15 @@ const ProfilePage = () => {
         <LanguageSwitcher compact className="mt-3 w-full" />
       </div>
 
-      <div className="mb-4 rounded-xl bg-card p-4 shadow-card">
+      <div className={`mb-4 rounded-xl bg-card p-4 shadow-card ${needsNotificationsAttention ? "border border-destructive/30" : ""}`}>
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium">{messages.appProfile.notificationsTitle}</p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              {needsNotificationsAttention ? <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-destructive" /> : null}
+              <p className="text-sm font-medium">{messages.appProfile.notificationsTitle}</p>
+            </div>
             <p className="text-xs text-muted-foreground">
-              {notificationPermission === "granted"
+              {notificationsEnabled
                 ? messages.appProfile.notificationsEnabledDescription
                 : notificationPermission === "denied"
                   ? messages.appProfile.notificationsDeniedDescription
@@ -436,6 +443,7 @@ const ProfilePage = () => {
           </div>
           <Switch checked={notificationsEnabled} onCheckedChange={handleNotificationsChange} disabled={savingNotifications} />
         </div>
+        {needsNotificationsAttention ? <p className="mt-3 text-xs text-destructive">{messages.appProfile.notificationsMissingHint}</p> : null}
       </div>
 
       {canRenderInstallEntry ? (

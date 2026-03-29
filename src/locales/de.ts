@@ -283,6 +283,7 @@ export const de = {
     notificationsEnabledDescription: "Erhalte Hinweise zu Nachrichten, Checkpoints und Zustellungen.",
     notificationsDeniedDescription: "Der Browser hat die Berechtigungen blockiert. Du musst sie in den Seiteneinstellungen erneut aktivieren.",
     notificationsDefaultDescription: "Erhalte Hinweise zu Nachrichten, Checkpoints und Zustellungen, wenn du diese Option aktivierst.",
+    notificationsMissingHint: "Aktiviere die Benachrichtigungen, um Hinweise in Echtzeit zu Nachrichten, Sendungen und Checkpoints zu erhalten.",
     notificationsEnabledToast: "Push-Benachrichtigungen aktiviert.",
     notificationsDisabledToast: "Push-Benachrichtigungen deaktiviert.",
     visibilityUpdated: "Sichtbarkeit aktualisiert.",
