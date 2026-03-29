@@ -55,7 +55,7 @@ const ProfilePage = () => {
     bio: "",
   });
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
-  const { canShowInstallEntry } = useAppInstallPrompt({ enabled: true });
+  const { canRenderInstallEntry, isStandalone } = useAppInstallPrompt({ enabled: true });
 
   useEffect(() => {
     const loadData = async () => {
@@ -260,6 +260,14 @@ const ProfilePage = () => {
   const ratingCaption =
     ratingSummary.averageRating !== null ? messages.appProfile.reviewsCount(ratingSummary.reviewsCount) : messages.common.noReviewsYet;
   const needsPhoneAttention = Boolean(user.isTraveler && !profileForm.phone.trim());
+  const handleOpenInstallPrompt = () => {
+    if (isStandalone) {
+      toast.success(messages.appProfile.installAppAlreadyInstalled);
+      return;
+    }
+
+    requestGlobalInstallPrompt();
+  };
 
   return (
     <div className="mx-auto max-w-lg px-4 pt-6">
@@ -430,13 +438,13 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      {canShowInstallEntry ? (
+      {canRenderInstallEntry ? (
         <div className="mb-4 rounded-xl bg-card p-4 shadow-card">
           <p className="text-sm font-medium">{messages.appProfile.installAppTitle}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {user.isTraveler ? messages.appProfile.installAppDescriptionTraveler : messages.appProfile.installAppDescriptionSender}
           </p>
-          <Button className="mt-3 w-full gap-2" onClick={requestGlobalInstallPrompt}>
+          <Button className="mt-3 w-full gap-2" onClick={handleOpenInstallPrompt}>
             <Download className="h-4 w-4" />
             {messages.appProfile.installAppButton}
           </Button>

@@ -41,6 +41,7 @@ export interface CargooTrip {
   origin: string;
   destination: string;
   date: string;
+  recurrence: TripRecurrence;
   vehicleType: string;
   capacityKg: number;
   usedKg: number;
@@ -78,6 +79,7 @@ export interface PublicTripListing {
   origin: string;
   destination: string;
   date: string;
+  recurrence: TripRecurrence;
   vehicleType: string;
   capacityKg: number;
   availableKg: number;
@@ -125,6 +127,7 @@ export interface ShipmentSummary {
   routeOrigin: string;
   routeDestination: string;
   tripDate: string;
+  tripRecurrence: TripRecurrence;
   status: ShipmentStatus;
   createdAt: string;
   acceptedAt: string | null;
@@ -202,11 +205,14 @@ interface CreateTripInput {
   origin: string;
   destination: string;
   date: string;
+  recurrence: TripRecurrence;
   vehicleType: string;
   capacityKg: number;
   notes: string;
   routeStops?: string[];
 }
+
+export type TripRecurrence = "once" | "weekly" | "monthly";
 
 type MetadataRecord = Record<string, unknown>;
 
@@ -268,6 +274,14 @@ const isMissingTripVehicleColumn = (error: { message?: string; code?: string } |
   return /vehicle_type/i.test(error.message ?? "") && /cargoo_trips/i.test(error.message ?? "");
 };
 
+const isMissingTripRecurrenceColumn = (error: { message?: string; code?: string } | null) => {
+  if (!error) {
+    return false;
+  }
+
+  return /recurrence_type/i.test(error.message ?? "") && /cargoo_trips/i.test(error.message ?? "");
+};
+
 const mapSupabaseError = (error: { message?: string } | null) => {
   if (!error) {
     return null;
@@ -292,6 +306,18 @@ const deriveNameFromEmail = (email: string) => {
 const normalizeOptionalLocation = (value: string | null | undefined) => {
   const normalized = typeof value === "string" ? value.trim() : "";
   return normalized === LEGACY_DEFAULT_LOCATION ? "" : normalized;
+};
+
+const normalizeTripRecurrence = (value: unknown): TripRecurrence => {
+  if (value === "weekly") {
+    return "weekly";
+  }
+
+  if (value === "monthly") {
+    return "monthly";
+  }
+
+  return "once";
 };
 
 const parseDateInput = (value: string) => {
@@ -357,9 +383,14 @@ const buildRouteCities = (origin: string, destination: string, routeStops: strin
 const resolveTripStatus = (
   date: string,
   persistedStatus?: CargooTrip["status"] | null,
+  recurrence: TripRecurrence = "once",
 ): CargooTrip["status"] => {
   if (persistedStatus === "completed") {
     return "completed";
+  }
+
+  if (recurrence !== "once") {
+    return "active";
   }
 
   if (persistedStatus === "active") {
@@ -369,8 +400,8 @@ const resolveTripStatus = (
   return parseDateInput(date) < parseDateInput(getTodayDateString()) ? "completed" : "active";
 };
 
-const getTripStatusFromDate = (date: string): CargooTrip["status"] => {
-  return resolveTripStatus(date);
+const getTripStatusFromDate = (date: string, recurrence: TripRecurrence = "once"): CargooTrip["status"] => {
+  return resolveTripStatus(date, null, recurrence);
 };
 
 const markChatFeatureAvailable = () => {
@@ -451,12 +482,13 @@ const getMetadataTrips = (user: User): CargooTrip[] => {
         origin: item.origin,
         destination: item.destination,
         date: item.date,
+        recurrence: normalizeTripRecurrence(item.recurrence),
         vehicleType: typeof item.vehicleType === "string" ? item.vehicleType : "",
         capacityKg: item.capacityKg,
         usedKg: item.usedKg,
         requests: item.requests,
         notes: item.notes,
-        status: resolveTripStatus(item.date, item.status),
+        status: resolveTripStatus(item.date, item.status, normalizeTripRecurrence(item.recurrence)),
         createdAt: typeof item.createdAt === "string" ? item.createdAt : new Date().toISOString(),
       } satisfies CargooTrip;
     })
@@ -584,6 +616,7 @@ const mapTripRow = (row: {
   origin: string;
   destination: string;
   trip_date: string;
+  recurrence_type?: string | null;
   vehicle_type: string | null;
   capacity_kg: number;
   used_kg: number;
@@ -596,12 +629,13 @@ const mapTripRow = (row: {
   origin: row.origin,
   destination: row.destination,
   date: row.trip_date,
+  recurrence: normalizeTripRecurrence(row.recurrence_type),
   vehicleType: row.vehicle_type ?? "",
   capacityKg: row.capacity_kg,
   usedKg: row.used_kg,
   requests: row.requests,
   notes: row.notes ?? "",
-  status: resolveTripStatus(row.trip_date, row.status),
+  status: resolveTripStatus(row.trip_date, row.status, normalizeTripRecurrence(row.recurrence_type)),
   createdAt: row.created_at ?? new Date().toISOString(),
 });
 
@@ -657,6 +691,7 @@ const buildPublicTripListing = (
     origin: string;
     destination: string;
     trip_date: string;
+    recurrence_type?: string | null;
     vehicle_type: string | null;
     capacity_kg: number;
     used_kg: number;
@@ -685,6 +720,7 @@ const buildPublicTripListing = (
     origin: trip.origin,
     destination: trip.destination,
     date: trip.trip_date,
+    recurrence: normalizeTripRecurrence(trip.recurrence_type),
     vehicleType: trip.vehicle_type ?? "",
     capacityKg: trip.capacity_kg,
     availableKg: Math.max(trip.capacity_kg - trip.used_kg, 0),
@@ -804,6 +840,7 @@ const buildShipmentSummary = (
   routeOrigin: row.route_origin,
   routeDestination: row.route_destination,
   tripDate: tripDetails?.date ?? "",
+  tripRecurrence: tripDetails?.recurrence ?? "once",
   status: row.status,
   createdAt: row.created_at ?? new Date().toISOString(),
   acceptedAt: row.accepted_at,
@@ -1363,6 +1400,25 @@ const syncTripCompletionState = async (userId: string, tripId: string) => {
     return null as CargooTripDetails | null;
   }
 
+  if (tripDetails.recurrence !== "once") {
+    if (tripDetails.status === "completed") {
+      const { error } = await supabase
+        .from("cargoo_trips")
+        .update({ status: "active" })
+        .eq("id", tripId)
+        .eq("user_id", userId);
+
+      const mappedError = mapSupabaseError(error);
+      if (mappedError) {
+        throw mappedError;
+      }
+
+      return getTripById(tripId);
+    }
+
+    return tripDetails;
+  }
+
   const shouldBeCompleted = !tripDetails.nextStop && (await countUndeliveredTripShipments(tripId)) === 0;
   const nextStatus: CargooTrip["status"] = shouldBeCompleted ? "completed" : "active";
 
@@ -1389,18 +1445,21 @@ export const createTrip = async (trip: CreateTripInput) => {
   const profile = await ensureProfile(user);
   const normalizedOrigin = trip.origin.trim();
   const normalizedDestination = trip.destination.trim();
+  const normalizedRecurrence = normalizeTripRecurrence(trip.recurrence);
+  const normalizedDate = normalizedRecurrence === "once" ? trip.date : trip.date || getTodayDateString();
   const normalizedVehicleType = trip.vehicleType.trim() || profile.vehicleType.trim();
   const normalizedNotes = trip.notes.trim() || "Sin notas adicionales.";
-  if (parseDateInput(trip.date) < parseDateInput(getTodayDateString())) {
+  if (normalizedRecurrence === "once" && parseDateInput(normalizedDate) < parseDateInput(getTodayDateString())) {
     throw new Error("La fecha del viaje no puede ser anterior a hoy.");
   }
-  const nextStatus = getTripStatusFromDate(trip.date);
+  const nextStatus = getTripStatusFromDate(normalizedDate, normalizedRecurrence);
   const routeCities = buildRouteCities(normalizedOrigin, normalizedDestination, trip.routeStops ?? []);
   const nextTrip: CargooTrip = {
     id: `trip-${Date.now()}`,
     origin: normalizedOrigin,
     destination: normalizedDestination,
-    date: trip.date,
+    date: normalizedDate,
+    recurrence: normalizedRecurrence,
     vehicleType: normalizedVehicleType,
     capacityKg: trip.capacityKg,
     usedKg: 0,
@@ -1415,6 +1474,7 @@ export const createTrip = async (trip: CreateTripInput) => {
     origin: normalizedOrigin,
     destination: normalizedDestination,
     trip_date: nextTrip.date,
+    recurrence_type: normalizedRecurrence,
     vehicle_type: normalizedVehicleType || null,
     capacity_kg: nextTrip.capacityKg,
     used_kg: nextTrip.usedKg,
@@ -1425,8 +1485,19 @@ export const createTrip = async (trip: CreateTripInput) => {
 
   let insertResult = await supabase.from("cargoo_trips").insert(payload).select("*").single();
 
-  if (isMissingTripVehicleColumn(insertResult.error)) {
-    const { vehicle_type: _vehicleType, ...legacyPayload } = payload;
+  if (isMissingTripVehicleColumn(insertResult.error) || isMissingTripRecurrenceColumn(insertResult.error)) {
+    let legacyPayload = { ...payload };
+
+    if (isMissingTripVehicleColumn(insertResult.error)) {
+      const { vehicle_type: _vehicleType, ...payloadWithoutVehicle } = legacyPayload;
+      legacyPayload = payloadWithoutVehicle;
+    }
+
+    if (isMissingTripRecurrenceColumn(insertResult.error)) {
+      const { recurrence_type: _recurrenceType, ...payloadWithoutRecurrence } = legacyPayload;
+      legacyPayload = payloadWithoutRecurrence;
+    }
+
     insertResult = await supabase.from("cargoo_trips").insert(legacyPayload).select("*").single();
   }
 
@@ -1615,7 +1686,6 @@ export const getPublicTripListings = async () => {
     .select("*")
     .in("user_id", userIds)
     .eq("status", "active")
-    .gte("trip_date", getTodayDateString())
     .order("trip_date", { ascending: true });
 
   if (isMissingCargooTable(tripsError)) {
@@ -1632,7 +1702,7 @@ export const getPublicTripListings = async () => {
   const visibleTrips = publicTrips.filter((tripRow) => {
     const trip = mapTripRow(tripRow);
     const tripDetails = buildTripDetails(trip, stopsByTripId.get(trip.id) ?? buildDefaultTripStops(trip), true);
-    return Boolean(tripDetails.nextStop);
+    return trip.recurrence !== "once" || Boolean(tripDetails.nextStop);
   });
   const tripCountByUserId = visibleTrips.reduce<Record<string, number>>((counts, trip) => {
     counts[trip.user_id] = (counts[trip.user_id] ?? 0) + 1;
@@ -1680,7 +1750,6 @@ export const getPublicCarrierProfile = async (userId: string) => {
     .select("*")
     .eq("user_id", userId)
     .eq("status", "active")
-    .gte("trip_date", getTodayDateString())
     .order("trip_date", { ascending: true });
 
   if (isMissingCargooTable(tripsError)) {
@@ -1698,7 +1767,7 @@ export const getPublicCarrierProfile = async (userId: string) => {
   const visibleTrips = upcomingTrips.filter((tripRow) => {
     const trip = mapTripRow(tripRow);
     const tripDetails = buildTripDetails(trip, stopsByTripId.get(trip.id) ?? buildDefaultTripStops(trip), true);
-    return Boolean(tripDetails.nextStop);
+    return trip.recurrence !== "once" || Boolean(tripDetails.nextStop);
   });
   const tripsCount = visibleTrips.length;
 

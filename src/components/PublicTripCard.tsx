@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import RouteInline from "@/components/RouteInline";
 import { useLocale } from "@/contexts/LocaleContext";
 import type { PublicTripListing } from "@/lib/cargoo-store";
+import { formatTripScheduleLabel } from "@/lib/trip-schedule";
 
 const PublicTripCard = ({ trip }: { trip: PublicTripListing }) => {
   const { intlLocale, messages } = useLocale();
@@ -15,10 +16,13 @@ const PublicTripCard = ({ trip }: { trip: PublicTripListing }) => {
     .join("")
     .slice(0, 2);
 
-  const formattedDate = new Date(trip.date).toLocaleDateString(intlLocale, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
+  const formattedDate = formatTripScheduleLabel({
+    date: trip.date,
+    recurrence: trip.recurrence,
+    intlLocale,
+    weeklyLabel: messages.common.weeklyRoute,
+    monthlyLabel: messages.common.monthlyRoute,
+    format: "short",
   });
   const ratingLabel =
     trip.averageRating !== null

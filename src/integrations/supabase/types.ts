@@ -215,6 +215,7 @@ export type Database = {
           id: string;
           notes: string | null;
           origin: string;
+          recurrence_type: string;
           requests: number;
           status: "active" | "completed";
           trip_date: string;
@@ -230,6 +231,7 @@ export type Database = {
           id?: string;
           notes?: string | null;
           origin: string;
+          recurrence_type?: string;
           requests?: number;
           status?: "active" | "completed";
           trip_date: string;
@@ -245,6 +247,7 @@ export type Database = {
           id?: string;
           notes?: string | null;
           origin?: string;
+          recurrence_type?: string;
           requests?: number;
           status?: "active" | "completed";
           trip_date?: string;

@@ -4,26 +4,20 @@ import "./index.css";
 import { registerPushServiceWorker } from "@/lib/push-notifications";
 import { initializeAppInstallPrompt } from "@/hooks/use-app-install-prompt";
 
+createRoot(document.getElementById("root")!).render(<App />);
+
 if (typeof window !== "undefined") {
   initializeAppInstallPrompt();
 
-  const hadActiveServiceWorker = "serviceWorker" in navigator && Boolean(navigator.serviceWorker.controller);
-  let refreshingForServiceWorkerUpdate = false;
-
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (!hadActiveServiceWorker || refreshingForServiceWorkerUpdate) {
-        return;
-      }
-
-      refreshingForServiceWorkerUpdate = true;
-      window.location.reload();
+  const bootServiceWorker = () => {
+    void registerPushServiceWorker().catch(() => {
+      // The app can work normally without push support.
     });
+  };
+
+  if (document.readyState === "complete") {
+    window.setTimeout(bootServiceWorker, 0);
+  } else {
+    window.addEventListener("load", bootServiceWorker, { once: true });
   }
-
-  void registerPushServiceWorker().catch(() => {
-    // The app can work normally without push support.
-  });
 }
-
-createRoot(document.getElementById("root")!).render(<App />);

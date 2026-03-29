@@ -8,8 +8,10 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { createTrip, getFriendlyErrorMessage, getTripById, type CargooTripDetails } from "@/lib/cargoo-store";
+import { createTrip, getFriendlyErrorMessage, getTripById, type CargooTripDetails, type TripRecurrence } from "@/lib/cargoo-store";
+import { formatTripScheduleLabel } from "@/lib/trip-schedule";
 
 const NewTripPage = () => {
   const navigate = useNavigate();
@@ -21,6 +23,7 @@ const NewTripPage = () => {
     origin: "",
     destination: "",
     date: "",
+    recurrence: "once" as TripRecurrence,
     vehicleType: "",
     capacity: "",
     notes: "",
@@ -35,6 +38,16 @@ const NewTripPage = () => {
 
   const update = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const updateRecurrence = (value: string) => {
+    const recurrence = value as TripRecurrence;
+
+    setForm((prev) => ({
+      ...prev,
+      recurrence,
+      date: recurrence === "once" ? prev.date || minTripDate : "",
+    }));
   };
 
   const addRouteStop = () => {
@@ -100,7 +113,8 @@ const NewTripPage = () => {
         setForm({
           origin: trip.origin,
           destination: trip.destination,
-          date: trip.status === "completed" ? "" : trip.date,
+          date: trip.recurrence === "once" && trip.status !== "completed" ? trip.date : "",
+          recurrence: trip.recurrence,
           vehicleType: trip.vehicleType,
           capacity: String(trip.capacityKg),
           notes: trip.notes,
@@ -118,17 +132,20 @@ const NewTripPage = () => {
     void loadReuseTrip();
   }, [authLoading, messages.newTripPage.reuseTripNotFound, profile, profileLoading, reuseAppliedId, reuseTripId]);
 
-  const reusedTripDate = useMemo(() => {
+  const reusedTripSchedule = useMemo(() => {
     if (!reusingTrip) {
       return "";
     }
 
-    return new Date(`${reusingTrip.date}T00:00:00`).toLocaleDateString(intlLocale, {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
+    return formatTripScheduleLabel({
+      date: reusingTrip.date,
+      recurrence: reusingTrip.recurrence,
+      intlLocale,
+      weeklyLabel: messages.common.weeklyRoute,
+      monthlyLabel: messages.common.monthlyRoute,
+      format: "short",
     });
-  }, [intlLocale, reusingTrip]);
+  }, [intlLocale, messages.common.monthlyRoute, messages.common.weeklyRoute, reusingTrip]);
 
   const minTripDate = useMemo(() => {
     const today = new Date();
@@ -138,10 +155,17 @@ const NewTripPage = () => {
     return `${year}-${month}-${day}`;
   }, []);
 
+  const recurrenceHint =
+    form.recurrence === "weekly"
+      ? messages.newTripPage.recurrenceHintWeekly
+      : form.recurrence === "monthly"
+        ? messages.newTripPage.recurrenceHintMonthly
+        : messages.newTripPage.recurrenceHintOnce;
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (form.date < minTripDate) {
+    if (form.recurrence === "once" && (!form.date || form.date < minTripDate)) {
       toast.error(messages.newTripPage.pastDateError);
       return;
     }
@@ -150,11 +174,11 @@ const NewTripPage = () => {
 
     try {
       const cleanedRouteStops = routeStops.map((stop) => stop.trim()).filter(Boolean);
-
       const trip = await createTrip({
         origin: form.origin,
         destination: form.destination,
-        date: form.date,
+        date: form.recurrence === "once" ? form.date : "",
+        recurrence: form.recurrence,
         vehicleType: form.vehicleType,
         capacityKg: Number(form.capacity),
         routeStops: cleanedRouteStops,
@@ -202,7 +226,7 @@ const NewTripPage = () => {
         {reusingTrip ? (
           <div className="rounded-xl border border-primary/10 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
             <p className="font-medium text-foreground">{messages.newTripPage.reusedTitle}</p>
-            <p className="mt-1">{messages.newTripPage.reusedDescription(reusingTrip.origin, reusingTrip.destination, reusedTripDate)}</p>
+            <p className="mt-1">{messages.newTripPage.reusedDescription(reusingTrip.origin, reusingTrip.destination, reusedTripSchedule)}</p>
           </div>
         ) : null}
 
@@ -268,22 +292,43 @@ const NewTripPage = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className={`grid gap-4 ${form.recurrence === "once" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>
           <div className="space-y-2">
-            <Label>{messages.newTripPage.dateLabel}</Label>
-            <div className="relative cursor-pointer" onClick={openDatePicker}>
-              <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                ref={dateInputRef}
-                type="date"
-                className="cargoo-date-input cursor-pointer pl-10 pr-3"
-                value={form.date}
-                min={minTripDate}
-                onChange={(event) => update("date", event.target.value)}
-                required
-              />
-            </div>
+            <Label>{messages.newTripPage.recurrenceLabel}</Label>
+            <Select value={form.recurrence} onValueChange={updateRecurrence}>
+              <SelectTrigger className="bg-background">
+                <SelectValue placeholder={messages.newTripPage.recurrencePlaceholder} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="once">{messages.newTripPage.recurrenceOptions.once}</SelectItem>
+                <SelectItem value="weekly">{messages.newTripPage.recurrenceOptions.weekly}</SelectItem>
+                <SelectItem value="monthly">{messages.newTripPage.recurrenceOptions.monthly}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
+          {form.recurrence === "once" ? (
+            <div className="space-y-2">
+              <Label>{messages.newTripPage.dateLabel}</Label>
+              <div className="relative cursor-pointer" onClick={openDatePicker}>
+                <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  ref={dateInputRef}
+                  type="date"
+                  className="cargoo-date-input cursor-pointer pl-10 pr-3"
+                  value={form.date}
+                  min={minTripDate}
+                  onChange={(event) => update("date", event.target.value)}
+                  required
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <p className="-mt-1 text-xs text-muted-foreground">{recurrenceHint}</p>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label>{messages.newTripPage.capacityLabel}</Label>
             <div className="relative">

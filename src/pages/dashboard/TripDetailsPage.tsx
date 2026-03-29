@@ -22,13 +22,7 @@ import {
   type ConversationSummary,
   type ShipmentSummary,
 } from "@/lib/cargoo-store";
-
-const formatTripDate = (value: string, intlLocale: string) =>
-  new Date(`${value}T00:00:00`).toLocaleDateString(intlLocale, {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+import { formatTripScheduleLabel } from "@/lib/trip-schedule";
 
 const formatCheckpointDate = (value: string | null, intlLocale: string, emptyLabel: string) => {
   if (!value) {
@@ -206,6 +200,14 @@ const TripDetailsPage = () => {
   }
 
   const status = statusConfig[trip.status];
+  const departureLabel = formatTripScheduleLabel({
+    date: trip.date,
+    recurrence: trip.recurrence,
+    intlLocale,
+    weeklyLabel: messages.common.weeklyRoute,
+    monthlyLabel: messages.common.monthlyRoute,
+    format: "long",
+  });
   const routeSummary = trip.stops.map((stop) => stop.city).join(" -> ");
   const shipmentByConversationId = new Map(shipments.map((shipment) => [shipment.conversationId, shipment] as const));
   const shipmentCounts = {
@@ -291,7 +293,7 @@ const TripDetailsPage = () => {
                     <Calendar className="h-4 w-4" />
                     <span>{messages.tripDetailsPage.departure}</span>
                   </div>
-                  <p className="mt-2 font-medium text-foreground">{formatTripDate(trip.date, intlLocale)}</p>
+                  <p className="mt-2 font-medium text-foreground">{departureLabel}</p>
                 </div>
 
                 <div className="rounded-xl border border-border/70 bg-background px-4 py-3">

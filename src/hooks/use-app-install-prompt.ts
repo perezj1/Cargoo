@@ -124,6 +124,11 @@ export const useAppInstallPrompt = ({ enabled = true }: { enabled?: boolean } = 
 
   useEffect(() => subscribeToInstallPrompt(setSnapshot), []);
 
+  const canRenderInstallEntry = useMemo(
+    () => enabled && (snapshot.isIos || snapshot.isAndroid || snapshot.isStandalone),
+    [enabled, snapshot.isAndroid, snapshot.isIos, snapshot.isStandalone],
+  );
+
   const canShowInstallEntry = useMemo(
     () => enabled && !snapshot.isStandalone && (snapshot.isIos || (snapshot.isAndroid && Boolean(snapshot.deferredPrompt))),
     [enabled, snapshot.deferredPrompt, snapshot.isAndroid, snapshot.isIos, snapshot.isStandalone],
@@ -141,7 +146,7 @@ export const useAppInstallPrompt = ({ enabled = true }: { enabled?: boolean } = 
     }
 
     const handleOpenRequest = () => {
-      if (canShowInstallEntry) {
+      if (canRenderInstallEntry) {
         setOpen(true);
       }
     };
@@ -151,7 +156,7 @@ export const useAppInstallPrompt = ({ enabled = true }: { enabled?: boolean } = 
     return () => {
       window.removeEventListener(OPEN_INSTALL_PROMPT_EVENT, handleOpenRequest);
     };
-  }, [canShowInstallEntry]);
+  }, [canRenderInstallEntry]);
 
   const closePrompt = () => {
     setOpen(false);
@@ -183,6 +188,7 @@ export const useAppInstallPrompt = ({ enabled = true }: { enabled?: boolean } = 
     open,
     setOpen,
     installing,
+    canRenderInstallEntry,
     canShowInstallEntry,
     closePrompt,
     handleInstall,

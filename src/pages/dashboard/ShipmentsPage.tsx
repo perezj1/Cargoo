@@ -29,6 +29,7 @@ import {
   submitShipmentReview,
   type ShipmentSummary,
 } from "@/lib/cargoo-store";
+import { formatTripScheduleLabel } from "@/lib/trip-schedule";
 
 const normalizeTab = (value: string | null) => {
   if (value === "active" || value === "delivered") {
@@ -210,13 +211,15 @@ const ShipmentsPage = () => {
           {filteredShipments.map((shipment) => {
             const status = statusConfig[shipment.status];
             const travelerPhone = shipment.travelerPhone.replace(/[^\d+]/g, "");
-            const formattedTripDate = shipment.tripDate
-              ? new Date(`${shipment.tripDate}T00:00:00`).toLocaleDateString(intlLocale, {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })
-              : messages.shipmentsPage.pendingDate;
+            const formattedTripDate = formatTripScheduleLabel({
+              date: shipment.tripDate,
+              recurrence: shipment.tripRecurrence,
+              intlLocale,
+              weeklyLabel: messages.common.weeklyRoute,
+              monthlyLabel: messages.common.monthlyRoute,
+              pendingLabel: messages.shipmentsPage.pendingDate,
+              format: "short",
+            });
 
             return (
               <div key={shipment.id} className="rounded-xl bg-card p-4 shadow-card">
