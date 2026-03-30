@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { supabase } from "@/integrations/supabase/client";
+import { getTripRouteLabels, localizeLocationText } from "@/lib/location-catalog";
 import {
   advanceTripToNextStop,
   getConversations,
@@ -43,7 +44,7 @@ const TripDetailsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { loading: authLoading, profile, profileLoading } = useAuth();
-  const { intlLocale, messages } = useLocale();
+  const { intlLocale, locale, messages } = useLocale();
   const { tripId = "" } = useParams();
   const [trip, setTrip] = useState<CargooTripDetails | null>(null);
   const [shipments, setShipments] = useState<ShipmentSummary[]>([]);
@@ -137,10 +138,10 @@ const TripDetailsPage = () => {
       await loadTripData();
       toast.success(
         updatedTrip.nextStop
-          ? messages.tripDetailsPage.checkpointSaved(updatedTrip.nextStop.city)
+          ? messages.tripDetailsPage.checkpointSaved(localizeLocationText(updatedTrip.nextStop.city, locale))
           : updatedTrip.status === "completed"
-            ? messages.tripDetailsPage.tripCompleted(updatedTrip.destination)
-            : messages.tripDetailsPage.destinationReached(updatedTrip.destination),
+            ? messages.tripDetailsPage.tripCompleted(localizeLocationText(updatedTrip.destination, locale))
+            : messages.tripDetailsPage.destinationReached(localizeLocationText(updatedTrip.destination, locale)),
       );
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
@@ -235,7 +236,13 @@ const TripDetailsPage = () => {
     monthlyLabel: messages.common.monthlyRoute,
     format: "long",
   });
-  const routeSummary = trip.stops.map((stop) => stop.city).join(" -> ");
+  const routeLabels = getTripRouteLabels(trip, locale, {
+    anyCityInCountry: messages.common.anyCityInCountry,
+  });
+  const routeSummary =
+    trip.coverageMode === "country_flexible"
+      ? `${routeLabels.originLabel} -> ${routeLabels.destinationLabel}`
+      : trip.stops.map((stop) => localizeLocationText(stop.city, locale)).join(" -> ");
   const shipmentByConversationId = new Map(shipments.map((shipment) => [shipment.conversationId, shipment] as const));
   const shipmentCounts = {
     pending: tripConversations.filter((conversation) => {
@@ -282,8 +289,8 @@ const TripDetailsPage = () => {
           <div className="flex items-start justify-between gap-3">
             <CardTitle className="min-w-0 pr-2 text-lg">
               <RouteInline
-                origin={trip.origin}
-                destination={trip.destination}
+                origin={routeLabels.originLabel}
+                destination={routeLabels.destinationLabel}
                 className="w-full text-lg"
                 labelClassName="font-semibold text-foreground"
                 pinClassName="h-5 w-5"
@@ -346,7 +353,7 @@ const TripDetailsPage = () => {
                     <CheckCircle2 className="h-4 w-4" />
                     <span>{messages.tripDetailsPage.lastCheckpoint}</span>
                   </div>
-                  <p className="mt-2 font-medium text-foreground">{trip.lastCheckpointCity}</p>
+                  <p className="mt-2 font-medium text-foreground">{localizeLocationText(trip.lastCheckpointCity, locale)}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {formatCheckpointDate(trip.lastCheckpointAt, intlLocale, messages.tripDetailsPage.noUpdatesYet)}
                   </p>
@@ -358,7 +365,9 @@ const TripDetailsPage = () => {
                     <span>{messages.tripDetailsPage.nextCity}</span>
                   </div>
                   <p className="mt-2 font-medium text-foreground">
-                    {trip.nextStop?.city ??
+                    {trip.nextStop?.city
+                      ? localizeLocationText(trip.nextStop.city, locale)
+                      :
                       (trip.status === "completed" ? messages.tripDetailsPage.routeCompleted : messages.tripDetailsPage.destinationReachedLabel)}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -391,7 +400,7 @@ const TripDetailsPage = () => {
                     {advancing
                       ? messages.tripDetailsPage.savingCheckpoint
                       : trip.nextStop
-                        ? messages.tripDetailsPage.arrivedAt(trip.nextStop.city)
+                        ? messages.tripDetailsPage.arrivedAt(localizeLocationText(trip.nextStop.city, locale))
                         : messages.tripDetailsPage.noPendingCities}
                   </Button>
                 )}
@@ -556,7 +565,7 @@ const TripDetailsPage = () => {
 
                 <div className="min-w-0 flex-1 rounded-xl border border-border/70 bg-background px-4 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-medium text-foreground">{stop.city}</p>
+                    <p className="font-medium text-foreground">{localizeLocationText(stop.city, locale)}</p>
                     <Badge
                       variant="outline"
                       className={

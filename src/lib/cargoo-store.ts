@@ -3,6 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { localeMessages, normalizeLocale, type Locale } from "@/locales";
+import type { CityId, CountryCode } from "@/lib/location-catalog";
 import { normalizeSearchText } from "@/lib/search-normalization";
 
 type PushEventPayload =
@@ -40,6 +41,11 @@ export interface CargooTrip {
   id: string;
   origin: string;
   destination: string;
+  coverageMode: TripCoverageMode;
+  originCityId: CityId | null;
+  destinationCityId: CityId | null;
+  originCountryCode: CountryCode | null;
+  destinationCountryCode: CountryCode | null;
   date: string;
   recurrence: TripRecurrence;
   vehicleType: string;
@@ -78,6 +84,11 @@ export interface PublicTripListing {
   reviewsCount: number;
   origin: string;
   destination: string;
+  coverageMode: TripCoverageMode;
+  originCityId: CityId | null;
+  destinationCityId: CityId | null;
+  originCountryCode: CountryCode | null;
+  destinationCountryCode: CountryCode | null;
   date: string;
   recurrence: TripRecurrence;
   vehicleType: string;
@@ -114,6 +125,7 @@ export interface UserReview {
 }
 
 export type ShipmentStatus = "pending" | "accepted" | "delivered";
+export type TripCoverageMode = "exact" | "country_flexible";
 
 export interface ShipmentSummary {
   id: string;
@@ -220,6 +232,11 @@ interface RegisterUserInput {
 interface CreateTripInput {
   origin: string;
   destination: string;
+  coverageMode: TripCoverageMode;
+  originCityId?: CityId | null;
+  destinationCityId?: CityId | null;
+  originCountryCode?: CountryCode | null;
+  destinationCountryCode?: CountryCode | null;
   date: string;
   recurrence: TripRecurrence;
   vehicleType: string;
@@ -327,6 +344,14 @@ const isMissingTripRecurrenceColumn = (error: { message?: string; code?: string 
   return /recurrence_type/i.test(error.message ?? "") && /cargoo_trips/i.test(error.message ?? "");
 };
 
+const isMissingTripCoverageColumn = (error: { message?: string; code?: string } | null) => {
+  if (!error) {
+    return false;
+  }
+
+  return /coverage_mode|origin_country_code|destination_country_code|origin_city_id|destination_city_id/i.test(error.message ?? "");
+};
+
 const mapSupabaseError = (error: { message?: string } | null) => {
   if (!error) {
     return null;
@@ -363,6 +388,14 @@ const normalizeTripRecurrence = (value: unknown): TripRecurrence => {
   }
 
   return "once";
+};
+
+const normalizeTripCoverageMode = (value: unknown): TripCoverageMode => {
+  if (value === "country_flexible") {
+    return "country_flexible";
+  }
+
+  return "exact";
 };
 
 const parseDateInput = (value: string) => {
@@ -528,6 +561,11 @@ const getMetadataTrips = (user: User): CargooTrip[] => {
         id: item.id,
         origin: item.origin,
         destination: item.destination,
+        coverageMode: normalizeTripCoverageMode(item.coverageMode),
+        originCityId: typeof item.originCityId === "string" ? item.originCityId : null,
+        destinationCityId: typeof item.destinationCityId === "string" ? item.destinationCityId : null,
+        originCountryCode: typeof item.originCountryCode === "string" ? (item.originCountryCode as CountryCode) : null,
+        destinationCountryCode: typeof item.destinationCountryCode === "string" ? (item.destinationCountryCode as CountryCode) : null,
         date: item.date,
         recurrence: normalizeTripRecurrence(item.recurrence),
         vehicleType: typeof item.vehicleType === "string" ? item.vehicleType : "",
@@ -667,6 +705,11 @@ const mapTripRow = (row: {
   id: string;
   origin: string;
   destination: string;
+  coverage_mode?: string | null;
+  origin_city_id?: string | null;
+  destination_city_id?: string | null;
+  origin_country_code?: string | null;
+  destination_country_code?: string | null;
   trip_date: string;
   recurrence_type?: string | null;
   vehicle_type: string | null;
@@ -680,6 +723,11 @@ const mapTripRow = (row: {
   id: row.id,
   origin: row.origin,
   destination: row.destination,
+  coverageMode: normalizeTripCoverageMode(row.coverage_mode),
+  originCityId: row.origin_city_id ?? null,
+  destinationCityId: row.destination_city_id ?? null,
+  originCountryCode: (row.origin_country_code as CountryCode | null | undefined) ?? null,
+  destinationCountryCode: (row.destination_country_code as CountryCode | null | undefined) ?? null,
   date: row.trip_date,
   recurrence: normalizeTripRecurrence(row.recurrence_type),
   vehicleType: row.vehicle_type ?? "",
@@ -742,6 +790,11 @@ const buildPublicTripListing = (
     user_id: string;
     origin: string;
     destination: string;
+    coverage_mode?: string | null;
+    origin_city_id?: string | null;
+    destination_city_id?: string | null;
+    origin_country_code?: string | null;
+    destination_country_code?: string | null;
     trip_date: string;
     recurrence_type?: string | null;
     vehicle_type: string | null;
@@ -771,6 +824,11 @@ const buildPublicTripListing = (
     reviewsCount: profile?.reviewsCount ?? 0,
     origin: trip.origin,
     destination: trip.destination,
+    coverageMode: normalizeTripCoverageMode(trip.coverage_mode),
+    originCityId: trip.origin_city_id ?? null,
+    destinationCityId: trip.destination_city_id ?? null,
+    originCountryCode: (trip.origin_country_code as CountryCode | null | undefined) ?? null,
+    destinationCountryCode: (trip.destination_country_code as CountryCode | null | undefined) ?? null,
     date: trip.trip_date,
     recurrence: normalizeTripRecurrence(trip.recurrence_type),
     vehicleType: trip.vehicle_type ?? "",
@@ -1501,6 +1559,7 @@ const syncTripCompletionState = async (userId: string, tripId: string) => {
 export const createTrip = async (trip: CreateTripInput) => {
   const user = await requireUser();
   const profile = await ensureProfile(user);
+  const normalizedCoverageMode = normalizeTripCoverageMode(trip.coverageMode);
   const normalizedOrigin = trip.origin.trim();
   const normalizedDestination = trip.destination.trim();
   const normalizedRecurrence = normalizeTripRecurrence(trip.recurrence);
@@ -1516,6 +1575,11 @@ export const createTrip = async (trip: CreateTripInput) => {
     id: `trip-${Date.now()}`,
     origin: normalizedOrigin,
     destination: normalizedDestination,
+    coverageMode: normalizedCoverageMode,
+    originCityId: trip.originCityId ?? null,
+    destinationCityId: trip.destinationCityId ?? null,
+    originCountryCode: trip.originCountryCode ?? null,
+    destinationCountryCode: trip.destinationCountryCode ?? null,
     date: normalizedDate,
     recurrence: normalizedRecurrence,
     vehicleType: normalizedVehicleType,
@@ -1531,6 +1595,11 @@ export const createTrip = async (trip: CreateTripInput) => {
     user_id: user.id,
     origin: normalizedOrigin,
     destination: normalizedDestination,
+    coverage_mode: normalizedCoverageMode,
+    origin_city_id: trip.originCityId ?? null,
+    destination_city_id: trip.destinationCityId ?? null,
+    origin_country_code: trip.originCountryCode ?? null,
+    destination_country_code: trip.destinationCountryCode ?? null,
     trip_date: nextTrip.date,
     recurrence_type: normalizedRecurrence,
     vehicle_type: normalizedVehicleType || null,
@@ -1543,7 +1612,7 @@ export const createTrip = async (trip: CreateTripInput) => {
 
   let insertResult = await supabase.from("cargoo_trips").insert(payload).select("*").single();
 
-  if (isMissingTripVehicleColumn(insertResult.error) || isMissingTripRecurrenceColumn(insertResult.error)) {
+  if (isMissingTripVehicleColumn(insertResult.error) || isMissingTripRecurrenceColumn(insertResult.error) || isMissingTripCoverageColumn(insertResult.error)) {
     let legacyPayload = { ...payload };
 
     if (isMissingTripVehicleColumn(insertResult.error)) {
@@ -1554,6 +1623,18 @@ export const createTrip = async (trip: CreateTripInput) => {
     if (isMissingTripRecurrenceColumn(insertResult.error)) {
       const { recurrence_type: _recurrenceType, ...payloadWithoutRecurrence } = legacyPayload;
       legacyPayload = payloadWithoutRecurrence;
+    }
+
+    if (isMissingTripCoverageColumn(insertResult.error)) {
+      const {
+        coverage_mode: _coverageMode,
+        origin_city_id: _originCityId,
+        destination_city_id: _destinationCityId,
+        origin_country_code: _originCountryCode,
+        destination_country_code: _destinationCountryCode,
+        ...payloadWithoutCoverage
+      } = legacyPayload;
+      legacyPayload = payloadWithoutCoverage;
     }
 
     insertResult = await supabase.from("cargoo_trips").insert(legacyPayload).select("*").single();

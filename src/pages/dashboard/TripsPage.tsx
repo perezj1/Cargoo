@@ -19,12 +19,13 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { deleteCompletedTrip, getFriendlyErrorMessage, getTrips, type CargooTrip } from "@/lib/cargoo-store";
+import { getTripRouteLabels } from "@/lib/location-catalog";
 import { formatTripScheduleLabel } from "@/lib/trip-schedule";
 
 const TripsPage = () => {
   const navigate = useNavigate();
   const { loading: authLoading, profile, profileLoading } = useAuth();
-  const { intlLocale, messages } = useLocale();
+  const { intlLocale, locale, messages } = useLocale();
   const [tab, setTab] = useState("active");
   const [trips, setTrips] = useState<CargooTrip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,6 +118,9 @@ const TripsPage = () => {
       ) : (
         <div className="space-y-3">
           {filteredTrips.map((trip) => {
+            const routeLabels = getTripRouteLabels(trip, locale, {
+              anyCityInCountry: messages.common.anyCityInCountry,
+            });
             const status = statusConfig[trip.status];
             const formattedDate = formatTripScheduleLabel({
               date: trip.date,
@@ -132,11 +136,18 @@ const TripsPage = () => {
                 <Link to={`/app/trips/${trip.id}`} className="block">
                   <div className="mb-3 flex items-start justify-between">
                     <div className="min-w-0 flex-1 pr-3">
-                      <RouteInline origin={trip.origin} destination={trip.destination} className="text-sm font-medium" />
+                      <RouteInline origin={routeLabels.originLabel} destination={routeLabels.destinationLabel} className="text-sm font-medium" />
                     </div>
-                    <Badge variant="outline" className={status.className}>
-                      {status.label}
-                    </Badge>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {trip.coverageMode === "country_flexible" ? (
+                        <Badge variant="outline" className="bg-card text-xs">
+                          {messages.common.flexibleRouteBadge}
+                        </Badge>
+                      ) : null}
+                      <Badge variant="outline" className={status.className}>
+                        {status.label}
+                      </Badge>
+                    </div>
                   </div>
                   <div className="mb-3 flex items-center gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">

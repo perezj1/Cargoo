@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import RouteInline from "@/components/RouteInline";
 import { useLocale } from "@/contexts/LocaleContext";
 import type { PublicTripListing } from "@/lib/cargoo-store";
+import { getTripRouteLabels } from "@/lib/location-catalog";
 import { formatTripScheduleLabel } from "@/lib/trip-schedule";
 
 const PublicTripCard = ({ trip }: { trip: PublicTripListing }) => {
-  const { intlLocale, messages } = useLocale();
+  const { intlLocale, locale, messages } = useLocale();
   const initials = trip.carrierName
     .split(" ")
     .map((namePart) => namePart[0])
@@ -30,11 +31,14 @@ const PublicTripCard = ({ trip }: { trip: PublicTripListing }) => {
       : messages.common.newLabel;
   const ratingCaption =
     trip.reviewsCount > 0 ? messages.publicTripCard.reviews(trip.reviewsCount) : messages.publicTripCard.noReviews;
+  const routeLabels = getTripRouteLabels(trip, locale, {
+    anyCityInCountry: messages.common.anyCityInCountry,
+  });
 
   return (
     <Link
       to={`/transportistas/${trip.userId}?trip=${encodeURIComponent(trip.id)}`}
-      className="block rounded-xl border border-border bg-card p-6 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover"
+      className="block max-w-full overflow-hidden rounded-xl border border-border bg-card p-6 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover"
     >
       <div className="mb-4 flex items-start gap-4">
         <Avatar className="h-12 w-12 shrink-0">
@@ -47,6 +51,11 @@ const PublicTripCard = ({ trip }: { trip: PublicTripListing }) => {
             <Badge variant="secondary" className="shrink-0 text-xs">
               {messages.publicTripCard.public}
             </Badge>
+            {trip.coverageMode === "country_flexible" ? (
+              <Badge variant="outline" className="shrink-0 text-xs">
+                {messages.common.flexibleRouteBadge}
+              </Badge>
+            ) : null}
           </div>
           <p className="text-sm text-muted-foreground">{messages.publicTripCard.tripsPublished(trip.tripsCount)}</p>
           <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -59,7 +68,12 @@ const PublicTripCard = ({ trip }: { trip: PublicTripListing }) => {
 
       <div className="space-y-2.5">
         <div className="flex justify-start">
-          <RouteInline origin={trip.origin} destination={trip.destination} className="text-sm" labelClassName="text-card-foreground" />
+          <RouteInline
+            origin={routeLabels.originLabel}
+            destination={routeLabels.destinationLabel}
+            className="text-sm"
+            labelClassName="text-card-foreground"
+          />
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
           <div className="flex min-w-0 items-center gap-1.5">

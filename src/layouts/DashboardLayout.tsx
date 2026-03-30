@@ -21,7 +21,7 @@ const DashboardLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen overflow-x-hidden bg-background pb-20">
       <Outlet />
       <AppInstallPrompt enabled={Boolean(user)} />
       <BottomNav />

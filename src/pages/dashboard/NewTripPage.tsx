@@ -3,6 +3,8 @@ import { ArrowLeft, Calendar, CarFront, MapPin, Package, Plus, Trash2 } from "lu
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
+import CityAutocompleteInput from "@/components/CityAutocompleteInput";
+import CountryAutocompleteInput from "@/components/CountryAutocompleteInput";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
@@ -10,18 +12,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { createTrip, getFriendlyErrorMessage, getTripById, type CargooTripDetails, type TripRecurrence } from "@/lib/cargoo-store";
+import { type CountryCode, getCityCountryCode, getCityLabel, getCityOptionLabel, getCountryLabel, resolveCityIdFromInput } from "@/lib/location-catalog";
+import { createTrip, getFriendlyErrorMessage, getTripById, type CargooTripDetails, type TripCoverageMode, type TripRecurrence } from "@/lib/cargoo-store";
 import { formatTripScheduleLabel } from "@/lib/trip-schedule";
 
 const NewTripPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { loading: authLoading, profile, profileLoading } = useAuth();
-  const { intlLocale, messages } = useLocale();
+  const { intlLocale, locale, messages } = useLocale();
   const reuseTripId = searchParams.get("reuseTrip") ?? "";
   const [form, setForm] = useState({
+    coverageMode: "exact" as TripCoverageMode,
     origin: "",
     destination: "",
+    originCityId: "",
+    destinationCityId: "",
+    originCountryCode: "",
+    destinationCountryCode: "",
     date: "",
     recurrence: "once" as TripRecurrence,
     vehicleType: "",
@@ -38,6 +46,53 @@ const NewTripPage = () => {
 
   const update = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const updateCountryCode = (field: "originCountryCode" | "destinationCountryCode", value: CountryCode | null) => {
+    setForm((prev) => ({
+      ...prev,
+      [field]: value ?? "",
+    }));
+  };
+
+  const updateCoverageMode = (value: string) => {
+    const coverageMode = value as TripCoverageMode;
+
+    setForm((prev) => ({
+      ...prev,
+      coverageMode,
+      origin:
+        coverageMode === "country_flexible"
+          ? prev.originCountryCode
+            ? getCountryLabel(prev.originCountryCode as CountryCode, locale)
+            : ""
+          : prev.originCityId
+            ? getCityOptionLabel(prev.originCityId, locale)
+            : "",
+      destination:
+        coverageMode === "country_flexible"
+          ? prev.destinationCountryCode
+            ? getCountryLabel(prev.destinationCountryCode as CountryCode, locale)
+            : ""
+          : prev.destinationCityId
+            ? getCityOptionLabel(prev.destinationCityId, locale)
+            : "",
+    }));
+  };
+
+  const updateCountryInput = (field: "origin" | "destination", value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const updateCitySelection = (field: "originCityId" | "destinationCityId", cityId: string | null) => {
+    setForm((prev) => ({
+      ...prev,
+      [field]: cityId ?? "",
+      [field === "originCityId" ? "originCountryCode" : "destinationCountryCode"]: getCityCountryCode(cityId) ?? "",
+    }));
   };
 
   const updateRecurrence = (value: string) => {
@@ -110,9 +165,33 @@ const NewTripPage = () => {
           throw new Error(messages.newTripPage.reuseTripNotFound);
         }
 
+        const resolvedOriginCityId = trip.originCityId ?? resolveCityIdFromInput(trip.origin);
+        const resolvedDestinationCityId = trip.destinationCityId ?? resolveCityIdFromInput(trip.destination);
+        const resolvedOriginCountryCode = trip.originCountryCode ?? getCityCountryCode(resolvedOriginCityId) ?? "";
+        const resolvedDestinationCountryCode = trip.destinationCountryCode ?? getCityCountryCode(resolvedDestinationCityId) ?? "";
+
         setForm({
-          origin: trip.origin,
-          destination: trip.destination,
+          coverageMode: trip.coverageMode,
+          origin:
+            trip.coverageMode === "country_flexible"
+              ? resolvedOriginCountryCode
+                ? getCountryLabel(resolvedOriginCountryCode, locale)
+                : trip.origin
+              : resolvedOriginCityId
+                ? getCityOptionLabel(resolvedOriginCityId, locale)
+                : trip.origin,
+          destination:
+            trip.coverageMode === "country_flexible"
+              ? resolvedDestinationCountryCode
+                ? getCountryLabel(resolvedDestinationCountryCode, locale)
+                : trip.destination
+              : resolvedDestinationCityId
+                ? getCityOptionLabel(resolvedDestinationCityId, locale)
+                : trip.destination,
+          originCityId: resolvedOriginCityId ?? "",
+          destinationCityId: resolvedDestinationCityId ?? "",
+          originCountryCode: resolvedOriginCountryCode,
+          destinationCountryCode: resolvedDestinationCountryCode,
           date: trip.recurrence === "once" && trip.status !== "completed" ? trip.date : "",
           recurrence: trip.recurrence,
           vehicleType: trip.vehicleType,
@@ -130,7 +209,38 @@ const NewTripPage = () => {
     };
 
     void loadReuseTrip();
-  }, [authLoading, messages.newTripPage.reuseTripNotFound, profile, profileLoading, reuseAppliedId, reuseTripId]);
+  }, [authLoading, locale, messages.newTripPage.reuseTripNotFound, profile, profileLoading, reuseAppliedId, reuseTripId]);
+
+  useEffect(() => {
+    setForm((prev) => {
+      const nextOrigin =
+        prev.coverageMode === "country_flexible"
+          ? prev.originCountryCode
+            ? getCountryLabel(prev.originCountryCode as CountryCode, locale)
+            : prev.origin
+          : prev.originCityId
+            ? getCityOptionLabel(prev.originCityId, locale)
+            : prev.origin;
+      const nextDestination =
+        prev.coverageMode === "country_flexible"
+          ? prev.destinationCountryCode
+            ? getCountryLabel(prev.destinationCountryCode as CountryCode, locale)
+            : prev.destination
+          : prev.destinationCityId
+            ? getCityOptionLabel(prev.destinationCityId, locale)
+            : prev.destination;
+
+      if (nextOrigin === prev.origin && nextDestination === prev.destination) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        origin: nextOrigin,
+        destination: nextDestination,
+      };
+    });
+  }, [locale]);
 
   const reusedTripSchedule = useMemo(() => {
     if (!reusingTrip) {
@@ -161,6 +271,7 @@ const NewTripPage = () => {
       : form.recurrence === "monthly"
         ? messages.newTripPage.recurrenceHintMonthly
         : messages.newTripPage.recurrenceHintOnce;
+  const isFlexibleCoverage = form.coverageMode === "country_flexible";
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -173,10 +284,38 @@ const NewTripPage = () => {
     setSaving(true);
 
     try {
-      const cleanedRouteStops = routeStops.map((stop) => stop.trim()).filter(Boolean);
+      const selectedOriginCityId = isFlexibleCoverage ? null : form.originCityId || resolveCityIdFromInput(form.origin);
+      const selectedDestinationCityId = isFlexibleCoverage ? null : form.destinationCityId || resolveCityIdFromInput(form.destination);
+      const selectedOriginCountryCode = isFlexibleCoverage
+        ? (form.originCountryCode as CountryCode | "")
+        : getCityCountryCode(selectedOriginCityId) ?? "";
+      const selectedDestinationCountryCode = isFlexibleCoverage
+        ? (form.destinationCountryCode as CountryCode | "")
+        : getCityCountryCode(selectedDestinationCityId) ?? "";
+
+      if (!isFlexibleCoverage && (!selectedOriginCityId || !selectedDestinationCityId)) {
+        throw new Error(messages.newTripPage.citySelectionRequired);
+      }
+
+      if (!selectedOriginCountryCode || !selectedDestinationCountryCode) {
+        throw new Error(messages.newTripPage.countrySelectionRequired);
+      }
+
+      const originLabel = isFlexibleCoverage
+        ? getCountryLabel(selectedOriginCountryCode, locale)
+        : getCityLabel(selectedOriginCityId, locale);
+      const destinationLabel = isFlexibleCoverage
+        ? getCountryLabel(selectedDestinationCountryCode, locale)
+        : getCityLabel(selectedDestinationCityId, locale);
+      const cleanedRouteStops = isFlexibleCoverage ? [] : routeStops.map((stop) => stop.trim()).filter(Boolean);
       const trip = await createTrip({
-        origin: form.origin,
-        destination: form.destination,
+        origin: originLabel,
+        destination: destinationLabel,
+        coverageMode: form.coverageMode,
+        originCityId: selectedOriginCityId,
+        destinationCityId: selectedDestinationCityId,
+        originCountryCode: selectedOriginCountryCode as CountryCode,
+        destinationCountryCode: selectedDestinationCountryCode as CountryCode,
         date: form.recurrence === "once" ? form.date : "",
         recurrence: form.recurrence,
         vehicleType: form.vehicleType,
@@ -231,65 +370,112 @@ const NewTripPage = () => {
         ) : null}
 
         <div className="space-y-2">
-          <Label>{messages.newTripPage.originLabel}</Label>
-          <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
-            <Input
-              placeholder={messages.newTripPage.originPlaceholder}
-              className="pl-10"
-              value={form.origin}
-              onChange={(event) => update("origin", event.target.value)}
-              required
-            />
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <Button type="button" variant="outline" className="w-full justify-start gap-2 border-dashed" onClick={addRouteStop}>
-            <Plus className="h-4 w-4" />
-            {messages.newTripPage.addRouteStops}
-          </Button>
-
-          {routeStops.map((stop, index) => (
-            <div key={`route-stop-${index}`} className="rounded-xl border border-border/80 bg-secondary/20 p-3">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <Label className="text-xs font-medium text-muted-foreground">{messages.newTripPage.stopLabel(index + 1)}</Label>
-                <button
-                  type="button"
-                  onClick={() => removeRouteStop(index)}
-                  className="text-muted-foreground transition-colors hover:text-destructive"
-                  aria-label={messages.newTripPage.deleteStopAria(index + 1)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
-                <Input
-                  placeholder={messages.newTripPage.stopPlaceholder}
-                  className="pl-10"
-                  value={stop}
-                  onChange={(event) => updateRouteStop(index, event.target.value)}
-                />
-              </div>
-            </div>
-          ))}
-
-          <p className="text-xs text-muted-foreground">{messages.newTripPage.stopHint}</p>
+          <Label>{messages.newTripPage.coverageModeLabel}</Label>
+          <Select value={form.coverageMode} onValueChange={updateCoverageMode}>
+            <SelectTrigger className="bg-background">
+              <SelectValue placeholder={messages.newTripPage.coverageModeLabel} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="exact">{messages.newTripPage.coverageModeExact}</SelectItem>
+              <SelectItem value="country_flexible">{messages.newTripPage.coverageModeCountryFlexible}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2">
-          <Label>{messages.newTripPage.destinationLabel}</Label>
-          <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-accent" />
-            <Input
-              placeholder={messages.newTripPage.destinationPlaceholder}
-              className="pl-10"
-              value={form.destination}
-              onChange={(event) => update("destination", event.target.value)}
+          <Label>{isFlexibleCoverage ? messages.newTripPage.originCountryLabel : messages.newTripPage.originCityLabel}</Label>
+          {isFlexibleCoverage ? (
+            <CountryAutocompleteInput
+              value={form.origin}
+              selectedCountryCode={(form.originCountryCode as CountryCode) || null}
+              onValueChange={(value) => updateCountryInput("origin", value)}
+              onSelectedCountryCodeChange={(countryCode) => updateCountryCode("originCountryCode", countryCode)}
+              placeholder={messages.newTripPage.countryPlaceholder}
               required
             />
+          ) : (
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-primary" />
+              <CityAutocompleteInput
+                listId="new-trip-origin-cities"
+                value={form.origin}
+                selectedCityId={form.originCityId || null}
+                onValueChange={(value) => update("origin", value)}
+                onSelectedCityIdChange={(cityId) => updateCitySelection("originCityId", cityId)}
+                placeholder={messages.newTripPage.cityPlaceholder}
+                className="pl-10"
+                required
+              />
+            </div>
+          )}
+        </div>
+
+        {isFlexibleCoverage ? (
+          <div className="rounded-xl border border-primary/10 bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
+            {messages.newTripPage.flexibleRouteHint}
           </div>
+        ) : (
+          <div className="space-y-3">
+            <Button type="button" variant="outline" className="w-full justify-start gap-2 border-dashed" onClick={addRouteStop}>
+              <Plus className="h-4 w-4" />
+              {messages.newTripPage.addRouteStops}
+            </Button>
+
+            {routeStops.map((stop, index) => (
+              <div key={`route-stop-${index}`} className="rounded-xl border border-border/80 bg-secondary/20 p-3">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <Label className="text-xs font-medium text-muted-foreground">{messages.newTripPage.stopLabel(index + 1)}</Label>
+                  <button
+                    type="button"
+                    onClick={() => removeRouteStop(index)}
+                    className="text-muted-foreground transition-colors hover:text-destructive"
+                    aria-label={messages.newTripPage.deleteStopAria(index + 1)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
+                  <Input
+                    placeholder={messages.newTripPage.stopPlaceholder}
+                    className="pl-10"
+                    value={stop}
+                    onChange={(event) => updateRouteStop(index, event.target.value)}
+                  />
+                </div>
+              </div>
+            ))}
+
+            <p className="text-xs text-muted-foreground">{messages.newTripPage.stopHint}</p>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Label>{isFlexibleCoverage ? messages.newTripPage.destinationCountryLabel : messages.newTripPage.destinationCityLabel}</Label>
+          {isFlexibleCoverage ? (
+            <CountryAutocompleteInput
+              value={form.destination}
+              selectedCountryCode={(form.destinationCountryCode as CountryCode) || null}
+              onValueChange={(value) => updateCountryInput("destination", value)}
+              onSelectedCountryCodeChange={(countryCode) => updateCountryCode("destinationCountryCode", countryCode)}
+              placeholder={messages.newTripPage.countryPlaceholder}
+              required
+            />
+          ) : (
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-accent" />
+              <CityAutocompleteInput
+                listId="new-trip-destination-cities"
+                value={form.destination}
+                selectedCityId={form.destinationCityId || null}
+                onValueChange={(value) => update("destination", value)}
+                onSelectedCityIdChange={(cityId) => updateCitySelection("destinationCityId", cityId)}
+                placeholder={messages.newTripPage.cityPlaceholder}
+                className="pl-10"
+                required
+              />
+            </div>
+          )}
         </div>
 
         <div className={`grid gap-4 ${form.recurrence === "once" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>

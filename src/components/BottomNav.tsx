@@ -118,8 +118,8 @@ const BottomNav = () => {
   );
 
   return (
-    <nav className="safe-area-bottom fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card">
-      <div className="mx-auto flex h-16 max-w-lg items-center justify-around">
+    <nav className="safe-area-bottom fixed bottom-0 left-0 right-0 z-50 overflow-hidden border-t border-border bg-card">
+      <div className="mx-auto flex h-16 w-full max-w-lg items-center justify-around px-4">
         {itemsWithIndicators.map((item) => {
           const active =
             item.to === "/app" ? pathname === item.to : pathname === item.to || pathname.startsWith(`${item.to}/`);

@@ -3,16 +3,17 @@ import { ArrowRight, CarFront, CheckCircle2, MapPin, MessageSquare, Package, Pho
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
+import CityAutocompleteInput from "@/components/CityAutocompleteInput";
 import RouteInline from "@/components/RouteInline";
 import ShipmentReviewDialog from "@/components/ShipmentReviewDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { supabase } from "@/integrations/supabase/client";
+import { getCityOptionLabel, getTripRouteLabels, localizeLocationText, resolveCityIdFromInput, type CityId } from "@/lib/location-catalog";
 import {
   advanceTripToNextStop,
   getConversations,
@@ -33,7 +34,7 @@ import {
 
 const DashboardHome = () => {
   const { loading: authLoading, profile, profileLoading } = useAuth();
-  const { intlLocale, messages } = useLocale();
+  const { intlLocale, locale, messages } = useLocale();
   const [trips, setTrips] = useState<CargooTrip[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [shipments, setShipments] = useState<ShipmentSummary[]>([]);
@@ -49,6 +50,8 @@ const DashboardHome = () => {
   const [savingReview, setSavingReview] = useState(false);
   const [searchOrigin, setSearchOrigin] = useState("");
   const [searchDestination, setSearchDestination] = useState("");
+  const [searchOriginCityId, setSearchOriginCityId] = useState<CityId | null>(null);
+  const [searchDestinationCityId, setSearchDestinationCityId] = useState<CityId | null>(null);
   const shipmentStatusConfig = {
     pending: { label: messages.shipmentStatus.pending, className: "border-warning/20 bg-warning/10 text-warning" },
     accepted: { label: messages.shipmentStatus.accepted, className: "border-primary/20 bg-primary/10 text-primary" },
@@ -98,6 +101,16 @@ const DashboardHome = () => {
   useEffect(() => {
     void loadDashboardData();
   }, [profile]);
+
+  useEffect(() => {
+    if (searchOriginCityId) {
+      setSearchOrigin(getCityOptionLabel(searchOriginCityId, locale));
+    }
+
+    if (searchDestinationCityId) {
+      setSearchDestination(getCityOptionLabel(searchDestinationCityId, locale));
+    }
+  }, [locale, searchDestinationCityId, searchOriginCityId]);
 
   useEffect(() => {
     if (!profile) {
@@ -183,7 +196,16 @@ const DashboardHome = () => {
   const PrimaryActionIcon = primaryAction.icon;
   const sectionTitle = profile.isTraveler ? messages.dashboardHome.recentContacts : messages.dashboardHome.recentShipments;
   const sectionLink = profile.isTraveler ? "/app/messages" : "/app/shipments";
-  const activeRouteSummary = activeTripDetails?.stops.map((stop) => stop.city).join(" -> ") ?? "";
+  const activeTripRouteLabels = activeTripDetails
+    ? getTripRouteLabels(activeTripDetails, locale, {
+        anyCityInCountry: messages.common.anyCityInCountry,
+      })
+    : null;
+  const activeRouteSummary = activeTripDetails
+    ? activeTripDetails.coverageMode === "country_flexible"
+      ? `${activeTripRouteLabels?.originLabel ?? activeTripDetails.origin} -> ${activeTripRouteLabels?.destinationLabel ?? activeTripDetails.destination}`
+      : activeTripDetails.stops.map((stop) => localizeLocationText(stop.city, locale)).join(" -> ")
+    : "";
   const shouldOpenPendingPackages = profile.isTraveler && activeTripDetails && !activeTripDetails.nextStop && activeTripDetails.status === "active";
   const featuredShipment = !profile.isTraveler ? shipments.find((shipment) => shipment.status === "accepted") ?? null : null;
   const recentSenderShipments = !profile.isTraveler
@@ -191,11 +213,15 @@ const DashboardHome = () => {
     : [];
   const searchPageParams = new URLSearchParams();
 
-  if (searchOrigin.trim()) {
+  if (searchOriginCityId) {
+    searchPageParams.set("originCity", searchOriginCityId);
+  } else if (searchOrigin.trim()) {
     searchPageParams.set("origin", searchOrigin.trim());
   }
 
-  if (searchDestination.trim()) {
+  if (searchDestinationCityId) {
+    searchPageParams.set("destinationCity", searchDestinationCityId);
+  } else if (searchDestination.trim()) {
     searchPageParams.set("destination", searchDestination.trim());
   }
 
@@ -219,10 +245,10 @@ const DashboardHome = () => {
       setActiveTripDetails(nextActiveTripDetails);
       toast.success(
         updatedTrip.nextStop
-          ? messages.dashboardHome.checkpointSaved(updatedTrip.nextStop.city)
+          ? messages.dashboardHome.checkpointSaved(localizeLocationText(updatedTrip.nextStop.city, locale))
           : updatedTrip.status === "completed"
-            ? messages.dashboardHome.tripCompleted(updatedTrip.destination)
-            : messages.dashboardHome.destinationReached(updatedTrip.destination),
+            ? messages.dashboardHome.tripCompleted(localizeLocationText(updatedTrip.destination, locale))
+            : messages.dashboardHome.destinationReached(localizeLocationText(updatedTrip.destination, locale)),
       );
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
@@ -289,20 +315,32 @@ const DashboardHome = () => {
           <h2 className="text-xl font-display font-semibold">{messages.dashboardHome.searchCarriersTitle}</h2>
           <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3">
             <MapPin className="h-4 w-4 shrink-0 text-primary" />
-            <Input
+            <CityAutocompleteInput
+              listId="dashboard-search-origin-cities"
+              value={searchOrigin}
+              selectedCityId={searchOriginCityId}
+              onValueChange={(value) => {
+                setSearchOrigin(value);
+                setSearchOriginCityId(resolveCityIdFromInput(value));
+              }}
+              onSelectedCityIdChange={setSearchOriginCityId}
               placeholder={messages.dashboardHome.originPlaceholder}
               className="border-0 bg-transparent shadow-none focus-visible:ring-0"
-              value={searchOrigin}
-              onChange={(event) => setSearchOrigin(event.target.value)}
             />
           </div>
           <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3">
             <MapPin className="h-4 w-4 shrink-0 text-accent" />
-            <Input
+            <CityAutocompleteInput
+              listId="dashboard-search-destination-cities"
+              value={searchDestination}
+              selectedCityId={searchDestinationCityId}
+              onValueChange={(value) => {
+                setSearchDestination(value);
+                setSearchDestinationCityId(resolveCityIdFromInput(value));
+              }}
+              onSelectedCityIdChange={setSearchDestinationCityId}
               placeholder={messages.dashboardHome.destinationPlaceholder}
               className="border-0 bg-transparent shadow-none focus-visible:ring-0"
-              value={searchDestination}
-              onChange={(event) => setSearchDestination(event.target.value)}
             />
           </div>
           <Button asChild className="w-full gap-2" size="lg">
@@ -383,8 +421,8 @@ const DashboardHome = () => {
 
           <div className="rounded-xl border border-border/70 bg-card p-4">
             <RouteInline
-              origin={featuredShipment.routeOrigin}
-              destination={featuredShipment.routeDestination}
+              origin={localizeLocationText(featuredShipment.routeOrigin, locale)}
+              destination={localizeLocationText(featuredShipment.routeDestination, locale)}
               className="text-sm font-medium"
               labelClassName="text-foreground"
             />
@@ -471,8 +509,8 @@ const DashboardHome = () => {
                     {conversation.routeOrigin && conversation.routeDestination ? (
                       <div className="mt-0.5">
                         <RouteInline
-                          origin={conversation.routeOrigin}
-                          destination={conversation.routeDestination}
+                          origin={localizeLocationText(conversation.routeOrigin, locale)}
+                          destination={localizeLocationText(conversation.routeDestination, locale)}
                           className="max-w-full text-[10px]"
                           labelClassName="text-[10px] text-primary/70"
                           pinClassName="h-3 w-3 text-primary/70"
@@ -499,8 +537,8 @@ const DashboardHome = () => {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1 pr-3">
                           <RouteInline
-                            origin={shipment.routeOrigin}
-                            destination={shipment.routeDestination}
+                            origin={localizeLocationText(shipment.routeOrigin, locale)}
+                            destination={localizeLocationText(shipment.routeDestination, locale)}
                             className="text-sm font-medium"
                           />
                           <p className="mt-1 text-xs text-muted-foreground">{shipment.travelerName}</p>

@@ -3,12 +3,13 @@ import { ArrowRight, Globe, MapPin, Package, Search, Shield, Users } from "lucid
 import { Link, useNavigate } from "react-router-dom";
 
 import heroImage from "@/assets/hero-travel.jpg";
+import CityAutocompleteInput from "@/components/CityAutocompleteInput";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import TravelerCard from "@/components/TravelerCard";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { getCityOptionLabel, resolveCityIdFromInput, type CityId } from "@/lib/location-catalog";
 import { MOCK_TRAVELERS } from "@/lib/mock-travelers";
 import type { Locale } from "@/locales";
 
@@ -34,6 +35,8 @@ const CITY_EXAMPLES: Record<Locale, { origins: string[]; destinations: string[] 
 const Index = () => {
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
+  const [originCityId, setOriginCityId] = useState<CityId | null>(null);
+  const [destinationCityId, setDestinationCityId] = useState<CityId | null>(null);
   const navigate = useNavigate();
   const { locale, messages } = useLocale();
   const examples = useMemo(() => CITY_EXAMPLES[locale], [locale]);
@@ -56,9 +59,34 @@ const Index = () => {
     };
   }, [examples]);
 
+  useEffect(() => {
+    if (originCityId) {
+      setOrigin(getCityOptionLabel(originCityId, locale));
+    }
+
+    if (destinationCityId) {
+      setDestination(getCityOptionLabel(destinationCityId, locale));
+    }
+  }, [destinationCityId, locale, originCityId]);
+
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
-    navigate(`/search?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`);
+
+    const searchParams = new URLSearchParams();
+
+    if (originCityId) {
+      searchParams.set("originCity", originCityId);
+    } else if (origin.trim()) {
+      searchParams.set("origin", origin.trim());
+    }
+
+    if (destinationCityId) {
+      searchParams.set("destinationCity", destinationCityId);
+    } else if (destination.trim()) {
+      searchParams.set("destination", destination.trim());
+    }
+
+    navigate(searchParams.toString() ? `/search?${searchParams.toString()}` : "/search");
   };
 
   const originPlaceholder =
@@ -107,21 +135,33 @@ const Index = () => {
             >
               <div className="flex min-w-0 flex-1 items-center gap-2 px-3">
                 <MapPin className="h-5 w-5 shrink-0 text-primary" />
-                <Input
+                <CityAutocompleteInput
+                  listId="landing-origin-cities"
+                  value={origin}
+                  selectedCityId={originCityId}
+                  onValueChange={(value) => {
+                    setOrigin(value);
+                    setOriginCityId(resolveCityIdFromInput(value));
+                  }}
+                  onSelectedCityIdChange={setOriginCityId}
                   placeholder={originPlaceholder}
                   className="border-0 bg-transparent shadow-none focus-visible:ring-0"
-                  value={origin}
-                  onChange={(event) => setOrigin(event.target.value)}
                 />
               </div>
               <div className="hidden w-px bg-border md:block" />
               <div className="flex min-w-0 flex-1 items-center gap-2 px-3">
                 <MapPin className="h-5 w-5 shrink-0 text-accent" />
-                <Input
+                <CityAutocompleteInput
+                  listId="landing-destination-cities"
+                  value={destination}
+                  selectedCityId={destinationCityId}
+                  onValueChange={(value) => {
+                    setDestination(value);
+                    setDestinationCityId(resolveCityIdFromInput(value));
+                  }}
+                  onSelectedCityIdChange={setDestinationCityId}
                   placeholder={destinationPlaceholder}
                   className="border-0 bg-transparent shadow-none focus-visible:ring-0"
-                  value={destination}
-                  onChange={(event) => setDestination(event.target.value)}
                 />
               </div>
               <Button type="submit" variant="hero" size="lg" className="w-full gap-2 md:w-auto">

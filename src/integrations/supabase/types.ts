@@ -219,11 +219,16 @@ export type Database = {
       cargoo_trips: {
         Row: {
           capacity_kg: number;
+          coverage_mode: string;
           created_at: string | null;
           destination: string;
+          destination_city_id: string | null;
+          destination_country_code: string | null;
           id: string;
           notes: string | null;
           origin: string;
+          origin_city_id: string | null;
+          origin_country_code: string | null;
           recurrence_type: string;
           requests: number;
           status: "active" | "completed";
@@ -235,11 +240,16 @@ export type Database = {
         };
         Insert: {
           capacity_kg: number;
+          coverage_mode?: string;
           created_at?: string | null;
           destination: string;
+          destination_city_id?: string | null;
+          destination_country_code?: string | null;
           id?: string;
           notes?: string | null;
           origin: string;
+          origin_city_id?: string | null;
+          origin_country_code?: string | null;
           recurrence_type?: string;
           requests?: number;
           status?: "active" | "completed";
@@ -251,11 +261,16 @@ export type Database = {
         };
         Update: {
           capacity_kg?: number;
+          coverage_mode?: string;
           created_at?: string | null;
           destination?: string;
+          destination_city_id?: string | null;
+          destination_country_code?: string | null;
           id?: string;
           notes?: string | null;
           origin?: string;
+          origin_city_id?: string | null;
+          origin_country_code?: string | null;
           recurrence_type?: string;
           requests?: number;
           status?: "active" | "completed";

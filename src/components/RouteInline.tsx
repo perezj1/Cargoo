@@ -108,7 +108,7 @@ const RouteInline = ({
             ref={measureRef}
             aria-hidden="true"
             className={cn(
-              "pointer-events-none absolute left-0 top-0 inline-grid invisible grid-cols-[auto,max-content,auto,max-content] items-start gap-x-2 whitespace-nowrap opacity-0",
+              "pointer-events-none fixed left-0 top-0 -z-10 inline-grid invisible grid-cols-[auto,max-content,auto,max-content] items-start gap-x-2 whitespace-nowrap opacity-0",
               className,
             )}
           >
@@ -141,7 +141,7 @@ const RouteInline = ({
           ref={measureRef}
           aria-hidden="true"
           className={cn(
-            "pointer-events-none absolute left-0 top-0 inline-grid invisible grid-cols-[auto,max-content,auto,max-content] items-start gap-x-2 whitespace-nowrap opacity-0",
+            "pointer-events-none fixed left-0 top-0 -z-10 inline-grid invisible grid-cols-[auto,max-content,auto,max-content] items-start gap-x-2 whitespace-nowrap opacity-0",
             className,
           )}
         >

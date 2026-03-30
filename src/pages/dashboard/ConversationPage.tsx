@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocale } from "@/contexts/LocaleContext";
 import { supabase } from "@/integrations/supabase/client";
+import { localizeLocationText } from "@/lib/location-catalog";
 import {
   advanceTripToNextStop,
   createShipmentRequest,
@@ -37,7 +38,7 @@ const formatMessageTime = (value: string, intlLocale: string) =>
 const ConversationPage = () => {
   const navigate = useNavigate();
   const { conversationId = "" } = useParams();
-  const { intlLocale, messages: localeMessages } = useLocale();
+  const { intlLocale, locale, messages: localeMessages } = useLocale();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [conversation, setConversation] = useState<ConversationSummary | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -236,7 +237,7 @@ const ConversationPage = () => {
     try {
       await advanceTripToNextStop(travelerTrip.id);
       await loadConversation();
-      toast.success(localeMessages.conversationPage.checkpointSaved(travelerTrip.nextStop.city));
+      toast.success(localeMessages.conversationPage.checkpointSaved(localizeLocationText(travelerTrip.nextStop.city, locale)));
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
     } finally {
@@ -321,8 +322,8 @@ const ConversationPage = () => {
               {conversation.routeOrigin && conversation.routeDestination ? (
                 <div className="mt-1">
                   <RouteInline
-                    origin={conversation.routeOrigin}
-                    destination={conversation.routeDestination}
+                    origin={localizeLocationText(conversation.routeOrigin, locale)}
+                    destination={localizeLocationText(conversation.routeDestination, locale)}
                     className="max-w-full text-xs"
                     labelClassName="text-xs text-muted-foreground"
                     pinClassName="h-3 w-3 text-primary/70"
@@ -389,7 +390,9 @@ const ConversationPage = () => {
             <Button type="button" size="sm" className="shrink-0" onClick={() => void handleAdvanceTrip()} disabled={acting !== null}>
               {acting === "checkpoint"
                 ? localeMessages.conversationPage.saving
-                : localeMessages.conversationPage.advanceToCity(travelerTrip?.nextStop?.city ?? "")}
+                : localeMessages.conversationPage.advanceToCity(
+                    travelerTrip?.nextStop?.city ? localizeLocationText(travelerTrip.nextStop.city, locale) : "",
+                  )}
             </Button>
           ) : null}
 

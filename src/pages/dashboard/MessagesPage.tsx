@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { supabase } from "@/integrations/supabase/client";
+import { localizeLocationText } from "@/lib/location-catalog";
 import { getConversations, getFriendlyErrorMessage, hideConversationForMe, type ConversationSummary } from "@/lib/cargoo-store";
 
 const formatConversationTime = (value: string, intlLocale: string) => {
@@ -41,7 +42,7 @@ const formatConversationTime = (value: string, intlLocale: string) => {
 
 const MessagesPage = () => {
   const { profile, user } = useAuth();
-  const { intlLocale, messages } = useLocale();
+  const { intlLocale, locale, messages } = useLocale();
   const [search, setSearch] = useState("");
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -178,12 +179,12 @@ const MessagesPage = () => {
                     <p className="truncate text-xs text-muted-foreground">{conversation.lastMessageText}</p>
                     <div className="mt-1">
                       {conversation.routeOrigin && conversation.routeDestination ? (
-                        <RouteInline
-                          origin={conversation.routeOrigin}
-                          destination={conversation.routeDestination}
-                          className="max-w-full text-[10px]"
-                          labelClassName="text-[10px] text-primary/70"
-                          pinClassName="h-3 w-3 text-primary/70"
+                          <RouteInline
+                            origin={localizeLocationText(conversation.routeOrigin, locale)}
+                            destination={localizeLocationText(conversation.routeDestination, locale)}
+                            className="max-w-full text-[10px]"
+                            labelClassName="text-[10px] text-primary/70"
+                            pinClassName="h-3 w-3 text-primary/70"
                           arrowClassName="mt-0.5 h-3 w-3 text-primary/60"
                         />
                       ) : (

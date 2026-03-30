@@ -91,12 +91,20 @@
 }
 
 @layer base {
+  html, body, #root {
+    min-height: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    background-color: hsl(var(--background));
+  }
+
   * {
     @apply border-border;
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply overflow-x-hidden bg-background text-foreground antialiased;
   }
 
   h1, h2, h3 {

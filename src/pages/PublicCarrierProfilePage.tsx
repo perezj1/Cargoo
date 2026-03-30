@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { getTripRouteLabels, localizeLocationText } from "@/lib/location-catalog";
 import {
   createShipmentRequest,
   getFriendlyErrorMessage,
@@ -35,7 +36,7 @@ const PublicCarrierProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [startingChat, setStartingChat] = useState(false);
   const [selectingTripId, setSelectingTripId] = useState("");
-  const { intlLocale, messages } = useLocale();
+  const { intlLocale, locale, messages } = useLocale();
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -92,7 +93,6 @@ const PublicCarrierProfilePage = () => {
     }
 
     const tripToUse = orderedTrips.find((trip) => trip.id === tripId) ?? activeTrip;
-
     if (isOwnProfile) {
       toast.error(messages.publicProfile.ownChatError);
       return;
@@ -325,6 +325,9 @@ const PublicCarrierProfilePage = () => {
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {orderedTrips.map((trip) => {
+              const routeLabels = getTripRouteLabels(trip, locale, {
+                anyCityInCountry: messages.common.anyCityInCountry,
+              });
               const formattedDate = formatTripScheduleLabel({
                 date: trip.date,
                 recurrence: trip.recurrence,
@@ -338,8 +341,15 @@ const PublicCarrierProfilePage = () => {
               return (
                 <Card key={trip.id} className={`shadow-card ${isSelected ? "border-primary ring-1 ring-primary/30" : ""}`}>
                   <CardContent className="p-5">
-                    <div className="mb-3 flex justify-start">
-                      <RouteInline origin={trip.origin} destination={trip.destination} className="text-sm font-medium" />
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <RouteInline origin={routeLabels.originLabel} destination={routeLabels.destinationLabel} className="text-sm font-medium" />
+                      </div>
+                      {trip.coverageMode === "country_flexible" ? (
+                        <Badge variant="outline" className="shrink-0 bg-card text-xs">
+                          {messages.common.flexibleRouteBadge}
+                        </Badge>
+                      ) : null}
                     </div>
 
                     <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
@@ -361,9 +371,10 @@ const PublicCarrierProfilePage = () => {
                       </div>
                     ) : null}
 
-                    {trip.stopCities.length > 0 ? (
+                    {trip.coverageMode !== "country_flexible" && trip.stopCities.length > 0 ? (
                       <div className="mb-3 break-words rounded-xl bg-secondary p-3 text-sm text-muted-foreground [overflow-wrap:anywhere]">
-                        <span className="font-medium text-foreground">{messages.publicProfile.availableStops}</span> {trip.stopCities.join(", ")}
+                        <span className="font-medium text-foreground">{messages.publicProfile.availableStops}</span>{" "}
+                        {trip.stopCities.map((city) => localizeLocationText(city, locale)).join(", ")}
                       </div>
                     ) : null}
 
@@ -429,7 +440,7 @@ const PublicCarrierProfilePage = () => {
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-foreground">{review.reviewerName}</p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {review.routeOrigin} {"->"} {review.routeDestination}
+                            {localizeLocationText(review.routeOrigin, locale)} {"->"} {localizeLocationText(review.routeDestination, locale)}
                           </p>
                         </div>
                         <div className="shrink-0 text-right">
