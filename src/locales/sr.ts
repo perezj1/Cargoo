@@ -586,6 +586,7 @@ export const sr = {
     phone: "Telefon",
     location: "Lokacija",
     bio: "Opis",
+    tapToEditPlaceholder: "Dodirni za izmenu",
     bioPlaceholder: "Ukratko nam reci kako koristiš Cargoo.",
     travelerBioExample: "Vozač koji redovno putuje i ima slobodan prostor za prenos paketa između gradova.",
     senderBioExample: "Pošiljalac koji redovno šalje pakete između gradova i jasno organizuje svaku isporuku.",

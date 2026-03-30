@@ -323,7 +323,7 @@ const ConversationPage = () => {
                   <RouteInline
                     origin={conversation.routeOrigin}
                     destination={conversation.routeDestination}
-                    className="w-full text-xs"
+                    className="max-w-full text-xs"
                     labelClassName="text-xs text-muted-foreground"
                     pinClassName="h-3 w-3 text-primary/70"
                     arrowClassName="mt-0.5 h-3 w-3 text-muted-foreground"

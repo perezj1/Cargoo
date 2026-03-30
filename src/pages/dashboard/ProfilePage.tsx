@@ -30,6 +30,13 @@ import {
 import { getNotificationPermissionState, removePushSubscription, syncPushSubscription } from "@/lib/push-notifications";
 
 const NAV_REFRESH_EVENT = "cargoo:nav-refresh";
+type ProfileFormState = {
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  bio: string;
+};
 
 const ProfilePage = () => {
   const navigate = useNavigate();
@@ -43,13 +50,13 @@ const ProfilePage = () => {
   const [savingNotifications, setSavingNotifications] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState(getNotificationPermissionState());
-  const [phoneFieldFocused, setPhoneFieldFocused] = useState(false);
+  const [focusedField, setFocusedField] = useState<keyof ProfileFormState | null>(null);
   const [ratingSummary, setRatingSummary] = useState<TravelerRatingSummary>({
     averageRating: null,
     reviewsCount: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [profileForm, setProfileForm] = useState({
+  const [profileForm, setProfileForm] = useState<ProfileFormState>({
     name: "",
     email: "",
     phone: "",
@@ -137,7 +144,7 @@ const ProfilePage = () => {
     }
   };
 
-  const updateProfileField = (field: keyof typeof profileForm, value: string) => {
+  const updateProfileField = (field: keyof ProfileFormState, value: string) => {
     setProfileForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -261,7 +268,13 @@ const ProfilePage = () => {
     ratingSummary.averageRating !== null ? messages.appProfile.reviewsCount(ratingSummary.reviewsCount) : messages.common.noReviewsYet;
   const needsPhoneAttention = Boolean(user.isTraveler && !profileForm.phone.trim());
   const needsNotificationsAttention = !notificationsEnabled;
-  const bioPlaceholder = user.isTraveler ? messages.editProfilePage.travelerBioExample : messages.editProfilePage.senderBioExample;
+  const getFieldPlaceholder = (field: keyof ProfileFormState) => {
+    if (focusedField === field || profileForm[field].trim()) {
+      return "";
+    }
+
+    return messages.editProfilePage.tapToEditPlaceholder;
+  };
   const handleOpenInstallPrompt = () => {
     if (isStandalone) {
       toast.success(messages.appProfile.installAppAlreadyInstalled);
@@ -350,6 +363,9 @@ const ProfilePage = () => {
                 <Input
                   value={profileForm.name}
                   onChange={(event) => updateProfileField("name", event.target.value)}
+                  onFocus={() => setFocusedField("name")}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder={getFieldPlaceholder("name")}
                   className="mt-1 h-auto border-0 bg-transparent px-0.5 py-0 text-sm text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
@@ -364,6 +380,9 @@ const ProfilePage = () => {
                   type="email"
                   value={profileForm.email}
                   onChange={(event) => updateProfileField("email", event.target.value)}
+                  onFocus={() => setFocusedField("email")}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder={getFieldPlaceholder("email")}
                   className="mt-1 h-auto border-0 bg-transparent px-0.5 py-0 text-sm text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
@@ -381,10 +400,10 @@ const ProfilePage = () => {
                         type="tel"
                         value={profileForm.phone}
                         onChange={(event) => updateProfileField("phone", event.target.value)}
-                        onFocus={() => setPhoneFieldFocused(true)}
-                        onBlur={() => setPhoneFieldFocused(false)}
-                        placeholder={phoneFieldFocused ? "" : messages.appProfile.phoneMissing}
-                        className={`mt-1 h-auto border-0 bg-transparent px-0.5 py-0 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 ${needsPhoneAttention ? "placeholder:text-destructive text-destructive" : "text-foreground"}`}
+                        onFocus={() => setFocusedField("phone")}
+                        onBlur={() => setFocusedField(null)}
+                        placeholder={getFieldPlaceholder("phone")}
+                        className={`mt-1 h-auto border-0 bg-transparent px-0.5 py-0 text-sm text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 ${needsPhoneAttention ? "placeholder:text-destructive" : ""}`}
                       />
                     </div>
                   </div>
@@ -401,6 +420,9 @@ const ProfilePage = () => {
                 <Input
                   value={profileForm.location}
                   onChange={(event) => updateProfileField("location", event.target.value)}
+                  onFocus={() => setFocusedField("location")}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder={getFieldPlaceholder("location")}
                   className="mt-1 h-auto border-0 bg-transparent px-0.5 py-0 text-sm text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
@@ -415,7 +437,9 @@ const ProfilePage = () => {
                   rows={3}
                   value={profileForm.bio}
                   onChange={(event) => updateProfileField("bio", event.target.value)}
-                  placeholder={bioPlaceholder}
+                  onFocus={() => setFocusedField("bio")}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder={getFieldPlaceholder("bio")}
                   className="mt-1 block min-h-0 w-full resize-none border-0 bg-transparent px-0.5 py-0 text-sm leading-relaxed text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>

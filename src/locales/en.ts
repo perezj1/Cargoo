@@ -565,6 +565,7 @@ export const en = {
     phone: "Phone",
     location: "Location",
     bio: "Description",
+    tapToEditPlaceholder: "Tap to edit",
     bioPlaceholder: "Tell us briefly how you use Cargoo.",
     travelerBioExample: "Regular driver with available space to move packages between cities.",
     senderBioExample: "Regular sender who ships packages between cities and coordinates each delivery clearly.",

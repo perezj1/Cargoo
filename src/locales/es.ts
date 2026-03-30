@@ -570,6 +570,7 @@ export const es = {
     phone: "Teléfono",
     location: "Ubicación",
     bio: "Descripción",
+    tapToEditPlaceholder: "Toca para editar",
     bioPlaceholder: "Cuéntanos brevemente cómo usas Cargoo.",
     travelerBioExample: "Conductor habitual con espacio disponible para mover paquetes entre ciudades.",
     senderBioExample: "Emisor habitual que envía paquetes entre ciudades y coordina cada entrega con claridad.",
