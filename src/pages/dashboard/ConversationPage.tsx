@@ -26,6 +26,8 @@ import {
   type ShipmentSummary,
 } from "@/lib/cargoo-store";
 
+const NAV_REFRESH_EVENT = "cargoo:nav-refresh";
+
 const formatMessageTime = (value: string, intlLocale: string) =>
   new Date(value).toLocaleTimeString(intlLocale, {
     hour: "2-digit",
@@ -82,6 +84,7 @@ const ConversationPage = () => {
       setTravelerTrip(null);
     }
     await markConversationAsRead(conversationId);
+    window.dispatchEvent(new Event(NAV_REFRESH_EVENT));
   };
 
   useEffect(() => {

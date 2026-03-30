@@ -29,6 +29,8 @@ import {
 } from "@/lib/cargoo-store";
 import { getNotificationPermissionState, removePushSubscription, syncPushSubscription } from "@/lib/push-notifications";
 
+const NAV_REFRESH_EVENT = "cargoo:nav-refresh";
+
 const ProfilePage = () => {
   const navigate = useNavigate();
   const { refreshProfile } = useAuth();
@@ -160,6 +162,7 @@ const ProfilePage = () => {
         bio: updatedUser.bio,
       });
       await refreshProfile();
+      window.dispatchEvent(new Event(NAV_REFRESH_EVENT));
       toast.success(messages.editProfilePage.updatedSuccess);
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
@@ -192,6 +195,7 @@ const ProfilePage = () => {
 
       setNotificationsEnabled(enabled);
       setNotificationPermission(getNotificationPermissionState());
+      window.dispatchEvent(new Event(NAV_REFRESH_EVENT));
       toast.success(enabled ? messages.appProfile.notificationsEnabledToast : messages.appProfile.notificationsDisabledToast);
     } catch (error) {
       setNotificationPermission(getNotificationPermissionState());

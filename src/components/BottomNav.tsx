@@ -7,6 +7,8 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { supabase } from "@/integrations/supabase/client";
 import { getConversations } from "@/lib/cargoo-store";
 
+const NAV_REFRESH_EVENT = "cargoo:nav-refresh";
+
 const BottomNav = () => {
   const { pathname } = useLocation();
   const { profile, user } = useAuth();
@@ -71,11 +73,8 @@ const BottomNav = () => {
 
   useEffect(() => {
     void loadUnreadState();
-  }, [user]);
-
-  useEffect(() => {
     void loadPreferencesState();
-  }, [user]);
+  }, [user, pathname]);
 
   useEffect(() => {
     if (!user) {
@@ -95,14 +94,27 @@ const BottomNav = () => {
     };
   }, [user]);
 
+  useEffect(() => {
+    const handleRefresh = () => {
+      void loadUnreadState();
+      void loadPreferencesState();
+    };
+
+    window.addEventListener(NAV_REFRESH_EVENT, handleRefresh);
+
+    return () => {
+      window.removeEventListener(NAV_REFRESH_EVENT, handleRefresh);
+    };
+  }, [user]);
+
   const itemsWithIndicators = useMemo(
     () =>
       items.map((item) => ({
         ...item,
-        showUnreadDot: item.to === "/app/messages" && hasUnreadMessages,
+        showUnreadDot: item.to === "/app/messages" && hasUnreadMessages && !pathname.startsWith("/app/messages"),
         showAlertDot: item.to === "/app/profile" && needsProfileAttention,
       })),
-    [hasUnreadMessages, items, needsProfileAttention],
+    [hasUnreadMessages, items, needsProfileAttention, pathname],
   );
 
   return (
