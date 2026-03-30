@@ -99,13 +99,13 @@ export interface PublicCarrierProfile {
   isTraveler: boolean;
   averageRating: number | null;
   reviewsCount: number;
-  reviews: PublicTravelerReview[];
+  reviews: UserReview[];
   trips: PublicTripListing[];
 }
 
-export interface PublicTravelerReview {
+export interface UserReview {
   id: string;
-  senderName: string;
+  reviewerName: string;
   rating: number;
   comment: string;
   reviewedAt: string | null;
@@ -138,17 +138,31 @@ export interface ShipmentSummary {
   reviewRating: number | null;
   reviewComment: string;
   reviewedAt: string | null;
+  senderReviewRating: number | null;
+  senderReviewComment: string;
+  senderReviewedAt: string | null;
 }
 
-export interface TravelerRatingSummary {
+export interface UserRatingSummary {
   averageRating: number | null;
   reviewsCount: number;
 }
 
-export interface TravelerReviewsResult {
-  averageRating: number | null;
-  reviewsCount: number;
-  reviews: PublicTravelerReview[];
+export interface UserReviewsResult extends UserRatingSummary {
+  reviews: UserReview[];
+}
+
+export type TravelerRatingSummary = UserRatingSummary;
+export type TravelerReviewsResult = UserReviewsResult;
+
+export interface ConversationContactProfile extends UserReviewsResult {
+  userId: string;
+  name: string;
+  avatarUrl: string;
+  location: string;
+  bio: string;
+  phone: string;
+  isTraveler: boolean;
 }
 
 export interface ConversationSummary {
@@ -158,6 +172,8 @@ export interface ConversationSummary {
   otherUserName: string;
   otherUserAvatarUrl: string;
   otherUserIsTraveler: boolean;
+  otherUserAverageRating: number | null;
+  otherUserReviewsCount: number;
   routeOrigin: string;
   routeDestination: string;
   lastMessageText: string;
@@ -277,6 +293,14 @@ const isMissingProfileLocaleColumn = (error: { message?: string; code?: string }
   }
 
   return /locale/i.test(error.message ?? "") && /cargoo_profiles/i.test(error.message ?? "");
+};
+
+const isMissingShipmentSenderReviewColumn = (error: { message?: string; code?: string } | null) => {
+  if (!error) {
+    return false;
+  }
+
+  return /sender_review_/i.test(error.message ?? "") && /cargoo_shipments/i.test(error.message ?? "");
 };
 
 const isMissingProfileVehicleColumn = (error: { message?: string; code?: string } | null) => {
@@ -800,6 +824,7 @@ const mapConversationRow = (
   unreadCount = 0,
   shipment: Pick<ShipmentRow, "id" | "status"> | null = null,
   otherUserAvatarUrl = "",
+  otherUserRatingSummary: UserRatingSummary | null = null,
 ): ConversationSummary => {
   const isParticipantOne = row.participant_one_id === currentUserId;
 
@@ -810,6 +835,8 @@ const mapConversationRow = (
     otherUserName: isParticipantOne ? row.participant_two_name : row.participant_one_name,
     otherUserAvatarUrl,
     otherUserIsTraveler: isParticipantOne ? row.participant_two_is_traveler : row.participant_one_is_traveler,
+    otherUserAverageRating: otherUserRatingSummary?.averageRating ?? null,
+    otherUserReviewsCount: otherUserRatingSummary?.reviewsCount ?? 0,
     routeOrigin: row.route_origin ?? "",
     routeDestination: row.route_destination ?? "",
     lastMessageText: row.last_message_text ?? "Sin mensajes todavía.",
@@ -879,6 +906,9 @@ const buildShipmentSummary = (
   reviewRating: row.review_rating,
   reviewComment: row.review_comment ?? "",
   reviewedAt: row.reviewed_at,
+  senderReviewRating: row.sender_review_rating,
+  senderReviewComment: row.sender_review_comment ?? "",
+  senderReviewedAt: row.sender_reviewed_at,
 });
 
 const getProfilePhonesByUserIds = async (userIds: string[]) => {
@@ -2286,38 +2316,63 @@ export const submitShipmentReview = async ({ shipmentId, rating, comment }: Subm
     throw new Error("No encontramos ese envío.");
   }
 
-  if (shipment.senderId !== user.id) {
-    throw new Error("Solo el emisor puede valorar este envío.");
-  }
-
   if (shipment.status !== "delivered") {
     throw new Error("Solo puedes valorar envíos ya entregados.");
   }
 
-  if (shipment.reviewRating) {
-    throw new Error("Este envío ya tiene una valoracion registrada.");
-  }
-
   const cleanComment = comment.trim();
   const normalizedRating = Math.min(Math.max(Math.round(rating), 1), 5);
-  const { error } = await supabase
-    .from("cargoo_shipments")
-    .update({
-      review_rating: normalizedRating,
-      review_comment: cleanComment || null,
-      reviewed_at: new Date().toISOString(),
-    })
-    .eq("id", shipmentId)
-    .eq("sender_id", user.id);
+  const reviewedAt = new Date().toISOString();
 
-  const mappedError = mapSupabaseError(error);
-  if (mappedError) {
-    throw mappedError;
+  if (shipment.senderId === user.id) {
+    if (shipment.reviewRating) {
+      throw new Error("Este envío ya tiene una valoración registrada para el transportista.");
+    }
+
+    const { error } = await supabase
+      .from("cargoo_shipments")
+      .update({
+        review_rating: normalizedRating,
+        review_comment: cleanComment || null,
+        reviewed_at: reviewedAt,
+      })
+      .eq("id", shipmentId)
+      .eq("sender_id", user.id);
+
+    const mappedError = mapSupabaseError(error);
+    if (mappedError) {
+      throw mappedError;
+    }
+  } else if (shipment.travelerId === user.id) {
+    if (shipment.senderReviewRating) {
+      throw new Error("Este envío ya tiene una valoración registrada para el emisor.");
+    }
+
+    const { error } = await supabase
+      .from("cargoo_shipments")
+      .update({
+        sender_review_rating: normalizedRating,
+        sender_review_comment: cleanComment || null,
+        sender_reviewed_at: reviewedAt,
+      })
+      .eq("id", shipmentId)
+      .eq("traveler_id", user.id);
+
+    if (isMissingShipmentSenderReviewColumn(error)) {
+      throw new Error("Las valoraciones para emisores aún necesitan la nueva migración de base de datos.");
+    }
+
+    const mappedError = mapSupabaseError(error);
+    if (mappedError) {
+      throw mappedError;
+    }
+  } else {
+    throw new Error("Solo las personas que participan en este envío pueden valorarlo.");
   }
 
   const updatedShipment = await getShipmentByIdInternal(shipmentId);
   if (!updatedShipment) {
-    throw new Error("No pudimos recargar la valoracion.");
+    throw new Error("No pudimos recargar la valoración.");
   }
 
   return updatedShipment;
@@ -2366,6 +2421,59 @@ export const getTravelerRatingSummary = async (travelerId: string) => {
   } satisfies TravelerRatingSummary;
 };
 
+export const getSenderRatingSummary = async (senderId: string) => {
+  if (isShipmentFeatureUnavailable()) {
+    return {
+      averageRating: null,
+      reviewsCount: 0,
+    } satisfies UserRatingSummary;
+  }
+
+  const { data, error } = await supabase
+    .from("cargoo_shipments")
+    .select("sender_review_rating")
+    .eq("sender_id", senderId)
+    .eq("status", "delivered")
+    .not("sender_review_rating", "is", null);
+
+  if (isMissingCargooTable(error)) {
+    markShipmentFeatureUnavailable();
+    return {
+      averageRating: null,
+      reviewsCount: 0,
+    } satisfies UserRatingSummary;
+  }
+
+  if (isMissingShipmentSenderReviewColumn(error)) {
+    return {
+      averageRating: null,
+      reviewsCount: 0,
+    } satisfies UserRatingSummary;
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  markShipmentFeatureAvailable();
+  const ratings = (data ?? [])
+    .map((item) => item.sender_review_rating)
+    .filter((currentRating): currentRating is number => typeof currentRating === "number");
+
+  if (!ratings.length) {
+    return {
+      averageRating: null,
+      reviewsCount: 0,
+    } satisfies UserRatingSummary;
+  }
+
+  return {
+    averageRating: Number((ratings.reduce((sum, currentRating) => sum + currentRating, 0) / ratings.length).toFixed(1)),
+    reviewsCount: ratings.length,
+  } satisfies UserRatingSummary;
+};
+
 export const getTravelerReviews = async (travelerId: string) => {
   if (isShipmentFeatureUnavailable()) {
     return {
@@ -2401,7 +2509,7 @@ export const getTravelerReviews = async (travelerId: string) => {
   const ratings = (data ?? []).map((item) => item.review_rating).filter((rating): rating is number => typeof rating === "number");
   const reviews = (data ?? []).map((item) => ({
     id: item.id,
-    senderName: item.sender_name,
+    reviewerName: item.sender_name,
     rating: item.review_rating as number,
     comment: item.review_comment?.trim() ?? "",
     reviewedAt: item.reviewed_at,
@@ -2415,6 +2523,72 @@ export const getTravelerReviews = async (travelerId: string) => {
     reviews,
   } satisfies TravelerReviewsResult;
 };
+
+export const getSenderReviews = async (senderId: string) => {
+  if (isShipmentFeatureUnavailable()) {
+    return {
+      averageRating: null,
+      reviewsCount: 0,
+      reviews: [],
+    } satisfies UserReviewsResult;
+  }
+
+  const { data, error } = await supabase
+    .from("cargoo_shipments")
+    .select("id, traveler_name, sender_review_rating, sender_review_comment, sender_reviewed_at, route_origin, route_destination")
+    .eq("sender_id", senderId)
+    .eq("status", "delivered")
+    .not("sender_review_rating", "is", null)
+    .order("sender_reviewed_at", { ascending: false });
+
+  if (isMissingCargooTable(error)) {
+    markShipmentFeatureUnavailable();
+    return {
+      averageRating: null,
+      reviewsCount: 0,
+      reviews: [],
+    } satisfies UserReviewsResult;
+  }
+
+  if (isMissingShipmentSenderReviewColumn(error)) {
+    return {
+      averageRating: null,
+      reviewsCount: 0,
+      reviews: [],
+    } satisfies UserReviewsResult;
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  markShipmentFeatureAvailable();
+  const ratings = (data ?? [])
+    .map((item) => item.sender_review_rating)
+    .filter((rating): rating is number => typeof rating === "number");
+  const reviews = (data ?? []).map((item) => ({
+    id: item.id,
+    reviewerName: item.traveler_name,
+    rating: item.sender_review_rating as number,
+    comment: item.sender_review_comment?.trim() ?? "",
+    reviewedAt: item.sender_reviewed_at,
+    routeOrigin: item.route_origin,
+    routeDestination: item.route_destination,
+  }));
+
+  return {
+    averageRating: ratings.length ? Number((ratings.reduce((sum, currentRating) => sum + currentRating, 0) / ratings.length).toFixed(1)) : null,
+    reviewsCount: ratings.length,
+    reviews,
+  } satisfies UserReviewsResult;
+};
+
+export const getProfileRatingSummary = async (userId: string, isTraveler: boolean) =>
+  isTraveler ? getTravelerRatingSummary(userId) : getSenderRatingSummary(userId);
+
+export const getProfileReviews = async (userId: string, isTraveler: boolean) =>
+  isTraveler ? getTravelerReviews(userId) : getSenderReviews(userId);
 
 export const getConversations = async () => {
   if (isChatFeatureUnavailable()) {
@@ -2547,8 +2721,13 @@ export const getConversationMessages = async (conversationId: string) => {
   const shipmentByConversationId = await getShipmentsByConversationIds([conversationId]);
   const shipmentRow = shipmentByConversationId.get(conversationId) ?? null;
   const shipment = shipmentRow ? (await buildShipmentSummaries([shipmentRow]))[0] ?? null : null;
-  const otherUserId = conversation.participant_one_id === user.id ? conversation.participant_two_id : conversation.participant_one_id;
-  const avatarUrlByUserId = await getProfileAvatarUrlsByUserIds([otherUserId]);
+  const isParticipantOne = conversation.participant_one_id === user.id;
+  const otherUserId = isParticipantOne ? conversation.participant_two_id : conversation.participant_one_id;
+  const otherUserIsTraveler = isParticipantOne ? conversation.participant_two_is_traveler : conversation.participant_one_is_traveler;
+  const [avatarUrlByUserId, otherUserRatingSummary] = await Promise.all([
+    getProfileAvatarUrlsByUserIds([otherUserId]),
+    getProfileRatingSummary(otherUserId, otherUserIsTraveler),
+  ]);
 
   return {
     conversation: mapConversationRow(
@@ -2557,10 +2736,78 @@ export const getConversationMessages = async (conversationId: string) => {
       unreadCount,
       shipmentRow,
       avatarUrlByUserId.get(otherUserId) ?? "",
+      otherUserRatingSummary,
     ),
     messages: (messages ?? []).map(mapMessageRow),
     shipment,
   };
+};
+
+export const getConversationContactProfile = async (conversationId: string) => {
+  if (isChatFeatureUnavailable()) {
+    return null as ConversationContactProfile | null;
+  }
+
+  const user = await requireUser();
+  const { data: conversation, error: conversationError } = await supabase
+    .from("cargoo_conversations")
+    .select("*")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (isMissingCargooTable(conversationError)) {
+    markChatFeatureUnavailable();
+    return null as ConversationContactProfile | null;
+  }
+
+  const mappedConversationError = mapSupabaseError(conversationError);
+  if (mappedConversationError) {
+    throw mappedConversationError;
+  }
+
+  if (!conversation) {
+    return null;
+  }
+
+  const isParticipantOne = conversation.participant_one_id === user.id;
+  const isParticipantTwo = conversation.participant_two_id === user.id;
+
+  if (!isParticipantOne && !isParticipantTwo) {
+    throw new Error("No tienes acceso a esta conversación.");
+  }
+
+  const otherUserId = isParticipantOne ? conversation.participant_two_id : conversation.participant_one_id;
+  const fallbackName = isParticipantOne ? conversation.participant_two_name : conversation.participant_one_name;
+  const isTraveler = isParticipantOne ? conversation.participant_two_is_traveler : conversation.participant_one_is_traveler;
+
+  const { data: profile, error: profileError } = await supabase
+    .from("cargoo_profiles")
+    .select("user_id, name, avatar_url, location, bio, phone, locale")
+    .eq("user_id", otherUserId)
+    .maybeSingle();
+
+  if (!isMissingCargooTable(profileError)) {
+    const mappedProfileError = mapSupabaseError(profileError);
+    if (mappedProfileError) {
+      throw mappedProfileError;
+    }
+  }
+
+  const profileLocale = profile?.locale ? normalizeLocale(profile.locale) : "es";
+  const reviewsData = await getProfileReviews(otherUserId, isTraveler);
+
+  return {
+    userId: otherUserId,
+    name: profile?.name ?? fallbackName,
+    avatarUrl: profile?.avatar_url ?? "",
+    location: normalizeOptionalLocation(profile?.location),
+    bio: normalizeProfileBio(profile?.bio, isTraveler, profileLocale),
+    phone: profile?.phone ?? "",
+    isTraveler,
+    averageRating: reviewsData.averageRating,
+    reviewsCount: reviewsData.reviewsCount,
+    reviews: reviewsData.reviews,
+  } satisfies ConversationContactProfile;
 };
 
 export const markConversationAsRead = async (conversationId: string) => {

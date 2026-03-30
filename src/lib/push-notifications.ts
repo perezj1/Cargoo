@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 const SERVICE_WORKER_URL = "/sw.js?v=10";
+let pushSubscriptionWriteQueue = Promise.resolve();
 
 const urlBase64ToUint8Array = (base64String: string) => {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -70,10 +71,37 @@ const getSubscriptionKeys = (subscription: PushSubscription) => {
   return { p256dh, auth };
 };
 
-const upsertRemoteSubscription = async (userId: string, subscription: PushSubscription) => {
-  const { p256dh, auth } = getSubscriptionKeys(subscription);
-  const endpoint = subscription.endpoint;
+const runPushSubscriptionWrite = async <T>(operation: () => Promise<T>) => {
+  const nextOperation = pushSubscriptionWriteQueue.then(operation, operation);
+  pushSubscriptionWriteQueue = nextOperation.then(
+    () => undefined,
+    () => undefined,
+  );
 
+  return nextOperation;
+};
+
+const isPushSubscriptionConflictError = (error: unknown) => {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as {
+    code?: string;
+    message?: string;
+    details?: string;
+    status?: number;
+  };
+
+  return (
+    candidate.status === 409 ||
+    candidate.code === "23505" ||
+    candidate.message?.toLowerCase().includes("duplicate") === true ||
+    candidate.details?.toLowerCase().includes("already exists") === true
+  );
+};
+
+const saveRemoteSubscription = async (userId: string, endpoint: string, p256dh: string, auth: string) => {
   const { data: existingRows, error: existingError } = await supabase
     .from("push_subscriptions")
     .select("id")
@@ -121,6 +149,67 @@ const upsertRemoteSubscription = async (userId: string, subscription: PushSubscr
   if (insertError) {
     throw insertError;
   }
+};
+
+const resolvePushSubscriptionConflict = async (userId: string, endpoint: string, p256dh: string, auth: string) => {
+  const { data: conflictingRows, error: conflictLookupError } = await supabase
+    .from("push_subscriptions")
+    .select("id")
+    .eq("endpoint", endpoint);
+
+  if (conflictLookupError) {
+    throw conflictLookupError;
+  }
+
+  const firstRow = conflictingRows?.[0];
+  const duplicateIds = conflictingRows?.slice(1).map((row) => row.id) ?? [];
+
+  if (!firstRow) {
+    return false;
+  }
+
+  const { error: updateError } = await supabase
+    .from("push_subscriptions")
+    .update({
+      user_id: userId,
+      endpoint,
+      p256dh,
+      auth,
+    })
+    .eq("id", firstRow.id);
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  if (duplicateIds.length > 0) {
+    const { error: cleanupError } = await supabase.from("push_subscriptions").delete().in("id", duplicateIds);
+    if (cleanupError) {
+      throw cleanupError;
+    }
+  }
+
+  return true;
+};
+
+const upsertRemoteSubscription = async (userId: string, subscription: PushSubscription) => {
+  const { p256dh, auth } = getSubscriptionKeys(subscription);
+  const endpoint = subscription.endpoint;
+
+  await runPushSubscriptionWrite(async () => {
+    try {
+      await saveRemoteSubscription(userId, endpoint, p256dh, auth);
+    } catch (error) {
+      if (!isPushSubscriptionConflictError(error)) {
+        throw error;
+      }
+
+      const recovered = await resolvePushSubscriptionConflict(userId, endpoint, p256dh, auth);
+      if (!recovered) {
+        throw error;
+      }
+    }
+  });
 };
 
 export const getNotificationPermissionState = () => {

@@ -560,7 +560,7 @@ const DashboardHome = () => {
         }}
         onSubmit={handleSubmitReview}
         saving={savingReview}
-        travelerName={reviewingShipment?.travelerName ?? ""}
+        recipientName={reviewingShipment?.travelerName ?? ""}
       />
     </div>
   );

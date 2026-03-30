@@ -11,10 +11,10 @@ interface ShipmentReviewDialogProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (rating: number, comment: string) => Promise<void> | void;
   saving?: boolean;
-  travelerName: string;
+  recipientName: string;
 }
 
-const ShipmentReviewDialog = ({ open, onOpenChange, onSubmit, saving = false, travelerName }: ShipmentReviewDialogProps) => {
+const ShipmentReviewDialog = ({ open, onOpenChange, onSubmit, saving = false, recipientName }: ShipmentReviewDialogProps) => {
   const { messages } = useLocale();
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
@@ -31,7 +31,7 @@ const ShipmentReviewDialog = ({ open, onOpenChange, onSubmit, saving = false, tr
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{messages.shipmentReviewDialog.title}</DialogTitle>
-          <DialogDescription>{messages.shipmentReviewDialog.description(travelerName)}</DialogDescription>
+          <DialogDescription>{messages.shipmentReviewDialog.description(recipientName)}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

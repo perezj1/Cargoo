@@ -17,7 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   getCurrentUser,
   getFriendlyErrorMessage,
-  getTravelerRatingSummary,
+  getProfileRatingSummary,
   getTrips,
   getTripStats,
   logoutUser,
@@ -95,13 +95,10 @@ const ProfilePage = () => {
         if (profile.isTraveler) {
           const userTrips = await getTrips();
           setTrips(userTrips);
-          setRatingSummary(await getTravelerRatingSummary(profile.userId));
+          setRatingSummary(await getProfileRatingSummary(profile.userId, true));
         } else {
           setTrips([]);
-          setRatingSummary({
-            averageRating: null,
-            reviewsCount: 0,
-          });
+          setRatingSummary(await getProfileRatingSummary(profile.userId, false));
         }
       } catch (error) {
         toast.error(getFriendlyErrorMessage(error));
@@ -255,7 +252,7 @@ const ProfilePage = () => {
         { label: messages.appProfile.messages, to: "/app/messages", icon: MessageSquare },
         { label: messages.appProfile.myTrips, to: "/app/trips", icon: Package },
       ]
-    : [];
+    : [{ label: messages.appProfile.reviews, to: "/app/profile/reviews", icon: Star }];
   const ratingLabel =
     ratingSummary.averageRating !== null
       ? new Intl.NumberFormat(intlLocale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(ratingSummary.averageRating)
@@ -306,13 +303,17 @@ const ProfilePage = () => {
             <MapPin className="h-3 w-3" /> {user.location}
           </p>
         ) : null}
-        {user.isTraveler ? (
+        {user.isTraveler || ratingSummary.averageRating !== null || ratingSummary.reviewsCount > 0 ? (
           <div className="mt-3 flex items-center justify-center gap-5">
-            <div className="text-center">
-              <p className="text-lg font-bold">{stats.totalTrips}</p>
-              <p className="text-[10px] text-muted-foreground">{messages.appProfile.trips}</p>
-            </div>
-            <Separator orientation="vertical" className="h-8" />
+            {user.isTraveler ? (
+              <>
+                <div className="text-center">
+                  <p className="text-lg font-bold">{stats.totalTrips}</p>
+                  <p className="text-[10px] text-muted-foreground">{messages.appProfile.trips}</p>
+                </div>
+                <Separator orientation="vertical" className="h-8" />
+              </>
+            ) : null}
             <div className="text-center">
               <p className="flex items-center gap-1 text-lg font-bold">
                 {ratingLabel} <Star className="h-3 w-3 fill-warning text-warning" />
