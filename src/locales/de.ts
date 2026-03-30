@@ -37,8 +37,8 @@ export const de = {
     login: "Anmelden",
     register: "Registrieren",
     openApp: "App öffnen",
-    openMenü: "Menü öffnen",
-    closeMenü: "Menü schliessen",
+    openMenu: "Menü öffnen",
+    closeMenu: "Menü schliessen",
   },
   footer: {
     description: "Wir verbinden Fahrer mit freiem Platz und Menschen, die Pakete in eine andere Stadt oder ein anderes Land senden müssen.",
@@ -57,7 +57,7 @@ export const de = {
   },
   landing: {
     heroImageAlt: "Fahrt auf der Strasse",
-    heroTitle: "Sende, was du brauchst, mit vertrauenswurdigen Fahrern",
+    heroTitle: "Sende, was du brauchst, mit vertrauenswürdigen Fahrern",
     heroDescription: "Cargoo verbindet Menschen, die Pakete senden müssen, mit Fahrern, die bereits freien Platz im Auto haben.",
     originPlaceholder: "Startort (z. B. Madrid)",
     destinationPlaceholder: "Zielort (z. B. Barcelona)",
@@ -109,7 +109,7 @@ export const de = {
     teaserButton: "App öffnen",
     loading: "Fahrer werden gesucht...",
     resultsFound: (count: number) => `${count} Fahrer gefunden`,
-    routeHint: "Die Suche berucksichtigt auch Zwischenstadte, in denen der Fahrer angegeben hat, dass er anhalten kann.",
+    routeHint: "Die Suche berücksichtigt auch Zwischenstädte, in denen der Fahrer angegeben hat, dass er anhalten kann.",
     emptyTitle: "Keine Fahrer gefunden",
     emptyDescription: "Versuche eine andere Route oder ein anderes Datum",
   },
@@ -119,7 +119,7 @@ export const de = {
     reviews: (count: number) => `${count} Bewertung(en)`,
     noReviews: "Keine Bewertungen",
     availableKg: (kg: number) => `${kg} kg frei`,
-    totalCapacity: (kg: number) => `Gesamtkapazitat: ${kg} kg`,
+    totalCapacity: (kg: number) => `Gesamtkapazität: ${kg} kg`,
   },
   howItWorks: {
     title: "So funktioniert Cargoo",
@@ -135,7 +135,7 @@ export const de = {
       },
       {
         title: "3. Paket vorbereiten",
-        desc: "Verpacke alles gut und gib klare Hinweise, damit der Transport schnell und sicher ablauft.",
+        desc: "Verpacke alles gut und gib klare Hinweise, damit der Transport schnell und sicher abläuft.",
       },
       {
         title: "4. Fahrt verfolgen",
@@ -146,7 +146,7 @@ export const de = {
     publicTitle: "öffentlich",
     privateTitle: "Privat",
     publicBullets: [
-      "Fur alle auf der Webseite sichtbar",
+      "Für alle auf der Webseite sichtbar",
       "Mehr Möglichkeiten für Kontaktanfragen",
       "Ideal für Personen, die häufig Strecken veröffentlichen",
     ],
@@ -165,13 +165,13 @@ export const de = {
     password: "Passwort",
     passwordPlaceholder: "Mindestens 8 Zeichen",
     forgotPassword: "Passwort vergessen?",
-    forgotPasswordTitle: "Passwort zurucksetzen",
-    forgotPasswordDescription: "Gib deine E-Mail ein und wir schicken dir einen Link zum Zurucksetzen deines Passworts.",
+    forgotPasswordTitle: "Passwort zurücksetzen",
+    forgotPasswordDescription: "Gib deine E-Mail ein und wir schicken dir einen Link zum Zurücksetzen deines Passworts.",
     forgotPasswordSubmit: "Link senden",
     forgotPasswordSubmitting: "Wird gesendet...",
     forgotPasswordSent: "Falls die E-Mail existiert, haben wir dir einen Wiederherstellungslink geschickt.",
     submit: "Anmelden",
-    submitting: "Anmeldung laeuft...",
+    submitting: "Anmeldung läuft...",
     legalNotice: "Cargoo erleichtert nur den Kontakt zwischen Nutzern. Vereinbarungen, Sendungen und Transporte liegen ausschliesslich in der Verantwortung der Personen, die die Plattform nutzen.",
     legalIntro: "Mit der Anmeldung und der weiteren Nutzung von Cargoo bestätigst du, dass du die",
     legalMiddle1: ", die",
@@ -191,8 +191,8 @@ export const de = {
     submit: "Neues Passwort speichern",
     submitting: "Wird gespeichert...",
     success: "Passwort erfolgreich aktualisiert.",
-    invalidLink: "Offne diese Seite uber den Link, den wir dir per E-Mail geschickt haben.",
-    passwordMismatch: "Die Passwörter stimmen nicht uberein.",
+    invalidLink: "Öffne diese Seite über den Link, den wir dir per E-Mail geschickt haben.",
+    passwordMismatch: "Die Passwörter stimmen nicht überein.",
     passwordTooShort: "Das Passwort muss mindestens 8 Zeichen lang sein.",
   },
   register: {
@@ -269,10 +269,10 @@ export const de = {
     requests: "Anfragen",
     profilePublic: "öffentliches Profil",
     profilePrivate: "Privates Profil",
-    visibleToAll: "Fur alle sichtbar",
+    visibleToAll: "Für alle sichtbar",
     visibleToRegistered: "Nur registrierte Nutzer",
     accountSettings: "Kontoeinstellungen",
-    accountSettingsDescription: "Hier kannst du dein Profilbild andern und deine Kontoinformationen bearbeiten.",
+    accountSettingsDescription: "Hier kannst du dein Profilbild ändern und deine Kontoinformationen bearbeiten.",
     verifiedIdentity: "Verifizierte Identität",
     activeAccount: "Aktives Konto",
     verifiedDescription: "Konto mit Supabase verbunden und Daten in der Datenbank gespeichert",
@@ -289,20 +289,20 @@ export const de = {
     visibilityUpdated: "Sichtbarkeit aktualisiert.",
     avatarUpdated: "Profilbild aktualisiert.",
     profileDetailsTitle: "Profildaten",
-    phoneMissing: "Telefon hinzufugen",
-    phoneMissingHint: "Fuge deine Telefonnummer hinzu, damit Versender dich kontaktieren konnen.",
+    phoneMissing: "Telefon hinzufügen",
+    phoneMissingHint: "Füge deine Telefonnummer hinzu, damit Versender dich kontaktieren können.",
     editProfile: "Profil bearbeiten",
     reviews: "Bewertungen",
     messages: "Nachrichten",
     myTrips: "Meine Fahrten",
-    installAppDescriptionSender: "Halte die App immer griffbereit, um deine Sendungen zu verfolgen, mit Fahrern zu sprechen und Updates schneller zu erhalten.",
-    installAppDescriptionTraveler: "Halte die App immer griffbereit, um deine Route und Pakete im Blick zu behalten und mit den Menschen zu sprechen, die Pakete mit dir versenden.",
+    installAppDescriptionSender: "Halte die App immer griffbereit, um Benachrichtigungen zu erhalten, deine Sendungen zu verfolgen, mit Fahrern zu sprechen und Updates schneller zu bekommen.",
+    installAppDescriptionTraveler: "Halte die App immer griffbereit, um Benachrichtigungen zu erhalten, deine Route und Pakete im Blick zu behalten und mit den Menschen zu sprechen, die Pakete mit dir versenden.",
     installAppTitle: "Cargoo installieren",
     installAppDescription: "Füge Cargoo deinem Home-Bildschirm hinzu, um die App schneller zu öffnen.",
     installAppButton: "Cargoo installieren",
     installAppAlreadyInstalled: "Cargoo ist auf diesem Gerät bereits installiert.",
     logout: "Abmelden",
-    changeAvatar: "Profilbild andern",
+    changeAvatar: "Profilbild ändern",
     reviewsCount: (count: number) => `${count} Bewertung(en)`,
   },
   profileReviewsPage: {
@@ -419,7 +419,7 @@ export const de = {
       `Wir haben Route, Stopps und Kapazität der vorherigen Fahrt ${origin} -> ${destination}${date ? ` (${date})` : ""} übernommen. Prüfe nur die Angaben und veröffentliche sie.`,
     originLabel: "Startort",
     originPlaceholder: "Stadt, Land",
-    addRouteStops: "Städte auf der Route hinzufugen",
+    addRouteStops: "Städte auf der Route hinzufügen",
     stopLabel: (index: number) => `Zwischenstopp ${index}`,
     deleteStopAria: (index: number) => `Stopp ${index} löschen`,
     stopPlaceholder: "Stadt, in der du abholen oder liefern kannst",
@@ -463,9 +463,9 @@ export const de = {
     empty: "Du hast in dieser Kategorie keine Fahrten",
     deletedSuccess: "Abgeschlossene Fahrt gelöscht.",
     deleteDialogTitle: "Abgeschlossene Fahrt löschen",
-    deleteDialogDescription: "Diese Fahrt wird aus dem Verlauf entfernt. Falls verknupfte Sendungen vorhanden sind, verschwinden sie ebenfalls.",
+    deleteDialogDescription: "Diese Fahrt wird aus dem Verlauf entfernt. Falls verknüpfte Sendungen vorhanden sind, verschwinden sie ebenfalls.",
     deleteDialogButton: "Fahrt löschen",
-    deleting: "Loscht...",
+    deleting: "Löscht...",
   },
   shipmentsPage: {
     title: "Meine Sendungen",
@@ -494,7 +494,7 @@ export const de = {
     deleteDialogTitle: "Zugestellte Sendung löschen",
     deleteDialogDescription: "Diese Sendung wird aus deinem Verlauf entfernt. Das Gespräch bleibt für beide Personen sichtbar.",
     deleteDialogButton: "Sendung löschen",
-    deleting: "Loscht...",
+    deleting: "Löscht...",
     genericTraveler: "Fahrer",
   },
   tripDetailsPage: {
@@ -558,19 +558,21 @@ export const de = {
     email: "E-Mail",
     phone: "Telefon",
     location: "Ort",
-    bio: "Bio",
-    bioPlaceholder: "Erzahl kurz etwas über dich und wie du reist",
-    saveChanges: "Anderungen speichern",
+    bio: "Beschreibung",
+    bioPlaceholder: "Erzähl kurz, wie du Cargoo nutzt.",
+    travelerBioExample: "Regelmäßiger Fahrer mit freiem Platz, um Pakete zwischen Städten mitzunehmen.",
+    senderBioExample: "Regelmäßiger Versender, der Pakete zwischen Städten verschickt und jede Lieferung klar koordiniert.",
+    saveChanges: "Änderungen speichern",
   },
   installPrompt: {
     title: "Installiere Cargoo auf deinem Handy",
-    senderDescription: "Halte die App immer griffbereit, um deine Sendungen zu verfolgen, mit Fahrern zu sprechen und Updates schneller zu erhalten.",
-    travelerDescription: "Halte die App immer griffbereit, um deine Route und Pakete im Blick zu behalten und mit den Menschen zu sprechen, die Pakete mit dir versenden.",
-    description: "Halte die App griffbereit, um Sendungen zu verfolgen, mit Fahrern zu sprechen und Updates schneller zu erhalten.",
+    senderDescription: "Halte die App immer griffbereit, um Benachrichtigungen zu erhalten, deine Sendungen zu verfolgen, mit Fahrern zu sprechen und Updates schneller zu bekommen.",
+    travelerDescription: "Halte die App immer griffbereit, um Benachrichtigungen zu erhalten, deine Route und Pakete im Blick zu behalten und mit den Menschen zu sprechen, die Pakete mit dir versenden.",
+    description: "Halte die App immer griffbereit, um Benachrichtigungen zu erhalten, Sendungen zu verfolgen, mit Fahrern zu sprechen und Updates schneller zu bekommen.",
     iosIntro: "Auf iPhone oder iPad installierst du sie in Safari in zwei Schritten:",
     iosStep1Title: "1. Teilen tippen",
     iosStep1Text: "Tippe auf das Teilen-Symbol in der Safari-Leiste.",
-    iosStep2Title: "2. Zum Home-Bildschirm hinzufugen",
+    iosStep2Title: "2. Zum Home-Bildschirm hinzufügen",
     iosStep2Text: "Bestätige danach, um Cargoo als App auf deinem Home-Bildschirm zu haben.",
     androidIntro: "Installiere Cargoo auf Android, um sie wie eine App zu öffnen und schneller hineinzukommen.",
     androidDirectTitle: "Direkte Installation",
@@ -589,7 +591,7 @@ export const de = {
     rating: "Bewertung",
     rateWithStars: (value: number) => `Mit ${value} Sternen bewerten`,
     comment: "Kommentar",
-    commentPlaceholder: "Erzahl kurz, wie die Erfahrung war.",
+    commentPlaceholder: "Erzähl kurz, wie die Erfahrung war.",
     saveReview: "Bewertung speichern",
   },
   notFound: {
@@ -609,7 +611,7 @@ export const de = {
     },
   },
   legal: {
-    lastUpdatedDate: "27. Marz 2026",
+    lastUpdatedDate: "27. März 2026",
     terms: {
       title: "Nutzungsbedingungen (AGB)",
       summary:
@@ -625,7 +627,7 @@ export const de = {
         {
           title: "2. Kontoerstellung und korrekte Angaben",
           paragraphs: [
-            "Fur bestimmte Funktionen ist ein Konto erforderlich sowie die Angabe vollständiger, korrekter und aktueller Informationen. Jeder Nutzer ist dafür verantwortlich, Zugangsdaten zu schützen, Daten aktuell zu halten und eine unbefugte Nutzung des Kontos zu verhindern.",
+            "Für bestimmte Funktionen ist ein Konto erforderlich sowie die Angabe vollständiger, korrekter und aktueller Informationen. Jeder Nutzer ist dafür verantwortlich, Zugangsdaten zu schützen, Daten aktuell zu halten und eine unbefugte Nutzung des Kontos zu verhindern.",
             "Cargoo kann Konten einschränken, sperren oder schliessen, wenn falsche Angaben, missbräuchliche Nutzung, Rechtsverstösse, verdächtige Aktivitäten oder jedes Verhalten festgestellt wird, das Dritte oder die Plattform gefährdet.",
           ],
         },
@@ -637,14 +639,14 @@ export const de = {
           ],
         },
         {
-          title: "4. Verbotene oder eingeschrankte Gegenstände",
+          title: "4. Verbotene oder eingeschränkte Gegenstände",
           paragraphs: [
             "Es ist verboten, Cargoo für das Anbieten, Anfragen, übergeben oder Transportieren unter anderem folgender Dinge zu nutzen:",
             "Cargoo kann Einträge, Nachrichten oder Konten entfernen und mit Behörden kooperieren, wenn Anzeichen für eine rechtswidrige oder gefährliche Nutzung der Plattform bestehen.",
           ],
           bullets: [
             "illegale Gegenstände oder Waren unrechtmässiger Herkunft;",
-            "Drogen, betaubende Substanzen oder gefalschte Waren;",
+            "Drogen, betäubende Substanzen oder gefälschte Waren;",
             "Waffen, Munition, Sprengstoffe oder entflammbare bzw. gefährliche Stoffe;",
             "Bargeld, Edelmetalle, Ausweisdokumente Dritter oder nicht deklarierte hochwertige Güter;",
             "lebende Tiere, biologische überreste, verderbliche Waren ohne geeignete Bedingungen oder Gegenstände, deren Besitz oder Transport eine besondere Genehmigung erfordert.",
@@ -665,22 +667,22 @@ export const de = {
           ],
         },
         {
-          title: "7. Haftungsausschluss und Haftungsbeschrankung",
+          title: "7. Haftungsausschluss und Haftungsbeschränkung",
           paragraphs: [
-            "Soweit nach anwendbarem Recht zulässig, haftet Cargoo nicht für Verluste, Schaden, Verzögerungen, fehlgeschlagene Zustellungen, Diebstahl, Pannen, Bussgelder, Beschlagnahmungen, mittelbare Schaden, entgangenen Gewinn, immaterielle Schaden oder Ansprüche Dritter, die aus dem Verhalten der Nutzer, dem Inhalt von Paketen oder einer missbräuchlichen Nutzung der Plattform entstehen.",
+            "Soweit nach anwendbarem Recht zulässig, haftet Cargoo nicht für Verluste, Schäden, Verzögerungen, fehlgeschlagene Zustellungen, Diebstahl, Pannen, Bussgelder, Beschlagnahmungen, mittelbare Schäden, entgangenen Gewinn, immaterielle Schäden oder Ansprüche Dritter, die aus dem Verhalten der Nutzer, dem Inhalt von Paketen oder einer missbräuchlichen Nutzung der Plattform entstehen.",
             "Cargoo garantiert ausserdem weder eine ununterbrochene Verfügbarkeit des Dienstes noch Fehlerfreiheit, die tatsächliche Identität aller Nutzer oder die Rechtmässigkeit jeder zwischen ihnen vereinbarten Transaktion.",
           ],
         },
         {
           title: "8. Freistellung",
           paragraphs: [
-            "Der Nutzer verpflichtet sich, {brandName}, seine Betreibergesellschaft, Administratoren und Mitarbeitenden von Ansprüchen, Sanktionen, Kosten, Schaden und Aufwendungen einschliesslich angemessener Anwaltskosten freizustellen, die aus einem Verstoss gegen diese Bedingungen, anwendbares Recht oder Rechte Dritter entstehen.",
+            "Der Nutzer verpflichtet sich, {brandName}, seine Betreibergesellschaft, Administratoren und Mitarbeitenden von Ansprüchen, Sanktionen, Kosten, Schäden und Aufwendungen einschliesslich angemessener Anwaltskosten freizustellen, die aus einem Verstoss gegen diese Bedingungen, anwendbares Recht oder Rechte Dritter entstehen.",
           ],
         },
         {
           title: "9. Datenschutz",
           paragraphs: [
-            "Die Verarbeitung personenbezogener Daten wird zusatzlich durch die Datenschutzrichtlinie geregelt. Mit der Nutzung von Cargoo bestätigt der Nutzer, diese gelesen und verstanden zu haben.",
+            "Die Verarbeitung personenbezogener Daten wird zusätzlich durch die Datenschutzrichtlinie geregelt. Mit der Nutzung von Cargoo bestätigt der Nutzer, diese gelesen und verstanden zu haben.",
           ],
         },
         {
@@ -694,7 +696,7 @@ export const de = {
     privacy: {
       title: "Datenschutzrichtlinie",
       summary:
-        "Diese Richtlinie erklart, wie Cargoo personenbezogene Daten im Zusammenhang mit der öffentlichen Webseite, der App, Benutzerkonten, dem Chat, veröffentlichten Routen und dem Sendungstracking verarbeitet.",
+        "Diese Richtlinie erklärt, wie Cargoo personenbezogene Daten im Zusammenhang mit der öffentlichen Webseite, der App, Benutzerkonten, dem Chat, veröffentlichten Routen und dem Sendungstracking verarbeitet.",
       sections: [
         {
           title: "1. Verantwortliche Stelle",
@@ -705,11 +707,11 @@ export const de = {
         {
           title: "2. Welche Daten wir verarbeiten",
           bullets: [
-            "Konto- und Profildaten wie Name, E-Mail, Rolle, Stadt, Bio, Profilfoto und Sichtbarkeitseinstellungen;",
-            "betriebliche Servicedaten wie Routen, Zwischenstadte, Kapazität, Fahrtstatus, Sendungen und Bewertungen;",
+            "Konto- und Profildaten wie Name, E-Mail, Rolle, Stadt, Beschreibung, Profilfoto und Sichtbarkeitseinstellungen;",
+            "betriebliche Servicedaten wie Routen, Zwischenstädte, Kapazität, Fahrtstatus, Sendungen und Bewertungen;",
             "Nachrichten und Chat-Metadaten zwischen Nutzern;",
-            "technische und Sicherheitsdaten, die für Authentifizierung, Sitzungsverwaltung, lokale Speicherung, PWA-Installation und Missbrauchspravention erforderlich sind;",
-            "Daten, die wir aufgrund gesetzlicher Pflichten, aus Sicherheitsgrunden oder zur Abwehr von Ansprüchen aufbewahren müssen.",
+            "technische und Sicherheitsdaten, die für Authentifizierung, Sitzungsverwaltung, lokale Speicherung, PWA-Installation und Missbrauchsprävention erforderlich sind;",
+            "Daten, die wir aufgrund gesetzlicher Pflichten, aus Sicherheitsgründen oder zur Abwehr von Ansprüchen aufbewahren müssen.",
           ],
         },
         {
@@ -728,11 +730,11 @@ export const de = {
           title: "4. Rechtsgrundlage und schweizerischer Rahmen",
           paragraphs: [
             "Cargoo verarbeitet personenbezogene Daten nach dem anwendbaren schweizerischen Rechtsrahmen, insbesondere nach dem Bundesgesetz über den Datenschutz (DSG / revDSG) und seinen Grundsätzen der Transparenz, Verhältnismässigkeit, Sicherheit, Richtigkeit, Privacy by Design und Privacy by Default.",
-            "Soweit dies aufgrund des angebotenen Dienstes oder des Aufenthaltsorts der Nutzer erforderlich ist, kann Cargoo zusatzliche Anforderungen anderer zwingender Vorschriften beachten.",
+            "Soweit dies aufgrund des angebotenen Dienstes oder des Aufenthaltsorts der Nutzer erforderlich ist, kann Cargoo zusätzliche Anforderungen anderer zwingender Vorschriften beachten.",
           ],
         },
         {
-          title: "5. Empfanger und Datenzugriff",
+          title: "5. Empfänger und Datenzugriff",
           paragraphs: [
             "Bestimmte Daten werden je nach gewählter Funktion mit anderen Nutzern geteilt, zum Beispiel Name, Foto, Stadt, Bewertungen, öffentliche Routen, Nachrichten, Fahrtstatus und Kontaktdaten, die der Nutzer selbst veröffentlicht oder mitteilt.",
             "Darüber hinaus können wir Daten mit Anbietern für Infrastruktur, Authentifizierung, Datenbank, Speicherung und technischen Support teilen, jedoch nur soweit dies notwendig ist, um Cargoo sicher und rechtmässig zu betreiben.",
@@ -747,7 +749,7 @@ export const de = {
         {
           title: "7. Aufbewahrung",
           paragraphs: [
-            "Wir bewahren personenbezogene Daten so lange auf, wie sie für den Zweck ihrer Erhebung, für die vertragliche oder operative Beziehung mit dem Nutzer, für die Sicherheit der Plattform oder zur Erfullung gesetzlicher und beweisrechtlicher Pflichten erforderlich sind. Danach werden die Daten, soweit möglich, gelöscht oder anonymisiert.",
+            "Wir bewahren personenbezogene Daten so lange auf, wie sie für den Zweck ihrer Erhebung, für die vertragliche oder operative Beziehung mit dem Nutzer, für die Sicherheit der Plattform oder zur Erfüllung gesetzlicher und beweisrechtlicher Pflichten erforderlich sind. Danach werden die Daten, soweit möglich, gelöscht oder anonymisiert.",
           ],
         },
         {
@@ -766,13 +768,13 @@ export const de = {
         {
           title: "10. Cookies, lokaler Speicher und ähnliche Technologien",
           paragraphs: [
-            "Cargoo nutzt technische Mechanismen wie Local Storage, sessionStorage und ähnliche Technologien für wesentliche Funktionen der Authentifizierung, Sicherheit, Sitzungsbestaendigkeit, PWA-Installation und des grundlegenden Betriebs der App. Falls zukünftig zusatzliche Analyse- oder Marketingtools eingefuhrt werden, muss diese Richtlinie vor deren Einsatz aktualisiert werden.",
+            "Cargoo nutzt technische Mechanismen wie Local Storage, sessionStorage und ähnliche Technologien für wesentliche Funktionen der Authentifizierung, Sicherheit, Sitzungsbeständigkeit, PWA-Installation und des grundlegenden Betriebs der App. Falls zukünftig zusätzliche Analyse- oder Marketingtools eingeführt werden, muss diese Richtlinie vor deren Einsatz aktualisiert werden.",
           ],
         },
         {
           title: "11. Kontakt und Beschwerden",
           paragraphs: [
-            "Wenn du Fragen zum Datenschutz hast oder deine Rechte ausüben möchtest, kontaktiere {email}. Wenn du der Meinung bist, dass die Verarbeitung gegen geltendes Recht verstosst, kannst du dich auch an die zuständige Behörde wenden, in der Schweiz an den EDOB / FDPIC.",
+            "Wenn du Fragen zum Datenschutz hast oder deine Rechte ausüben möchtest, kontaktiere {email}. Wenn du der Meinung bist, dass die Verarbeitung gegen geltendes Recht verstösst, kannst du dich auch an die zuständige Behörde wenden, in der Schweiz an den EDOB / FDPIC.",
           ],
         },
       ],
@@ -805,32 +807,32 @@ export const de = {
         {
           title: "1. Cargoo erleichtert nur den Kontakt",
           paragraphs: [
-            "Cargoo organisiert oder fuhrt Transporte nicht auf eigene Rechnung durch. Die Plattform stellt lediglich Werkzeuge bereit, um Routen zu veröffentlichen, Kontakte herzustellen, zu chatten, manuelle Fahrtstatus anzugeben und Bewertungen zu hinterlassen. Jede reale Vereinbarung zwischen Absender und Fahrer wird ausserhalb des Kontrollbereichs von Cargoo und unter alleiniger Verantwortung dieser Parteien getroffen.",
+            "Cargoo organisiert oder führt Transporte nicht auf eigene Rechnung durch. Die Plattform stellt lediglich Werkzeuge bereit, um Routen zu veröffentlichen, Kontakte herzustellen, zu chatten, manuelle Fahrtstatus anzugeben und Bewertungen zu hinterlassen. Jede reale Vereinbarung zwischen Absender und Fahrer wird ausserhalb des Kontrollbereichs von Cargoo und unter alleiniger Verantwortung dieser Parteien getroffen.",
           ],
         },
         {
           title: "2. Keine materielle Kontrolle über Nutzer oder Pakete",
           paragraphs: [
-            "Cargoo kontrolliert nicht jedes Paket, überpruft den Inhalt von Sendungen nicht physisch, überwacht die tatsächliche Zustellung nicht, überpruft nicht systematisch Lizenzen, Versicherungen, Dokumentationen, Zollangaben oder Genehmigungen der Nutzer und garantiert nicht die Identität, Zahlungsfahigkeit, Sorgfalt oder Rechtmässigkeit jeder Person, die die Plattform nutzt.",
+            "Cargoo kontrolliert nicht jedes Paket, überprüft den Inhalt von Sendungen nicht physisch, überwacht die tatsächliche Zustellung nicht, überprüft nicht systematisch Lizenzen, Versicherungen, Dokumentationen, Zollangaben oder Genehmigungen der Nutzer und garantiert nicht die Identität, Zahlungsfähigkeit, Sorgfalt oder Rechtmässigkeit jeder Person, die die Plattform nutzt.",
           ],
         },
         {
           title: "3. Keine Garantie für Rechtmässigkeit, Sicherheit oder Erfolg des Transports",
           paragraphs: [
-            "Die Nutzung von öffentlichen Profilen, Kommentaren, Nachrichten, Abzeichen, Fahrtstatus oder Bewertungen stellt keinerlei Garantie für Sicherheit, Qualität, Rechtskonformitat, Pünktlichkeit oder korrekte Durchfuhrung eines Transports dar. Jeder Nutzer muss Risiko und Eignung einer Operation selbst beurteilen.",
+            "Die Nutzung von öffentlichen Profilen, Kommentaren, Nachrichten, Abzeichen, Fahrtstatus oder Bewertungen stellt keinerlei Garantie für Sicherheit, Qualität, Rechtskonformität, Pünktlichkeit oder korrekte Durchführung eines Transports dar. Jeder Nutzer muss Risiko und Eignung einer Operation selbst beurteilen.",
           ],
         },
         {
           title: "4. Verantwortung der Nutzer für die Nutzung der Plattform",
           paragraphs: [
-            "Die Nutzer sind allein verantwortlich für die von ihnen veröffentlichten Inhalte, die Güter, die sie anbieten, annehmen, laden oder transportieren, für Verpackung, Dokumentation, Rechtskonformitat und für jeden Schaden, Verlust, Verzug, Sanktion oder Anspruch, der sich aus ihren Handlungen oder Unterlassungen ergibt.",
+            "Die Nutzer sind allein verantwortlich für die von ihnen veröffentlichten Inhalte, die Güter, die sie anbieten, annehmen, laden oder transportieren, für Verpackung, Dokumentation, Rechtskonformität und für jeden Schaden, Verlust, Verzug, Sanktion oder Anspruch, der sich aus ihren Handlungen oder Unterlassungen ergibt.",
           ],
         },
         {
           title: "5. Keine Haftung für missbräuchliche Nutzung",
           paragraphs: [
             "Soweit gesetzlich zulässig, haftet {brandName} nicht für missbräuchliche Nutzung der Plattform, für die Nichteinhaltung von Vereinbarungen zwischen Nutzern oder für rechtswidrige, betrügerische, fahrlässige oder gefährliche Handlungen Dritter, die Cargoo nutzen.",
-            "Dazu gehören ohne Einschränkung Paketverlust oder -beschädigung, Verzögerungen, unvollständige Zustellungen, Diebstahl, Datenmissbrauch, falsche Informationen, Zoll-, Steuer- oder Strafverstosse sowie direkte oder indirekte Schaden, die aus der Nutzung der Plattform durch Dritte entstehen.",
+            "Dazu gehören ohne Einschränkung Paketverlust oder -beschädigung, Verzögerungen, unvollständige Zustellungen, Diebstahl, Datenmissbrauch, falsche Informationen, Zoll-, Steuer- oder Strafverstösse sowie direkte oder indirekte Schäden, die aus der Nutzung der Plattform durch Dritte entstehen.",
           ],
         },
         {
@@ -846,7 +848,7 @@ export const de = {
           ],
         },
         {
-          title: "8. Vorbehält zwingender Vorschriften",
+          title: "8. Vorbehalt zwingender Vorschriften",
           paragraphs: [
             "Nichts in diesem Haftungsausschluss soll eine Haftung ausschliessen, die nach anwendbarem Recht nicht wirksam ausgeschlossen werden kann. Im Konfliktfall gehen die zwingenden Vorschriften vor.",
           ],

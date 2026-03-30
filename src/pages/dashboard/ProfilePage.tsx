@@ -264,6 +264,7 @@ const ProfilePage = () => {
     ratingSummary.averageRating !== null ? messages.appProfile.reviewsCount(ratingSummary.reviewsCount) : messages.common.noReviewsYet;
   const needsPhoneAttention = Boolean(user.isTraveler && !profileForm.phone.trim());
   const needsNotificationsAttention = !notificationsEnabled;
+  const bioPlaceholder = user.isTraveler ? messages.editProfilePage.travelerBioExample : messages.editProfilePage.senderBioExample;
   const handleOpenInstallPrompt = () => {
     if (isStandalone) {
       toast.success(messages.appProfile.installAppAlreadyInstalled);
@@ -413,6 +414,7 @@ const ProfilePage = () => {
                   rows={3}
                   value={profileForm.bio}
                   onChange={(event) => updateProfileField("bio", event.target.value)}
+                  placeholder={bioPlaceholder}
                   className="mt-1 block min-h-0 w-full resize-none border-0 bg-transparent px-0.5 py-0 text-sm leading-relaxed text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>

@@ -9,12 +9,16 @@ export interface BeforeInstallPromptEvent extends Event {
 }
 
 const OPEN_INSTALL_PROMPT_EVENT = "cargoo:open-install-prompt";
+const INSTALL_PROMPT_AFTER_LOGIN_KEY = "cargoo:install-prompt-after-login";
+const INSTALL_PROMPT_INSTALLED_KEY = "cargoo:install-prompt-installed";
 
 type InstallPromptSnapshot = {
   deferredPrompt: BeforeInstallPromptEvent | null;
   isIos: boolean;
   isAndroid: boolean;
   isStandalone: boolean;
+  isInstalled: boolean;
+  shouldPromptAfterLogin: boolean;
 };
 
 const listeners = new Set<(snapshot: InstallPromptSnapshot) => void>();
@@ -34,9 +38,52 @@ const getPlatformSnapshot = () => {
   };
 };
 
+const getStoredInstallPromptState = () => {
+  if (typeof window === "undefined") {
+    return {
+      isInstalled: false,
+      shouldPromptAfterLogin: false,
+    };
+  }
+
+  return {
+    isInstalled: window.localStorage.getItem(INSTALL_PROMPT_INSTALLED_KEY) === "1",
+    shouldPromptAfterLogin: window.sessionStorage.getItem(INSTALL_PROMPT_AFTER_LOGIN_KEY) === "1",
+  };
+};
+
+const persistInstalledState = () => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(INSTALL_PROMPT_INSTALLED_KEY, "1");
+  window.sessionStorage.removeItem(INSTALL_PROMPT_AFTER_LOGIN_KEY);
+};
+
+const clearLoginPromptState = () => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.removeItem(INSTALL_PROMPT_AFTER_LOGIN_KEY);
+};
+
+const createSnapshot = (deferredPrompt: BeforeInstallPromptEvent | null): InstallPromptSnapshot => {
+  const platform = getPlatformSnapshot();
+  const storedState = getStoredInstallPromptState();
+  const isInstalled = platform.isStandalone || storedState.isInstalled;
+
+  return {
+    deferredPrompt: isInstalled ? null : deferredPrompt,
+    ...platform,
+    isInstalled,
+    shouldPromptAfterLogin: !isInstalled && storedState.shouldPromptAfterLogin,
+  };
+};
+
 let sharedSnapshot: InstallPromptSnapshot = {
-  deferredPrompt: null,
-  ...getPlatformSnapshot(),
+  ...createSnapshot(null),
 };
 let initialized = false;
 
@@ -55,34 +102,28 @@ const initializeInstallPromptStore = () => {
   }
 
   initialized = true;
-  sharedSnapshot = {
-    deferredPrompt: null,
-    ...getPlatformSnapshot(),
-  };
+  if (getPlatformSnapshot().isStandalone) {
+    persistInstalledState();
+  }
+  sharedSnapshot = createSnapshot(null);
 
   const handleBeforeInstallPrompt = (event: Event) => {
     const installEvent = event as BeforeInstallPromptEvent;
     installEvent.preventDefault();
-    setSharedSnapshot({
-      deferredPrompt: installEvent,
-      ...getPlatformSnapshot(),
-    });
+    setSharedSnapshot(createSnapshot(installEvent));
   };
 
   const handleInstalled = () => {
-    setSharedSnapshot({
-      deferredPrompt: null,
-      ...getPlatformSnapshot(),
-    });
+    persistInstalledState();
+    setSharedSnapshot(createSnapshot(null));
   };
 
   const handlePlatformChange = () => {
-    const nextPlatform = getPlatformSnapshot();
+    if (getPlatformSnapshot().isStandalone) {
+      persistInstalledState();
+    }
 
-    setSharedSnapshot({
-      deferredPrompt: nextPlatform.isStandalone ? null : sharedSnapshot.deferredPrompt,
-      ...nextPlatform,
-    });
+    setSharedSnapshot(createSnapshot(sharedSnapshot.deferredPrompt));
   };
 
   window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -111,6 +152,15 @@ export const initializeAppInstallPrompt = () => {
   initializeInstallPromptStore();
 };
 
+export const markInstallPromptPendingAfterLogin = () => {
+  if (typeof window === "undefined" || window.localStorage.getItem(INSTALL_PROMPT_INSTALLED_KEY) === "1") {
+    return;
+  }
+
+  window.sessionStorage.setItem(INSTALL_PROMPT_AFTER_LOGIN_KEY, "1");
+  setSharedSnapshot(createSnapshot(sharedSnapshot.deferredPrompt));
+};
+
 export const requestGlobalInstallPrompt = () => {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(OPEN_INSTALL_PROMPT_EVENT));
@@ -125,20 +175,20 @@ export const useAppInstallPrompt = ({ enabled = true }: { enabled?: boolean } = 
   useEffect(() => subscribeToInstallPrompt(setSnapshot), []);
 
   const canRenderInstallEntry = useMemo(
-    () => enabled && (snapshot.isIos || snapshot.isAndroid || snapshot.isStandalone),
-    [enabled, snapshot.isAndroid, snapshot.isIos, snapshot.isStandalone],
+    () => enabled && !snapshot.isInstalled && !snapshot.isStandalone && (snapshot.isIos || snapshot.isAndroid),
+    [enabled, snapshot.isAndroid, snapshot.isInstalled, snapshot.isIos, snapshot.isStandalone],
   );
 
   const canShowInstallEntry = useMemo(
-    () => enabled && !snapshot.isStandalone && (snapshot.isIos || (snapshot.isAndroid && Boolean(snapshot.deferredPrompt))),
-    [enabled, snapshot.deferredPrompt, snapshot.isAndroid, snapshot.isIos, snapshot.isStandalone],
+    () => enabled && snapshot.shouldPromptAfterLogin && !snapshot.isInstalled && !snapshot.isStandalone && (snapshot.isIos || (snapshot.isAndroid && Boolean(snapshot.deferredPrompt))),
+    [enabled, snapshot.deferredPrompt, snapshot.isAndroid, snapshot.isInstalled, snapshot.isIos, snapshot.isStandalone, snapshot.shouldPromptAfterLogin],
   );
 
   useEffect(() => {
-    if (!enabled || snapshot.isStandalone) {
+    if (!enabled || snapshot.isStandalone || snapshot.isInstalled) {
       setOpen(false);
     }
-  }, [enabled, snapshot.isStandalone]);
+  }, [enabled, snapshot.isInstalled, snapshot.isStandalone]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -159,6 +209,8 @@ export const useAppInstallPrompt = ({ enabled = true }: { enabled?: boolean } = 
   }, [canRenderInstallEntry]);
 
   const closePrompt = () => {
+    clearLoginPromptState();
+    setSharedSnapshot(createSnapshot(sharedSnapshot.deferredPrompt));
     setOpen(false);
   };
 
@@ -172,11 +224,13 @@ export const useAppInstallPrompt = ({ enabled = true }: { enabled?: boolean } = 
 
     try {
       await snapshot.deferredPrompt.prompt();
-      await snapshot.deferredPrompt.userChoice;
-      setSharedSnapshot({
-        deferredPrompt: null,
-        ...getPlatformSnapshot(),
-      });
+      const { outcome } = await snapshot.deferredPrompt.userChoice;
+
+      if (outcome === "accepted") {
+        persistInstalledState();
+      }
+
+      setSharedSnapshot(createSnapshot(null));
       closePrompt();
     } finally {
       setInstalling(false);

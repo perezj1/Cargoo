@@ -13,7 +13,7 @@ import { getCurrentUser, getFriendlyErrorMessage, updateCurrentUser } from "@/li
 
 const EditProfilePage = () => {
   const navigate = useNavigate();
-  const { refreshProfile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const { messages } = useLocale();
   const [form, setForm] = useState({
     name: "",
@@ -24,6 +24,7 @@ const EditProfilePage = () => {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const bioPlaceholder = profile?.isTraveler ? messages.editProfilePage.travelerBioExample : messages.editProfilePage.senderBioExample;
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -121,7 +122,7 @@ const EditProfilePage = () => {
             rows={3}
             value={form.bio}
             onChange={(event) => update("bio", event.target.value)}
-            placeholder={messages.editProfilePage.bioPlaceholder}
+            placeholder={bioPlaceholder}
           />
         </div>
 

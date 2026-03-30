@@ -2,7 +2,7 @@ import type { User } from "@supabase/supabase-js";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { normalizeLocale, type Locale } from "@/locales";
+import { localeMessages, normalizeLocale, type Locale } from "@/locales";
 import { normalizeSearchText } from "@/lib/search-normalization";
 
 type PushEventPayload =
@@ -218,9 +218,30 @@ type MetadataRecord = Record<string, unknown>;
 
 const LEGACY_DEFAULT_LOCATION = "Madrid, Espana";
 const DEFAULT_LOCATION = "";
-const DEFAULT_BIO = "Conductor habitual con espacio disponible para mover paquetes entre ciudades.";
 let chatFeatureAvailable: boolean | null = null;
 let shipmentFeatureAvailable: boolean | null = null;
+
+const BUILTIN_BIO_EXAMPLES = new Set<string>();
+
+for (const messages of Object.values(localeMessages)) {
+  BUILTIN_BIO_EXAMPLES.add(messages.editProfilePage.travelerBioExample);
+  BUILTIN_BIO_EXAMPLES.add(messages.editProfilePage.senderBioExample);
+}
+
+const getDefaultBio = (isTraveler: boolean, locale: Locale = "es") => {
+  const messages = localeMessages[normalizeLocale(locale)];
+  return isTraveler ? messages.editProfilePage.travelerBioExample : messages.editProfilePage.senderBioExample;
+};
+
+const normalizeProfileBio = (bio: string | null | undefined, isTraveler: boolean, locale: Locale = "es") => {
+  const trimmed = typeof bio === "string" ? bio.trim() : "";
+
+  if (!trimmed || BUILTIN_BIO_EXAMPLES.has(trimmed)) {
+    return getDefaultBio(isTraveler, locale);
+  }
+
+  return trimmed;
+};
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -420,19 +441,21 @@ const toMetadata = (user: User): MetadataRecord => {
 
 const buildProfileFromMetadata = (user: User): CargooUser => {
   const metadata = toMetadata(user);
+  const locale = typeof metadata.locale === "string" ? normalizeLocale(metadata.locale) : "es";
+  const isTraveler = Boolean(metadata.is_traveler);
 
   return {
     userId: user.id,
     name: typeof metadata.name === "string" && metadata.name.trim() ? metadata.name : deriveNameFromEmail(user.email ?? ""),
     email: user.email ?? "",
-    locale: typeof metadata.locale === "string" ? normalizeLocale(metadata.locale) : "es",
-    isTraveler: Boolean(metadata.is_traveler),
+    locale,
+    isTraveler,
     isPublic: metadata.is_public === false ? false : true,
     vehicleType: typeof metadata.vehicle_type === "string" ? metadata.vehicle_type : "",
     avatarUrl: typeof metadata.avatar_url === "string" ? metadata.avatar_url : "",
     phone: typeof metadata.phone === "string" ? metadata.phone : "",
     location: normalizeOptionalLocation(typeof metadata.location === "string" ? metadata.location : DEFAULT_LOCATION),
-    bio: typeof metadata.bio === "string" && metadata.bio.trim() ? metadata.bio : DEFAULT_BIO,
+    bio: normalizeProfileBio(typeof metadata.bio === "string" ? metadata.bio : "", isTraveler, locale),
   };
 };
 
@@ -597,19 +620,24 @@ const mapProfileRow = (
   email: string,
   fallbackAvatarUrl = "",
   fallbackLocale: Locale = "es",
-): CargooUser => ({
-  userId: row.user_id,
-  name: row.name,
-  email,
-  locale: row.locale ? normalizeLocale(row.locale) : fallbackLocale,
-  isTraveler: row.is_traveler,
-  isPublic: row.is_public,
-  vehicleType: row.vehicle_type ?? "",
-  avatarUrl: row.avatar_url ?? fallbackAvatarUrl,
-  phone: row.phone ?? "",
-  location: normalizeOptionalLocation(row.location),
-  bio: row.bio ?? DEFAULT_BIO,
-});
+): CargooUser => {
+  const locale = row.locale ? normalizeLocale(row.locale) : fallbackLocale;
+  const isTraveler = row.is_traveler;
+
+  return {
+    userId: row.user_id,
+    name: row.name,
+    email,
+    locale,
+    isTraveler,
+    isPublic: row.is_public,
+    vehicleType: row.vehicle_type ?? "",
+    avatarUrl: row.avatar_url ?? fallbackAvatarUrl,
+    phone: row.phone ?? "",
+    location: normalizeOptionalLocation(row.location),
+    bio: normalizeProfileBio(row.bio, isTraveler, locale),
+  };
+};
 
 const mapTripRow = (row: {
   id: string;
@@ -1020,7 +1048,7 @@ export const registerUser = async ({ name, email, password, isTraveler, isPublic
         vehicle_type: isTraveler ? vehicleType.trim() : "",
         phone: "",
         location: DEFAULT_LOCATION,
-        bio: DEFAULT_BIO,
+        bio: getDefaultBio(isTraveler, locale),
         cargoo_trips: [],
       },
       emailRedirectTo: window.location.origin,
@@ -1727,7 +1755,7 @@ const getPublicTravelerReviews = async (travelerId: string) => {
 export const getPublicCarrierProfile = async (userId: string) => {
   const { data: profile, error: profileError } = await supabase
     .from("cargoo_profiles")
-    .select("user_id, name, avatar_url, is_traveler, location, bio, phone")
+    .select("user_id, name, avatar_url, is_traveler, locale, location, bio, phone")
     .eq("user_id", userId)
     .eq("is_public", true)
     .maybeSingle();
@@ -1776,7 +1804,7 @@ export const getPublicCarrierProfile = async (userId: string) => {
     name: profile.name,
     avatarUrl: profile.avatar_url ?? "",
     location: normalizeOptionalLocation(profile.location),
-    bio: profile.bio ?? DEFAULT_BIO,
+    bio: normalizeProfileBio(profile.bio, profile.is_traveler, profile.locale ? normalizeLocale(profile.locale) : "es"),
     phone: profile.phone ?? "",
     isTraveler: profile.is_traveler,
     averageRating: publicReviews.averageRating,

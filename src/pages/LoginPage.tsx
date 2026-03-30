@@ -8,6 +8,7 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { markInstallPromptPendingAfterLogin } from "@/hooks/use-app-install-prompt";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +40,7 @@ const LoginPage = () => {
 
     try {
       await loginUser(email, password);
+      markInstallPromptPendingAfterLogin();
       toast.success(messages.login.success);
       navigate(nextPath, { replace: true });
     } catch (error) {
