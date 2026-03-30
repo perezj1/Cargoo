@@ -161,6 +161,9 @@ export type Database = {
           route_origin: string;
           sender_id: string;
           sender_name: string;
+          sender_review_comment: string | null;
+          sender_review_rating: number | null;
+          sender_reviewed_at: string | null;
           status: "pending" | "accepted" | "delivered";
           traveler_id: string;
           traveler_name: string;
@@ -180,6 +183,9 @@ export type Database = {
           route_origin: string;
           sender_id: string;
           sender_name: string;
+          sender_review_comment?: string | null;
+          sender_review_rating?: number | null;
+          sender_reviewed_at?: string | null;
           status?: "pending" | "accepted" | "delivered";
           traveler_id: string;
           traveler_name: string;
@@ -199,6 +205,9 @@ export type Database = {
           route_origin?: string;
           sender_id?: string;
           sender_name?: string;
+          sender_review_comment?: string | null;
+          sender_review_rating?: number | null;
+          sender_reviewed_at?: string | null;
           status?: "pending" | "accepted" | "delivered";
           traveler_id?: string;
           traveler_name?: string;

@@ -427,7 +427,7 @@ const PublicCarrierProfilePage = () => {
                     <div key={review.id} className="rounded-xl border border-border/70 bg-background p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-foreground">{review.senderName}</p>
+                          <p className="truncate text-sm font-semibold text-foreground">{review.reviewerName}</p>
                           <p className="mt-1 text-xs text-muted-foreground">
                             {review.routeOrigin} {"->"} {review.routeDestination}
                           </p>

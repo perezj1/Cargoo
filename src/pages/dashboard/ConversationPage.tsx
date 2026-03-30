@@ -273,13 +273,25 @@ const ConversationPage = () => {
   const shipmentStatus = shipment ? shipmentStatusConfig[shipment.status] : null;
   const canChooseTransport = Boolean(conversation.tripId) && !currentUserIsTraveler && !shipment;
   const canMarkPackageLoaded = Boolean(conversation.tripId) && !currentUserIsTraveler && shipment?.status === "pending";
-  const canReviewShipment = !currentUserIsTraveler && shipment?.status === "delivered" && !shipment.reviewRating;
+  const canReviewShipment =
+    shipment?.status === "delivered" && (currentUserIsTraveler ? !shipment.senderReviewRating : !shipment.reviewRating);
   const canAdvanceTrip =
     currentUserIsTraveler &&
     travelerTrip?.status === "active" &&
     travelerTrip?.trackingAvailable &&
     Boolean(travelerTrip?.nextStop);
   const infoLink = conversation.tripId ? (currentUserIsTraveler ? `/app/trips/${conversation.tripId}` : "/app/shipments") : null;
+  const otherUserRatingLabel =
+    conversation.otherUserAverageRating !== null
+      ? new Intl.NumberFormat(intlLocale, {
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 1,
+        }).format(conversation.otherUserAverageRating)
+      : localeMessages.common.newLabel;
+  const otherUserRatingCaption =
+    conversation.otherUserAverageRating !== null
+      ? localeMessages.publicProfile.reviewsCount(conversation.otherUserReviewsCount)
+      : localeMessages.common.noReviewsYet;
 
   return (
     <div className="mx-auto flex h-[calc(100vh-5rem)] max-w-lg flex-col px-4 pb-4 pt-6">
@@ -289,7 +301,11 @@ const ConversationPage = () => {
 
       <div className="mb-4 rounded-xl bg-card p-4 shadow-card">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(`/app/messages/${conversation.id}/profile`)}
+            className="flex min-w-0 flex-1 items-center gap-3 text-left"
+          >
             <Avatar className="h-11 w-11">
               <AvatarImage src={conversation.otherUserAvatarUrl} alt={conversation.otherUserName} />
               <AvatarFallback className="bg-primary/10 font-semibold text-primary">
@@ -312,12 +328,24 @@ const ConversationPage = () => {
                     pinClassName="h-3 w-3 text-primary/70"
                     arrowClassName="mt-0.5 h-3 w-3 text-muted-foreground"
                   />
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                    <Star className="h-3.5 w-3.5 fill-warning text-warning" />
+                    <span className="font-medium text-foreground">{otherUserRatingLabel}</span>
+                    <span>{otherUserRatingCaption}</span>
+                  </div>
                 </div>
               ) : (
-                <p className="truncate text-xs text-muted-foreground">{localeMessages.conversationPage.directChat}</p>
+                <div className="mt-1">
+                  <p className="truncate text-xs text-muted-foreground">{localeMessages.conversationPage.directChat}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                    <Star className="h-3.5 w-3.5 fill-warning text-warning" />
+                    <span className="font-medium text-foreground">{otherUserRatingLabel}</span>
+                    <span>{otherUserRatingCaption}</span>
+                  </div>
+                </div>
               )}
             </div>
-          </div>
+          </button>
 
           {infoLink ? (
             <Button asChild type="button" size="sm" variant="outline" className="shrink-0">
@@ -430,7 +458,7 @@ const ConversationPage = () => {
       <ShipmentReviewDialog
         open={reviewDialogOpen}
         onOpenChange={setReviewDialogOpen}
-        travelerName={conversation.otherUserIsTraveler ? conversation.otherUserName : localeMessages.conversationPage.genericTraveler}
+        recipientName={conversation.otherUserName}
         saving={savingReview}
         onSubmit={handleSubmitReview}
       />

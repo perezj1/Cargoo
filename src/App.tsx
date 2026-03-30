@@ -20,6 +20,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage.tsx";
 import SearchPage from "./pages/SearchPage.tsx";
 import AppSearchPage from "./pages/app/AppSearchPage.tsx";
 import ConversationPage from "./pages/dashboard/ConversationPage.tsx";
+import ContactProfilePage from "./pages/dashboard/ContactProfilePage.tsx";
 import DashboardHome from "./pages/dashboard/DashboardHome.tsx";
 import EditProfilePage from "./pages/dashboard/EditProfilePage.tsx";
 import MessagesPage from "./pages/dashboard/MessagesPage.tsx";
@@ -69,6 +70,7 @@ const App = () => (
                 <Route path="trips/:tripId" element={<TripDetailsPage />} />
                 <Route path="messages" element={<MessagesPage />} />
                 <Route path="messages/:conversationId" element={<ConversationPage />} />
+                <Route path="messages/:conversationId/profile" element={<ContactProfilePage />} />
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="profile/reviews" element={<TravelerReviewsPage />} />
                 <Route path="profile/edit" element={<EditProfilePage />} />

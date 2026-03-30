@@ -4,6 +4,7 @@ import { Link, Navigate, useLocation, useNavigate, useParams } from "react-route
 import { toast } from "sonner";
 
 import RouteInline from "@/components/RouteInline";
+import ShipmentReviewDialog from "@/components/ShipmentReviewDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +19,7 @@ import {
   getTripById,
   getTripShipments,
   markShipmentDelivered,
+  submitShipmentReview,
   type CargooTripDetails,
   type ConversationSummary,
   type ShipmentSummary,
@@ -50,6 +52,8 @@ const TripDetailsPage = () => {
   const [advancing, setAdvancing] = useState(false);
   const [updatingShipmentId, setUpdatingShipmentId] = useState<string | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [reviewingShipment, setReviewingShipment] = useState<ShipmentSummary | null>(null);
+  const [savingReview, setSavingReview] = useState(false);
   const statusConfig = {
     active: { label: messages.tripStatus.active, className: "border-success/20 bg-success/10 text-success" },
     completed: { label: messages.tripStatus.completed, className: "border-border bg-muted text-muted-foreground" },
@@ -156,6 +160,29 @@ const TripDetailsPage = () => {
       toast.error(getFriendlyErrorMessage(error));
     } finally {
       setUpdatingShipmentId(null);
+    }
+  };
+
+  const handleSubmitReview = async (rating: number, comment: string) => {
+    if (!reviewingShipment) {
+      return;
+    }
+
+    setSavingReview(true);
+
+    try {
+      await submitShipmentReview({
+        shipmentId: reviewingShipment.id,
+        rating,
+        comment,
+      });
+      setReviewingShipment(null);
+      await loadTripData();
+      toast.success(messages.conversationPage.reviewSaved);
+    } catch (error) {
+      toast.error(getFriendlyErrorMessage(error));
+    } finally {
+      setSavingReview(false);
     }
   };
 
@@ -448,8 +475,8 @@ const TripDetailsPage = () => {
                       <p className="mt-3 text-xs text-muted-foreground">{messages.tripDetailsPage.transportSelectedHint}</p>
                     ) : shipment.status === "delivered" ? (
                       <p className="mt-3 text-xs text-muted-foreground">
-                        {shipment.reviewRating
-                          ? messages.tripDetailsPage.deliveredWithRating(shipment.reviewRating)
+                        {shipment.senderReviewRating
+                          ? messages.tripDetailsPage.deliveredWithRating(shipment.senderReviewRating)
                           : messages.tripDetailsPage.deliveredPendingReview}
                       </p>
                     ) : null}
@@ -482,10 +509,17 @@ const TripDetailsPage = () => {
                       ) : null}
 
                       {shipment?.status === "delivered" ? (
-                        <Button type="button" size="sm" variant="outline" className="gap-2" disabled>
-                          <CheckCircle2 className="h-4 w-4" />
-                          {messages.shipmentStatus.delivered}
-                        </Button>
+                        shipment.senderReviewRating ? (
+                          <Button type="button" size="sm" variant="outline" className="gap-2" disabled>
+                            <CheckCircle2 className="h-4 w-4" />
+                            {messages.shipmentStatus.delivered}
+                          </Button>
+                        ) : (
+                          <Button type="button" size="sm" className="gap-2" onClick={() => setReviewingShipment(shipment)}>
+                            <Star className="h-4 w-4 fill-warning text-warning" />
+                            {messages.tripDetailsPage.rateSender}
+                          </Button>
+                        )
                       ) : null}
                     </div>
                   </div>
@@ -556,6 +590,18 @@ const TripDetailsPage = () => {
           <p>{messages.tripDetailsPage.safeTrackingHint}</p>
         </CardContent>
       </Card>
+
+      <ShipmentReviewDialog
+        open={Boolean(reviewingShipment)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReviewingShipment(null);
+          }
+        }}
+        recipientName={reviewingShipment?.senderName ?? messages.common.senderBadge}
+        saving={savingReview}
+        onSubmit={handleSubmitReview}
+      />
     </div>
   );
 };

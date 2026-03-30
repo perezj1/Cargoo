@@ -344,7 +344,7 @@ const ShipmentsPage = () => {
             setReviewingShipment(null);
           }
         }}
-        travelerName={reviewingShipment?.travelerName ?? messages.shipmentsPage.genericTraveler}
+        recipientName={reviewingShipment?.travelerName ?? messages.shipmentsPage.genericTraveler}
         saving={savingReview}
         onSubmit={handleSubmitReview}
       />

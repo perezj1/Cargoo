@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MessageSquare, Search, Trash2 } from "lucide-react";
+import { MessageSquare, Search, Star, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -136,71 +136,88 @@ const MessagesPage = () => {
         </div>
       ) : (
         <div className="space-y-1 pb-4">
-          {filtered.map((conversation) => (
-            <div key={conversation.id} className="flex items-center gap-2 rounded-xl p-1 transition-colors hover:bg-secondary">
-              <Link to={`/app/messages/${conversation.id}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-2 text-left">
-                <div className="relative">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={conversation.otherUserAvatarUrl} alt={conversation.otherUserName} />
-                    <AvatarFallback className="bg-primary/10 font-medium text-primary">
-                      {conversation.otherUserName
-                        .split(" ")
-                        .map((namePart) => namePart[0])
-                        .join("")
-                        .slice(0, 2)}
-                    </AvatarFallback>
-                  </Avatar>
-                  {conversation.unreadCount > 0 ? (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-foreground">
-                      {conversation.unreadCount}
-                    </span>
-                  ) : null}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-medium">{conversation.otherUserName}</p>
-                    <span className="ml-2 whitespace-nowrap text-[10px] text-muted-foreground">
-                      {formatConversationTime(conversation.lastMessageAt, intlLocale)}
-                    </span>
-                  </div>
-                  <p className="truncate text-xs text-muted-foreground">{conversation.lastMessageText}</p>
-                  <div className={`mt-1 ${profile?.isTraveler ? "space-y-1.5" : "flex flex-wrap items-center gap-2"}`}>
-                    {conversation.routeOrigin && conversation.routeDestination ? (
-                      <RouteInline
-                        origin={conversation.routeOrigin}
-                        destination={conversation.routeDestination}
-                        className="max-w-full text-[10px]"
-                        labelClassName="text-[10px] text-primary/70"
-                        pinClassName="h-3 w-3 text-primary/70"
-                        arrowClassName="mt-0.5 h-3 w-3 text-primary/60"
-                      />
-                    ) : (
-                      <p className="text-[10px] text-primary/70">{messages.messagesPage.directChat}</p>
-                    )}
-                    {conversation.shipmentStatus ? (
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] ${profile?.isTraveler ? "inline-flex" : ""} ${shipmentStatusConfig[conversation.shipmentStatus].className}`}
-                      >
-                        {shipmentStatusConfig[conversation.shipmentStatus].label}
-                      </Badge>
+          {filtered.map((conversation) => {
+            const ratingLabel =
+              conversation.otherUserAverageRating !== null
+                ? new Intl.NumberFormat(intlLocale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(
+                    conversation.otherUserAverageRating,
+                  )
+                : messages.common.newLabel;
+            const ratingCaption =
+              conversation.otherUserAverageRating !== null
+                ? messages.publicProfile.reviewsCount(conversation.otherUserReviewsCount)
+                : messages.common.noReviewsYet;
+
+            return (
+              <div key={conversation.id} className="flex items-center gap-2 rounded-xl p-1 transition-colors hover:bg-secondary">
+                <Link to={`/app/messages/${conversation.id}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-2 text-left">
+                  <div className="relative">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={conversation.otherUserAvatarUrl} alt={conversation.otherUserName} />
+                      <AvatarFallback className="bg-primary/10 font-medium text-primary">
+                        {conversation.otherUserName
+                          .split(" ")
+                          .map((namePart) => namePart[0])
+                          .join("")
+                          .slice(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
+                    {conversation.unreadCount > 0 ? (
+                      <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-foreground">
+                        {conversation.unreadCount}
+                      </span>
                     ) : null}
                   </div>
-                </div>
-              </Link>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-sm font-medium">{conversation.otherUserName}</p>
+                      <span className="ml-2 whitespace-nowrap text-[10px] text-muted-foreground">
+                        {formatConversationTime(conversation.lastMessageAt, intlLocale)}
+                      </span>
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">{conversation.lastMessageText}</p>
+                    <div className="mt-1">
+                      {conversation.routeOrigin && conversation.routeDestination ? (
+                        <RouteInline
+                          origin={conversation.routeOrigin}
+                          destination={conversation.routeDestination}
+                          className="max-w-full text-[10px]"
+                          labelClassName="text-[10px] text-primary/70"
+                          pinClassName="h-3 w-3 text-primary/70"
+                          arrowClassName="mt-0.5 h-3 w-3 text-primary/60"
+                        />
+                      ) : (
+                        <p className="text-[10px] text-primary/70">{messages.messagesPage.directChat}</p>
+                      )}
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <Star className="h-3 w-3 shrink-0 fill-warning text-warning" />
+                        <span className="font-medium text-foreground">{ratingLabel}</span>
+                        <span className="truncate">{ratingCaption}</span>
+                      </div>
+                      {conversation.shipmentStatus ? (
+                        <Badge variant="outline" className={`shrink-0 text-[10px] ${shipmentStatusConfig[conversation.shipmentStatus].className}`}>
+                          {shipmentStatusConfig[conversation.shipmentStatus].label}
+                        </Badge>
+                      ) : null}
+                    </div>
+                  </div>
+                </Link>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 shrink-0 text-muted-foreground"
-                onClick={() => setConversationToDelete(conversation)}
-                aria-label={messages.messagesPage.deleteAria(conversation.otherUserName)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 text-muted-foreground"
+                  onClick={() => setConversationToDelete(conversation)}
+                  aria-label={messages.messagesPage.deleteAria(conversation.otherUserName)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            );
+          })}
           {filtered.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground">
               <MessageSquare className="mx-auto mb-3 h-10 w-10 opacity-40" />
