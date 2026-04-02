@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
-import { deleteCompletedTrip, getFriendlyErrorMessage, getTrips, type CargooTrip } from "@/lib/cargoo-store";
+import { deleteTrip, getFriendlyErrorMessage, getTrips, type CargooTrip } from "@/lib/cargoo-store";
 import { getTripRouteLabels } from "@/lib/location-catalog";
 import { formatTripScheduleLabel } from "@/lib/trip-schedule";
 
@@ -74,7 +74,7 @@ const TripsPage = () => {
     return <Navigate to="/app/search" replace />;
   }
 
-  const handleDeleteCompletedTrip = async () => {
+  const handleDeleteTrip = async () => {
     if (!tripToDelete) {
       return;
     }
@@ -82,9 +82,9 @@ const TripsPage = () => {
     setDeletingTripId(tripToDelete.id);
 
     try {
-      await deleteCompletedTrip(tripToDelete.id);
+      await deleteTrip(tripToDelete.id);
       setTripToDelete(null);
-      toast.success(messages.tripsPage.deletedSuccess);
+      toast.success(tripToDelete.status === "active" ? messages.tripsPage.cancelledSuccess : messages.tripsPage.deletedSuccess);
       await loadTrips();
     } catch (error) {
       toast.error(getFriendlyErrorMessage(error));
@@ -122,6 +122,7 @@ const TripsPage = () => {
               anyCityInCountry: messages.common.anyCityInCountry,
             });
             const status = statusConfig[trip.status];
+            const isActiveTrip = trip.status === "active";
             const formattedDate = formatTripScheduleLabel({
               date: trip.date,
               recurrence: trip.recurrence,
@@ -177,8 +178,8 @@ const TripsPage = () => {
                   ) : null}
                 </Link>
 
-                {trip.status === "completed" ? (
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className={`mt-3 flex items-center gap-2 ${trip.status === "completed" ? "justify-between" : "justify-end"}`}>
+                  {trip.status === "completed" ? (
                     <Button
                       type="button"
                       variant="outline"
@@ -187,18 +188,31 @@ const TripsPage = () => {
                     >
                       {messages.tripsPage.reuseTrip}
                     </Button>
+                  ) : <span />}
+                  {isActiveTrip ? (
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={messages.tripsPage.cancelDialogButton}
+                      className="shrink-0 border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setTripToDelete(trip)}
+                    >
+                      {messages.tripsPage.cancelAction}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      aria-label={messages.tripsPage.deleteDialogButton}
+                      className="shrink-0 border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
                       onClick={() => setTripToDelete(trip)}
                     >
                       <Trash2 className="h-4 w-4" />
-                      {messages.tripsPage.delete}
                     </Button>
-                  </div>
-                ) : null}
+                  )}
+                </div>
               </div>
             );
           })}
@@ -221,13 +235,23 @@ const TripsPage = () => {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{messages.tripsPage.deleteDialogTitle}</AlertDialogTitle>
-            <AlertDialogDescription>{messages.tripsPage.deleteDialogDescription}</AlertDialogDescription>
+            <AlertDialogTitle>
+              {tripToDelete?.status === "active" ? messages.tripsPage.cancelDialogTitle : messages.tripsPage.deleteDialogTitle}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {tripToDelete?.status === "active"
+                ? messages.tripsPage.cancelDialogDescription
+                : messages.tripsPage.deleteDialogDescription}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={Boolean(deletingTripId)}>{messages.common.cancel}</AlertDialogCancel>
-            <Button type="button" variant="destructive" onClick={() => void handleDeleteCompletedTrip()} disabled={Boolean(deletingTripId)}>
-              {deletingTripId ? messages.tripsPage.deleting : messages.tripsPage.deleteDialogButton}
+            <Button type="button" variant="destructive" onClick={() => void handleDeleteTrip()} disabled={Boolean(deletingTripId)}>
+              {deletingTripId
+                ? messages.tripsPage.deleting
+                : tripToDelete?.status === "active"
+                  ? messages.tripsPage.cancelDialogButton
+                  : messages.tripsPage.deleteDialogButton}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

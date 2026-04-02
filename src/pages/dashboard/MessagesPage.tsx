@@ -52,6 +52,7 @@ const MessagesPage = () => {
     pending: { label: messages.shipmentStatus.pending, className: "border-warning/20 bg-warning/10 text-warning" },
     accepted: { label: messages.shipmentStatus.accepted, className: "border-primary/20 bg-primary/10 text-primary" },
     delivered: { label: messages.shipmentStatus.delivered, className: "border-success/20 bg-success/10 text-success" },
+    cancelled: { label: messages.shipmentStatus.cancelled, className: "border-destructive/20 bg-destructive/10 text-destructive" },
   } as const;
 
   const loadConversations = async () => {
@@ -80,6 +81,11 @@ const MessagesPage = () => {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "cargoo_conversation_hidden_states", filter: `user_id=eq.${user.id}` },
+        () => void loadConversations(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "cargoo_shipment_hidden_states", filter: `user_id=eq.${user.id}` },
         () => void loadConversations(),
       )
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_shipments" }, () => void loadConversations())

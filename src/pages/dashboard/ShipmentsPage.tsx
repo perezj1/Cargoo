@@ -55,6 +55,7 @@ const ShipmentsPage = () => {
     pending: { label: messages.shipmentStatus.pending, className: "border-warning/20 bg-warning/10 text-warning" },
     accepted: { label: messages.shipmentStatus.accepted, className: "border-primary/20 bg-primary/10 text-primary" },
     delivered: { label: messages.shipmentStatus.delivered, className: "border-success/20 bg-success/10 text-success" },
+    cancelled: { label: messages.shipmentStatus.cancelled, className: "border-destructive/20 bg-destructive/10 text-destructive" },
   } as const;
 
   const loadShipments = async () => {
@@ -78,6 +79,7 @@ const ShipmentsPage = () => {
   useEffect(() => {
     const channel = supabase
       .channel("shipments-page")
+      .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_shipment_hidden_states" }, () => void loadShipments())
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_shipments" }, () => void loadShipments())
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_trip_stops" }, () => void loadShipments())
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_trips" }, () => void loadShipments())
@@ -94,14 +96,14 @@ const ShipmentsPage = () => {
         return shipment.status === "pending" || shipment.status === "accepted";
       }
 
-      return shipment.status === "delivered";
+      return shipment.status === "delivered" || shipment.status === "cancelled";
     });
   }, [shipments, tab]);
 
   const counts = useMemo(
     () => ({
       active: shipments.filter((shipment) => shipment.status === "pending" || shipment.status === "accepted").length,
-      delivered: shipments.filter((shipment) => shipment.status === "delivered").length,
+      delivered: shipments.filter((shipment) => shipment.status === "delivered" || shipment.status === "cancelled").length,
     }),
     [shipments],
   );
@@ -260,7 +262,7 @@ const ShipmentsPage = () => {
                   </div>
                 </div>
 
-                {shipment.status !== "pending" ? (
+                {shipment.status === "accepted" || shipment.status === "delivered" ? (
                   <div className="mt-4">
                     <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
                       <span>{messages.shipmentsPage.tracking}</span>
@@ -279,6 +281,12 @@ const ShipmentsPage = () => {
                 {shipment.status === "delivered" ? (
                   <div className="mt-4 rounded-xl border border-success/20 bg-success/10 px-3 py-3 text-sm text-success">
                     {messages.shipmentsPage.deliveredBanner(shipment.reviewRating)}
+                  </div>
+                ) : null}
+
+                {shipment.status === "cancelled" ? (
+                  <div className="mt-4 rounded-xl border border-destructive/20 bg-destructive/10 px-3 py-3 text-sm text-destructive">
+                    {messages.shipmentsPage.cancelledBanner}
                   </div>
                 ) : null}
 
@@ -319,7 +327,7 @@ const ShipmentsPage = () => {
                     </Button>
                   ) : null}
 
-                  {shipment.status === "delivered" ? (
+                  {shipment.status === "delivered" || shipment.status === "cancelled" ? (
                     <Button
                       type="button"
                       variant="outline"

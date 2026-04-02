@@ -56,6 +56,7 @@ const DashboardHome = () => {
     pending: { label: messages.shipmentStatus.pending, className: "border-warning/20 bg-warning/10 text-warning" },
     accepted: { label: messages.shipmentStatus.accepted, className: "border-primary/20 bg-primary/10 text-primary" },
     delivered: { label: messages.shipmentStatus.delivered, className: "border-success/20 bg-success/10 text-success" },
+    cancelled: { label: messages.shipmentStatus.cancelled, className: "border-destructive/20 bg-destructive/10 text-destructive" },
   } as const;
 
   const loadDashboardData = async () => {
@@ -130,6 +131,16 @@ const DashboardHome = () => {
         { event: "*", schema: "public", table: "cargoo_conversation_hidden_states", filter: `user_id=eq.${profile.userId}` },
         reloadDashboard,
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "cargoo_shipment_hidden_states", filter: `user_id=eq.${profile.userId}` },
+        reloadDashboard,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "cargoo_trip_hidden_states", filter: `user_id=eq.${profile.userId}` },
+        reloadDashboard,
+      )
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_shipments" }, reloadDashboard)
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_trip_stops" }, reloadDashboard)
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_trips" }, reloadDashboard)
@@ -147,7 +158,7 @@ const DashboardHome = () => {
   const shipmentCounts = useMemo(
     () => ({
       accepted: shipments.filter((shipment) => shipment.status === "accepted").length,
-      delivered: shipments.filter((shipment) => shipment.status === "delivered").length,
+      delivered: shipments.filter((shipment) => shipment.status === "delivered" || shipment.status === "cancelled").length,
       reviewPending: shipments.filter((shipment) => shipment.status === "delivered" && !shipment.reviewRating).length,
     }),
     [shipments],
@@ -207,9 +218,18 @@ const DashboardHome = () => {
       : activeTripDetails.stops.map((stop) => localizeLocationText(stop.city, locale)).join(" -> ")
     : "";
   const shouldOpenPendingPackages = profile.isTraveler && activeTripDetails && !activeTripDetails.nextStop && activeTripDetails.status === "active";
-  const featuredShipment = !profile.isTraveler ? shipments.find((shipment) => shipment.status === "accepted") ?? null : null;
+  const featuredShipment = !profile.isTraveler
+    ? shipments.find((shipment) => shipment.status === "pending") ?? shipments.find((shipment) => shipment.status === "accepted") ?? null
+    : null;
   const recentSenderShipments = !profile.isTraveler
-    ? shipments.filter((shipment) => shipment.id !== featuredShipment?.id).slice(0, 4)
+    ? shipments
+        .filter((shipment) => shipment.id !== featuredShipment?.id)
+        .sort((left, right) => {
+          const leftDate = left.cancelledAt ?? left.deliveredAt ?? left.acceptedAt ?? left.createdAt;
+          const rightDate = right.cancelledAt ?? right.deliveredAt ?? right.acceptedAt ?? right.createdAt;
+          return new Date(rightDate).getTime() - new Date(leftDate).getTime();
+        })
+        .slice(0, 4)
     : [];
   const searchPageParams = new URLSearchParams();
 
@@ -412,11 +432,20 @@ const DashboardHome = () => {
                 <Truck className="h-4 w-4 shrink-0 text-primary" />
                 <span className="font-medium">{messages.dashboardHome.activeShipmentTitle}</span>
               </div>
-              <Badge variant="outline" className="shrink-0 border-primary/20 bg-primary/10 text-primary">
-                {messages.shipmentStatus.accepted}
+              <Badge
+                variant="outline"
+                className={
+                  featuredShipment.status === "pending"
+                    ? "shrink-0 border-warning/20 bg-warning/10 text-warning"
+                    : "shrink-0 border-primary/20 bg-primary/10 text-primary"
+                }
+              >
+                {messages.shipmentStatus[featuredShipment.status]}
               </Badge>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">{messages.dashboardHome.activeShipmentSubtitle}</p>
+            {featuredShipment.status === "accepted" ? (
+              <p className="mt-2 text-xs text-muted-foreground">{messages.dashboardHome.activeShipmentSubtitle}</p>
+            ) : null}
           </div>
 
           <div className="rounded-xl border border-border/70 bg-card p-4">
@@ -428,52 +457,78 @@ const DashboardHome = () => {
             />
             <p className="mt-1 text-xs text-muted-foreground">{featuredShipment.travelerName}</p>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-border/70 bg-background px-3 py-3 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  <span>{messages.shipmentsPage.currentCheckpoint}</span>
+            {featuredShipment.status === "accepted" ? (
+              <>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-border/70 bg-background px-3 py-3 text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <MapPin className="h-4 w-4" />
+                      <span>{messages.shipmentsPage.currentCheckpoint}</span>
+                    </div>
+                    <p className="mt-2 font-medium text-foreground">{featuredShipment.currentCheckpointCity}</p>
+                  </div>
+                  <div className="rounded-xl border border-border/70 bg-background px-3 py-3 text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Route className="h-4 w-4" />
+                      <span>{messages.tripDetailsPage.nextCity}</span>
+                    </div>
+                    <p className="mt-2 font-medium text-foreground">
+                      {featuredShipment.nextCheckpointCity ?? messages.shipmentsPage.noNextCheckpoint}
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-2 font-medium text-foreground">{featuredShipment.currentCheckpointCity}</p>
-              </div>
-              <div className="rounded-xl border border-border/70 bg-background px-3 py-3 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Route className="h-4 w-4" />
-                  <span>{messages.tripDetailsPage.nextCity}</span>
+
+                <div className="mt-4">
+                  <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{messages.shipmentsPage.tracking}</span>
+                    <span>{featuredShipment.trackingProgressPercent}%</span>
+                  </div>
+                  <Progress value={featuredShipment.trackingProgressPercent} />
                 </div>
-                <p className="mt-2 font-medium text-foreground">
-                  {featuredShipment.nextCheckpointCity ?? messages.shipmentsPage.noNextCheckpoint}
-                </p>
-              </div>
-            </div>
 
-            <div className="mt-4">
-              <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-                <span>{messages.shipmentsPage.tracking}</span>
-                <span>{featuredShipment.trackingProgressPercent}%</span>
-              </div>
-              <Progress value={featuredShipment.trackingProgressPercent} />
-            </div>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Button asChild variant="outline">
+                    <Link to={`/app/messages/${featuredShipment.conversationId}`}>
+                      <MessageSquare className="h-4 w-4" />
+                      {messages.shipmentsPage.openChat}
+                    </Link>
+                  </Button>
 
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <Button asChild variant="outline">
-                <Link to={`/app/messages/${featuredShipment.conversationId}`}>
-                  <MessageSquare className="h-4 w-4" />
-                  {messages.shipmentsPage.openChat}
-                </Link>
-              </Button>
+                  {featuredShipmentPhone ? (
+                    <Button asChild>
+                      <a href={`tel:${featuredShipmentPhone}`}>
+                        <Phone className="h-4 w-4" />
+                        {messages.publicProfile.call}
+                      </a>
+                    </Button>
+                  ) : (
+                    <div />
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="mt-4 text-sm text-muted-foreground">{messages.dashboardHome.selectedTransportPending}</p>
+                <div className="mt-4 grid gap-2">
+                  <Button
+                    type="button"
+                    size="lg"
+                    className="w-full"
+                    onClick={() => void handleMarkPackageLoaded(featuredShipment.conversationId)}
+                    disabled={loadingShipmentConversationId === featuredShipment.conversationId}
+                  >
+                    {loadingShipmentConversationId === featuredShipment.conversationId ? messages.shipmentsPage.activating : messages.shipmentsPage.packageLoaded}
+                  </Button>
 
-              {featuredShipmentPhone ? (
-                <Button asChild>
-                  <a href={`tel:${featuredShipmentPhone}`}>
-                    <Phone className="h-4 w-4" />
-                    {messages.publicProfile.call}
-                  </a>
-                </Button>
-              ) : (
-                <div />
-              )}
-            </div>
+                  <Button asChild variant="outline">
+                    <Link to={`/app/messages/${featuredShipment.conversationId}`}>
+                      <MessageSquare className="h-4 w-4" />
+                      {messages.shipmentsPage.openChat}
+                    </Link>
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : null}
@@ -530,6 +585,7 @@ const DashboardHome = () => {
               ))
             : recentSenderShipments.map((shipment) => {
                 const status = shipmentStatusConfig[shipment.status];
+                const travelerPhone = shipment.travelerPhone.replace(/[^\d+]/g, "");
 
                 return (
                   <div key={shipment.id} className="rounded-xl bg-card p-4 shadow-card">
@@ -547,12 +603,14 @@ const DashboardHome = () => {
                           {status.label}
                         </Badge>
                       </div>
-                      <p className="mt-3 text-xs text-muted-foreground">
+                      <p className={`mt-3 text-xs ${shipment.status === "cancelled" ? "text-destructive" : "text-muted-foreground"}`}>
                         {shipment.status === "pending"
                           ? messages.dashboardHome.selectedTransportPending
-                          : shipment.nextCheckpointCity
-                            ? messages.dashboardHome.nowInCheckpoint(shipment.currentCheckpointCity, shipment.nextCheckpointCity)
-                            : messages.dashboardHome.lastCheckpoint(shipment.currentCheckpointCity)}
+                          : shipment.status === "cancelled"
+                            ? messages.shipmentsPage.cancelledBanner
+                            : shipment.nextCheckpointCity
+                              ? messages.dashboardHome.nowInCheckpoint(shipment.currentCheckpointCity, shipment.nextCheckpointCity)
+                              : messages.dashboardHome.lastCheckpoint(shipment.currentCheckpointCity)}
                       </p>
                     </Link>
 
@@ -572,6 +630,26 @@ const DashboardHome = () => {
                         <Star className="h-4 w-4 fill-warning text-warning" />
                         {messages.shipmentsPage.rateTraveler}
                       </Button>
+                    ) : null}
+
+                    {shipment.status === "cancelled" ? (
+                      <div className={`mt-4 grid gap-2 ${travelerPhone ? "grid-cols-2" : "grid-cols-1"}`}>
+                        <Button asChild variant="outline">
+                          <Link to={`/app/messages/${shipment.conversationId}`}>
+                            <MessageSquare className="h-4 w-4" />
+                            {messages.shipmentsPage.openChat}
+                          </Link>
+                        </Button>
+
+                        {travelerPhone ? (
+                          <Button asChild>
+                            <a href={`tel:${travelerPhone}`}>
+                              <Phone className="h-4 w-4" />
+                              {messages.publicProfile.call}
+                            </a>
+                          </Button>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
                 );

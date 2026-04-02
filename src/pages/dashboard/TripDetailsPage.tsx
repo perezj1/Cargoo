@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Calendar, CarFront, CheckCircle2, ChevronDown, Clock3, MessageSquare, Package, Route, ShieldCheck, Truck, Users } from "lucide-react";
+import { ArrowLeft, Calendar, CarFront, CheckCircle2, ChevronDown, Clock3, MessageSquare, Package, Route, ShieldCheck, Star, Truck, Users } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -15,9 +15,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { getTripRouteLabels, localizeLocationText } from "@/lib/location-catalog";
 import {
   advanceTripToNextStop,
-  getConversations,
   getFriendlyErrorMessage,
   getTripById,
+  getTripConversations,
   getTripShipments,
   markShipmentDelivered,
   submitShipmentReview,
@@ -63,13 +63,14 @@ const TripDetailsPage = () => {
     pending: { label: messages.shipmentStatus.pending, className: "border-warning/20 bg-warning/10 text-warning" },
     accepted: { label: messages.shipmentStatus.accepted, className: "border-primary/20 bg-primary/10 text-primary" },
     delivered: { label: messages.shipmentStatus.delivered, className: "border-success/20 bg-success/10 text-success" },
+    cancelled: { label: messages.shipmentStatus.cancelled, className: "border-destructive/20 bg-destructive/10 text-destructive" },
   } as const;
 
   const loadTripData = async () => {
-    const [nextTrip, nextShipments, conversations] = await Promise.all([getTripById(tripId), getTripShipments(tripId), getConversations()]);
+    const [nextTrip, nextShipments, conversations] = await Promise.all([getTripById(tripId), getTripShipments(tripId), getTripConversations(tripId)]);
     setTrip(nextTrip);
     setShipments(nextShipments);
-    setTripConversations(conversations.filter((conversation) => conversation.tripId === tripId));
+    setTripConversations(conversations);
   };
 
   useEffect(() => {
@@ -95,8 +96,14 @@ const TripDetailsPage = () => {
     const channel = supabase
       .channel(`trip-details-${tripId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_shipments", filter: `trip_id=eq.${tripId}` }, () => void loadTripData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_conversations", filter: `trip_id=eq.${tripId}` }, () => void loadTripData())
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_trip_stops", filter: `trip_id=eq.${tripId}` }, () => void loadTripData())
       .on("postgres_changes", { event: "*", schema: "public", table: "cargoo_trips", filter: `id=eq.${tripId}` }, () => void loadTripData())
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "cargoo_trip_hidden_states", filter: `user_id=eq.${profile.userId}` },
+        () => void loadTripData(),
+      )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "cargoo_conversation_hidden_states", filter: `user_id=eq.${profile.userId}` },
