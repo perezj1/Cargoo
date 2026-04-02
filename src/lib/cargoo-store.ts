@@ -8,6 +8,7 @@ import { normalizeSearchText } from "@/lib/search-normalization";
 
 type PushEventPayload =
   | { eventType: "trip_checkpoint_reached"; tripId: string; stopId: string; city?: string }
+  | { eventType: "trip_cancelled"; tripId: string }
   | { eventType: "shipment_delivered"; shipmentId: string }
   | { eventType: "message_received"; messageId: string };
 
@@ -1445,6 +1446,7 @@ const cancelTripShipmentsForTraveler = async (tripId: string, travelerId: string
 
 export const deleteTrip = async (tripId: string) => {
   const user = await requireUser();
+  let shouldNotifyTripCancelled = false;
   const { data, error } = await supabase
     .from("cargoo_trips")
     .select("id, status")
@@ -1484,6 +1486,7 @@ export const deleteTrip = async (tripId: string) => {
   }
 
   if (data.status === "active") {
+    shouldNotifyTripCancelled = true;
     await cancelTripShipmentsForTraveler(tripId, user.id);
 
     const { error: tripUpdateError } = await supabase
@@ -1500,6 +1503,13 @@ export const deleteTrip = async (tripId: string) => {
   }
 
   await hideTripForUser(user, tripId);
+
+  if (shouldNotifyTripCancelled) {
+    void triggerPushEvent({
+      eventType: "trip_cancelled",
+      tripId,
+    });
+  }
 };
 
 export const deleteCompletedTrip = deleteTrip;

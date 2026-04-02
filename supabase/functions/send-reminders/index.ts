@@ -5,7 +5,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY");
 const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY");
-const APP_ORIGIN = (Deno.env.get("APP_ORIGIN") || "http://localhost:5173").replace(/\/+$/, "");
+const APP_ORIGIN = (Deno.env.get("APP_ORIGIN") || "https://cargoo.pro/").replace(/\/+$/, "");
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
@@ -30,6 +30,7 @@ type Locale = "es" | "en" | "de" | "sr";
 
 type PushEventPayload =
   | { eventType: "trip_checkpoint_reached"; tripId: string; stopId: string; city?: string }
+  | { eventType: "trip_cancelled"; tripId: string }
   | { eventType: "shipment_delivered"; shipmentId: string }
   | { eventType: "message_received"; messageId: string };
 
@@ -69,8 +70,14 @@ class HttpError extends Error {
 
 const strings = {
   es: {
-    checkpointTitle: "Cargoo - Actualización de ruta",
+    genericTraveler: "El transportista",
+    checkpointTitle: "Cargoo - Actualizacion de ruta",
     checkpointBody: (travelerName: string, city: string) => `${travelerName} ha llegado a ${city}.`,
+    cancelledTitle: "Cargoo - Viaje cancelado",
+    cancelledBody: (travelerName: string, origin: string, destination: string) =>
+      origin && destination
+        ? `${travelerName} ha cancelado el viaje ${origin} -> ${destination}.`
+        : `${travelerName} ha cancelado el viaje que habias elegido.`,
     deliveredTitle: "Cargoo - Paquete entregado",
     deliveredBody: (travelerName: string, destination: string) =>
       destination
@@ -80,8 +87,14 @@ const strings = {
     messageBody: (content: string) => content || "Has recibido un nuevo mensaje.",
   },
   en: {
+    genericTraveler: "The carrier",
     checkpointTitle: "Cargoo - Route update",
     checkpointBody: (travelerName: string, city: string) => `${travelerName} has reached ${city}.`,
+    cancelledTitle: "Cargoo - Trip cancelled",
+    cancelledBody: (travelerName: string, origin: string, destination: string) =>
+      origin && destination
+        ? `${travelerName} has cancelled the trip ${origin} -> ${destination}.`
+        : `${travelerName} has cancelled the trip you chose.`,
     deliveredTitle: "Cargoo - Package delivered",
     deliveredBody: (travelerName: string, destination: string) =>
       destination
@@ -91,8 +104,14 @@ const strings = {
     messageBody: (content: string) => content || "You received a new message.",
   },
   de: {
+    genericTraveler: "Der Fahrer",
     checkpointTitle: "Cargoo - Routen-Update",
     checkpointBody: (travelerName: string, city: string) => `${travelerName} ist in ${city} angekommen.`,
+    cancelledTitle: "Cargoo - Fahrt abgesagt",
+    cancelledBody: (travelerName: string, origin: string, destination: string) =>
+      origin && destination
+        ? `${travelerName} hat die Fahrt ${origin} -> ${destination} abgesagt.`
+        : `${travelerName} hat die von dir gewahlte Fahrt abgesagt.`,
     deliveredTitle: "Cargoo - Paket zugestellt",
     deliveredBody: (travelerName: string, destination: string) =>
       destination
@@ -102,21 +121,30 @@ const strings = {
     messageBody: (content: string) => content || "Du hast eine neue Nachricht erhalten.",
   },
   sr: {
-    checkpointTitle: "Cargoo - Ažuriranje rute",
+    genericTraveler: "Vozac",
+    checkpointTitle: "Cargoo - Azuriranje rute",
     checkpointBody: (travelerName: string, city: string) => `${travelerName} je stigao u ${city}.`,
-    deliveredTitle: "Cargoo - Paket isporučen",
+    cancelledTitle: "Cargoo - Voznja otkazana",
+    cancelledBody: (travelerName: string, origin: string, destination: string) =>
+      origin && destination
+        ? `${travelerName} je otkazao voznju ${origin} -> ${destination}.`
+        : `${travelerName} je otkazao voznju koju si izabrao/la.`,
+    deliveredTitle: "Cargoo - Paket isporucen",
     deliveredBody: (travelerName: string, destination: string) =>
       destination
-        ? `${travelerName} je označio da je tvoj paket isporučen u ${destination}.`
-        : `${travelerName} je označio da je tvoj paket isporučen.`,
+        ? `${travelerName} je oznacio da je tvoj paket isporucen u ${destination}.`
+        : `${travelerName} je oznacio da je tvoj paket isporucen.`,
     messageTitle: (senderName: string) => `Cargoo - Nova poruka od ${senderName}`,
     messageBody: (content: string) => content || "Primljena je nova poruka.",
   },
 } satisfies Record<
   Locale,
   {
+    genericTraveler: string;
     checkpointTitle: string;
     checkpointBody: (travelerName: string, city: string) => string;
+    cancelledTitle: string;
+    cancelledBody: (travelerName: string, origin: string, destination: string) => string;
     deliveredTitle: string;
     deliveredBody: (travelerName: string, destination: string) => string;
     messageTitle: (senderName: string) => string;
@@ -358,7 +386,7 @@ async function notifyCheckpointReached(actorUserId: string, payload: Extract<Pus
     if (!recipients.has(shipment.sender_id)) {
       recipients.set(shipment.sender_id, {
         conversationId: shipment.conversation_id,
-        travelerName: shipment.traveler_name || "El transportista",
+        travelerName: shipment.traveler_name || "",
       });
     }
   }
@@ -371,7 +399,7 @@ async function notifyCheckpointReached(actorUserId: string, payload: Extract<Pus
 
     return {
       title: strings[locale].checkpointTitle,
-      body: strings[locale].checkpointBody(recipient.travelerName, stop.city),
+      body: strings[locale].checkpointBody(recipient.travelerName || strings[locale].genericTraveler, stop.city),
       url: recipient.conversationId ? `/app/messages/${recipient.conversationId}` : "/app/shipments",
       tag: `trip-stop-${stop.trip_id}-${stop.id}`,
     };
@@ -382,6 +410,75 @@ async function notifyCheckpointReached(actorUserId: string, payload: Extract<Pus
     eventType: payload.eventType,
     tripId: stop.trip_id,
     city: stop.city,
+    ...result,
+  };
+}
+
+async function notifyTripCancelled(actorUserId: string, payload: Extract<PushEventPayload, { eventType: "trip_cancelled" }>) {
+  const { data: trip, error: tripError } = await supabase
+    .from("cargoo_trips")
+    .select("id, user_id, origin, destination")
+    .eq("id", payload.tripId)
+    .maybeSingle();
+
+  if (tripError) {
+    throw tripError;
+  }
+
+  if (!trip || trip.user_id !== actorUserId) {
+    throw new HttpError(403, "forbidden");
+  }
+
+  const { data: shipments, error: shipmentsError } = await supabase
+    .from("cargoo_shipments")
+    .select("sender_id, conversation_id, traveler_name, route_origin, route_destination")
+    .eq("trip_id", trip.id)
+    .eq("traveler_id", actorUserId)
+    .eq("status", "cancelled")
+    .eq("cancelled_by_user_id", actorUserId);
+
+  if (shipmentsError) {
+    throw shipmentsError;
+  }
+
+  const recipients = new Map<
+    string,
+    { conversationId: string | null; travelerName: string; routeOrigin: string; routeDestination: string }
+  >();
+
+  for (const shipment of shipments || []) {
+    if (!recipients.has(shipment.sender_id)) {
+      recipients.set(shipment.sender_id, {
+        conversationId: shipment.conversation_id,
+        travelerName: shipment.traveler_name || "",
+        routeOrigin: shipment.route_origin || trip.origin || "",
+        routeDestination: shipment.route_destination || trip.destination || "",
+      });
+    }
+  }
+
+  const result = await sendPushToUsers(Array.from(recipients.keys()), ({ userId, locale }) => {
+    const recipient = recipients.get(userId);
+    if (!recipient) {
+      return null;
+    }
+
+    return {
+      title: strings[locale].cancelledTitle,
+      body: strings[locale].cancelledBody(
+        recipient.travelerName || strings[locale].genericTraveler,
+        recipient.routeOrigin,
+        recipient.routeDestination,
+      ),
+      url: recipient.conversationId ? `/app/messages/${recipient.conversationId}` : "/app/shipments?tab=delivered",
+      tag: `trip-cancelled-${trip.id}`,
+    };
+  });
+
+  return {
+    ok: true,
+    eventType: payload.eventType,
+    tripId: trip.id,
     ...result,
   };
 }
@@ -407,7 +504,7 @@ async function notifyShipmentDelivered(actorUserId: string, payload: Extract<Pus
 
   const result = await sendPushToUsers([shipment.sender_id], ({ locale }) => ({
     title: strings[locale].deliveredTitle,
-    body: strings[locale].deliveredBody(shipment.traveler_name || "El transportista", shipment.route_destination || ""),
+    body: strings[locale].deliveredBody(shipment.traveler_name || strings[locale].genericTraveler, shipment.route_destination || ""),
     url: shipment.conversation_id ? `/app/messages/${shipment.conversation_id}` : "/app/shipments",
     tag: `shipment-delivered-${shipment.id}`,
   }));
@@ -494,6 +591,8 @@ Deno.serve(async (req) => {
     switch (payload.eventType) {
       case "trip_checkpoint_reached":
         return json(await notifyCheckpointReached(actorUserId, payload));
+      case "trip_cancelled":
+        return json(await notifyTripCancelled(actorUserId, payload));
       case "shipment_delivered":
         return json(await notifyShipmentDelivered(actorUserId, payload));
       case "message_received":
