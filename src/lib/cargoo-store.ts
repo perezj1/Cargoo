@@ -3,6 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { localeMessages, normalizeLocale, type Locale } from "@/locales";
+import type { CityId, CountryCode } from "@/lib/location-catalog";
 import { normalizeSearchText } from "@/lib/search-normalization";
 
 type PushEventPayload =
@@ -40,6 +41,11 @@ export interface CargooTrip {
   id: string;
   origin: string;
   destination: string;
+  coverageMode: TripCoverageMode;
+  originCityId: CityId | null;
+  destinationCityId: CityId | null;
+  originCountryCode: CountryCode | null;
+  destinationCountryCode: CountryCode | null;
   date: string;
   recurrence: TripRecurrence;
   vehicleType: string;
@@ -78,6 +84,11 @@ export interface PublicTripListing {
   reviewsCount: number;
   origin: string;
   destination: string;
+  coverageMode: TripCoverageMode;
+  originCityId: CityId | null;
+  destinationCityId: CityId | null;
+  originCountryCode: CountryCode | null;
+  destinationCountryCode: CountryCode | null;
   date: string;
   recurrence: TripRecurrence;
   vehicleType: string;
@@ -113,7 +124,8 @@ export interface UserReview {
   routeDestination: string;
 }
 
-export type ShipmentStatus = "pending" | "accepted" | "delivered";
+export type ShipmentStatus = "pending" | "accepted" | "delivered" | "cancelled";
+export type TripCoverageMode = "exact" | "country_flexible";
 
 export interface ShipmentSummary {
   id: string;
@@ -132,6 +144,7 @@ export interface ShipmentSummary {
   createdAt: string;
   acceptedAt: string | null;
   deliveredAt: string | null;
+  cancelledAt: string | null;
   currentCheckpointCity: string;
   nextCheckpointCity: string | null;
   trackingProgressPercent: number;
@@ -220,6 +233,11 @@ interface RegisterUserInput {
 interface CreateTripInput {
   origin: string;
   destination: string;
+  coverageMode: TripCoverageMode;
+  originCityId?: CityId | null;
+  destinationCityId?: CityId | null;
+  originCountryCode?: CountryCode | null;
+  destinationCountryCode?: CountryCode | null;
   date: string;
   recurrence: TripRecurrence;
   vehicleType: string;
@@ -327,6 +345,14 @@ const isMissingTripRecurrenceColumn = (error: { message?: string; code?: string 
   return /recurrence_type/i.test(error.message ?? "") && /cargoo_trips/i.test(error.message ?? "");
 };
 
+const isMissingTripCoverageColumn = (error: { message?: string; code?: string } | null) => {
+  if (!error) {
+    return false;
+  }
+
+  return /coverage_mode|origin_country_code|destination_country_code|origin_city_id|destination_city_id/i.test(error.message ?? "");
+};
+
 const mapSupabaseError = (error: { message?: string } | null) => {
   if (!error) {
     return null;
@@ -363,6 +389,14 @@ const normalizeTripRecurrence = (value: unknown): TripRecurrence => {
   }
 
   return "once";
+};
+
+const normalizeTripCoverageMode = (value: unknown): TripCoverageMode => {
+  if (value === "country_flexible") {
+    return "country_flexible";
+  }
+
+  return "exact";
 };
 
 const parseDateInput = (value: string) => {
@@ -502,6 +536,20 @@ const getMetadataTripRecords = (user: User) => {
     : [];
 };
 
+const getMetadataHiddenTripIds = (user: User) => {
+  const metadata = toMetadata(user);
+  return Array.isArray(metadata.cargoo_hidden_trip_ids)
+    ? metadata.cargoo_hidden_trip_ids.filter((value): value is string => typeof value === "string")
+    : [];
+};
+
+const getMetadataHiddenShipmentIds = (user: User) => {
+  const metadata = toMetadata(user);
+  return Array.isArray(metadata.cargoo_hidden_shipment_ids)
+    ? metadata.cargoo_hidden_shipment_ids.filter((value): value is string => typeof value === "string")
+    : [];
+};
+
 const getMetadataTrips = (user: User): CargooTrip[] => {
   return getMetadataTripRecords(user)
     .map((trip) => {
@@ -528,6 +576,11 @@ const getMetadataTrips = (user: User): CargooTrip[] => {
         id: item.id,
         origin: item.origin,
         destination: item.destination,
+        coverageMode: normalizeTripCoverageMode(item.coverageMode),
+        originCityId: typeof item.originCityId === "string" ? item.originCityId : null,
+        destinationCityId: typeof item.destinationCityId === "string" ? item.destinationCityId : null,
+        originCountryCode: typeof item.originCountryCode === "string" ? (item.originCountryCode as CountryCode) : null,
+        destinationCountryCode: typeof item.destinationCountryCode === "string" ? (item.destinationCountryCode as CountryCode) : null,
         date: item.date,
         recurrence: normalizeTripRecurrence(item.recurrence),
         vehicleType: typeof item.vehicleType === "string" ? item.vehicleType : "",
@@ -586,7 +639,17 @@ const advanceMetadataTripToNextStop = async (user: User, tripDetails: CargooTrip
   });
 
   const nextUser = await updateUserMetadata({ cargoo_trips: nextTrips });
-  return getMetadataTripDetails(nextUser, tripDetails.id);
+  const updatedTripDetails = getMetadataTripDetails(nextUser, tripDetails.id);
+  if (!updatedTripDetails) {
+    throw new Error("No pudimos recargar el viaje despues del checkpoint.");
+  }
+
+  const isLastStop = nextCurrentStopIndex === tripDetails.stops[tripDetails.stops.length - 1]?.order;
+  if (!isLastStop) {
+    return updatedTripDetails;
+  }
+
+  return (await syncTripCompletionState(user.id, tripDetails.id)) ?? updatedTripDetails;
 };
 
 const updateUserMetadata = async (updates: MetadataRecord) => {
@@ -628,6 +691,106 @@ const requireUser = async () => {
   return user;
 };
 
+const getHiddenTripIdsForUser = async (user: User, tripIds: string[]) => {
+  const uniqueTripIds = Array.from(new Set(tripIds.filter(Boolean)));
+  if (!uniqueTripIds.length) {
+    return new Set<string>();
+  }
+
+  const { data, error } = await supabase
+    .from("cargoo_trip_hidden_states")
+    .select("trip_id")
+    .eq("user_id", user.id)
+    .in("trip_id", uniqueTripIds);
+
+  if (isMissingCargooTable(error)) {
+    return new Set(getMetadataHiddenTripIds(user).filter((tripId) => uniqueTripIds.includes(tripId)));
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  return new Set((data ?? []).map((row) => row.trip_id));
+};
+
+const getHiddenShipmentIdsForUser = async (user: User, shipmentIds: string[]) => {
+  const uniqueShipmentIds = Array.from(new Set(shipmentIds.filter(Boolean)));
+  if (!uniqueShipmentIds.length) {
+    return new Set<string>();
+  }
+
+  const { data, error } = await supabase
+    .from("cargoo_shipment_hidden_states")
+    .select("shipment_id")
+    .eq("user_id", user.id)
+    .in("shipment_id", uniqueShipmentIds);
+
+  if (isMissingCargooTable(error)) {
+    return new Set(getMetadataHiddenShipmentIds(user).filter((shipmentId) => uniqueShipmentIds.includes(shipmentId)));
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  return new Set((data ?? []).map((row) => row.shipment_id));
+};
+
+const hideTripForUser = async (user: User, tripId: string) => {
+  const hiddenAt = new Date().toISOString();
+  const { error } = await supabase
+    .from("cargoo_trip_hidden_states")
+    .upsert(
+      {
+        trip_id: tripId,
+        user_id: user.id,
+        hidden_at: hiddenAt,
+      },
+      { onConflict: "trip_id,user_id" },
+    );
+
+  if (isMissingCargooTable(error)) {
+    const hiddenTripIds = new Set(getMetadataHiddenTripIds(user));
+    hiddenTripIds.add(tripId);
+    await updateUserMetadata({ cargoo_hidden_trip_ids: Array.from(hiddenTripIds) });
+    return;
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+};
+
+const hideShipmentForUser = async (user: User, shipmentId: string) => {
+  const hiddenAt = new Date().toISOString();
+  const { error } = await supabase
+    .from("cargoo_shipment_hidden_states")
+    .upsert(
+      {
+        shipment_id: shipmentId,
+        user_id: user.id,
+        hidden_at: hiddenAt,
+      },
+      { onConflict: "shipment_id,user_id" },
+    );
+
+  if (isMissingCargooTable(error)) {
+    const hiddenShipmentIds = new Set(getMetadataHiddenShipmentIds(user));
+    hiddenShipmentIds.add(shipmentId);
+    await updateUserMetadata({ cargoo_hidden_shipment_ids: Array.from(hiddenShipmentIds) });
+    return;
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+};
+
 const mapProfileRow = (
   row: {
     user_id: string;
@@ -667,6 +830,11 @@ const mapTripRow = (row: {
   id: string;
   origin: string;
   destination: string;
+  coverage_mode?: string | null;
+  origin_city_id?: string | null;
+  destination_city_id?: string | null;
+  origin_country_code?: string | null;
+  destination_country_code?: string | null;
   trip_date: string;
   recurrence_type?: string | null;
   vehicle_type: string | null;
@@ -680,6 +848,11 @@ const mapTripRow = (row: {
   id: row.id,
   origin: row.origin,
   destination: row.destination,
+  coverageMode: normalizeTripCoverageMode(row.coverage_mode),
+  originCityId: row.origin_city_id ?? null,
+  destinationCityId: row.destination_city_id ?? null,
+  originCountryCode: (row.origin_country_code as CountryCode | null | undefined) ?? null,
+  destinationCountryCode: (row.destination_country_code as CountryCode | null | undefined) ?? null,
   date: row.trip_date,
   recurrence: normalizeTripRecurrence(row.recurrence_type),
   vehicleType: row.vehicle_type ?? "",
@@ -742,6 +915,11 @@ const buildPublicTripListing = (
     user_id: string;
     origin: string;
     destination: string;
+    coverage_mode?: string | null;
+    origin_city_id?: string | null;
+    destination_city_id?: string | null;
+    origin_country_code?: string | null;
+    destination_country_code?: string | null;
     trip_date: string;
     recurrence_type?: string | null;
     vehicle_type: string | null;
@@ -771,6 +949,11 @@ const buildPublicTripListing = (
     reviewsCount: profile?.reviewsCount ?? 0,
     origin: trip.origin,
     destination: trip.destination,
+    coverageMode: normalizeTripCoverageMode(trip.coverage_mode),
+    originCityId: trip.origin_city_id ?? null,
+    destinationCityId: trip.destination_city_id ?? null,
+    originCountryCode: (trip.origin_country_code as CountryCode | null | undefined) ?? null,
+    destinationCountryCode: (trip.destination_country_code as CountryCode | null | undefined) ?? null,
     date: trip.trip_date,
     recurrence: normalizeTripRecurrence(trip.recurrence_type),
     vehicleType: trip.vehicle_type ?? "",
@@ -900,6 +1083,7 @@ const buildShipmentSummary = (
   createdAt: row.created_at ?? new Date().toISOString(),
   acceptedAt: row.accepted_at,
   deliveredAt: row.delivered_at,
+  cancelledAt: row.cancelled_at,
   currentCheckpointCity: tripDetails?.lastCheckpointCity ?? row.route_origin,
   nextCheckpointCity: tripDetails?.nextStop?.city ?? null,
   trackingProgressPercent: tripDetails?.progressPercent ?? 0,
@@ -1218,7 +1402,9 @@ export const getTrips = async () => {
     .order("trip_date", { ascending: true });
 
   if (isMissingCargooTable(error)) {
-    return getMetadataTrips(user);
+    const metadataTrips = getMetadataTrips(user);
+    const hiddenTripIds = await getHiddenTripIdsForUser(user, metadataTrips.map((trip) => trip.id));
+    return metadataTrips.filter((trip) => !hiddenTripIds.has(trip.id));
   }
 
   const mappedError = mapSupabaseError(error);
@@ -1226,10 +1412,38 @@ export const getTrips = async () => {
     throw mappedError;
   }
 
-  return (data ?? []).map(mapTripRow);
+  const trips = (data ?? []).map(mapTripRow);
+  const hiddenTripIds = await getHiddenTripIdsForUser(user, trips.map((trip) => trip.id));
+  return trips.filter((trip) => !hiddenTripIds.has(trip.id));
 };
 
-export const deleteCompletedTrip = async (tripId: string) => {
+const cancelTripShipmentsForTraveler = async (tripId: string, travelerId: string) => {
+  const cancelledAt = new Date().toISOString();
+  const { error } = await supabase
+    .from("cargoo_shipments")
+    .update({
+      status: "cancelled",
+      cancelled_at: cancelledAt,
+      cancelled_by_user_id: travelerId,
+    })
+    .eq("trip_id", tripId)
+    .eq("traveler_id", travelerId)
+    .in("status", ["pending", "accepted"]);
+
+  if (isMissingCargooTable(error)) {
+    markShipmentFeatureUnavailable();
+    return;
+  }
+
+  const mappedError = mapSupabaseError(error);
+  if (mappedError) {
+    throw mappedError;
+  }
+
+  markShipmentFeatureAvailable();
+};
+
+export const deleteTrip = async (tripId: string) => {
   const user = await requireUser();
   const { data, error } = await supabase
     .from("cargoo_trips")
@@ -1244,12 +1458,19 @@ export const deleteCompletedTrip = async (tripId: string) => {
       throw new Error("No encontramos ese viaje.");
     }
 
-    if (metadataTrip.status !== "completed") {
-      throw new Error("Solo puedes eliminar viajes completados.");
+    if (metadataTrip.status === "active") {
+      const nextTrips = getMetadataTripRecords(user).map((tripRecord) =>
+        tripRecord.id === tripId
+          ? {
+              ...tripRecord,
+              status: "completed",
+            }
+          : tripRecord,
+      );
+      await updateUserMetadata({ cargoo_trips: nextTrips });
     }
 
-    const nextTrips = getMetadataTripRecords(user).filter((trip) => trip.id !== tripId);
-    await updateUserMetadata({ cargoo_trips: nextTrips });
+    await hideTripForUser(user, tripId);
     return;
   }
 
@@ -1262,16 +1483,26 @@ export const deleteCompletedTrip = async (tripId: string) => {
     throw new Error("No encontramos ese viaje.");
   }
 
-  if (data.status !== "completed") {
-    throw new Error("Solo puedes eliminar viajes completados.");
+  if (data.status === "active") {
+    await cancelTripShipmentsForTraveler(tripId, user.id);
+
+    const { error: tripUpdateError } = await supabase
+      .from("cargoo_trips")
+      .update({ status: "completed" })
+      .eq("user_id", user.id)
+      .eq("id", tripId)
+      .eq("status", "active");
+
+    const mappedTripUpdateError = mapSupabaseError(tripUpdateError);
+    if (mappedTripUpdateError) {
+      throw mappedTripUpdateError;
+    }
   }
 
-  const { error: deleteError } = await supabase.from("cargoo_trips").delete().eq("user_id", user.id).eq("id", tripId);
-  const mappedDeleteError = mapSupabaseError(deleteError);
-  if (mappedDeleteError) {
-    throw mappedDeleteError;
-  }
+  await hideTripForUser(user, tripId);
 };
+
+export const deleteCompletedTrip = deleteTrip;
 
 const getTripStopsFromSupabase = async (tripId: string) => {
   const { data, error } = await supabase
@@ -1436,7 +1667,7 @@ const countUndeliveredTripShipments = async (tripId: string) => {
     .from("cargoo_shipments")
     .select("id", { count: "exact", head: true })
     .eq("trip_id", tripId)
-    .neq("status", "delivered");
+    .in("status", ["pending", "accepted"]);
 
   if (isMissingCargooTable(error)) {
     markShipmentFeatureUnavailable();
@@ -1452,29 +1683,56 @@ const countUndeliveredTripShipments = async (tripId: string) => {
   return count ?? 0;
 };
 
+const buildRecurringTripDraft = (tripDetails: CargooTripDetails): CreateTripInput => ({
+  origin: tripDetails.origin,
+  destination: tripDetails.destination,
+  coverageMode: tripDetails.coverageMode,
+  originCityId: tripDetails.originCityId,
+  destinationCityId: tripDetails.destinationCityId,
+  originCountryCode: tripDetails.originCountryCode,
+  destinationCountryCode: tripDetails.destinationCountryCode,
+  date: "",
+  recurrence: tripDetails.recurrence,
+  vehicleType: tripDetails.vehicleType,
+  capacityKg: tripDetails.capacityKg,
+  notes: tripDetails.notes,
+  routeStops: tripDetails.stops.slice(1, -1).map((stop) => stop.city),
+});
+
+const updateMetadataTripStatus = async (
+  tripId: string,
+  currentStatus: CargooTrip["status"],
+  nextStatus: CargooTrip["status"],
+) => {
+  const user = await requireUser();
+  let didUpdate = false;
+  const nextTrips = getMetadataTripRecords(user).map((tripRecord) => {
+    if (tripRecord.id !== tripId) {
+      return tripRecord;
+    }
+
+    if (tripRecord.status !== currentStatus) {
+      return tripRecord;
+    }
+
+    didUpdate = true;
+    return {
+      ...tripRecord,
+      status: nextStatus,
+    };
+  });
+
+  const nextUser = didUpdate ? await updateUserMetadata({ cargoo_trips: nextTrips }) : user;
+  return {
+    didUpdate,
+    tripDetails: getMetadataTripDetails(nextUser, tripId),
+  };
+};
+
 const syncTripCompletionState = async (userId: string, tripId: string) => {
   const tripDetails = await getTripById(tripId);
   if (!tripDetails) {
     return null as CargooTripDetails | null;
-  }
-
-  if (tripDetails.recurrence !== "once") {
-    if (tripDetails.status === "completed") {
-      const { error } = await supabase
-        .from("cargoo_trips")
-        .update({ status: "active" })
-        .eq("id", tripId)
-        .eq("user_id", userId);
-
-      const mappedError = mapSupabaseError(error);
-      if (mappedError) {
-        throw mappedError;
-      }
-
-      return getTripById(tripId);
-    }
-
-    return tripDetails;
   }
 
   const shouldBeCompleted = !tripDetails.nextStop && (await countUndeliveredTripShipments(tripId)) === 0;
@@ -1484,23 +1742,48 @@ const syncTripCompletionState = async (userId: string, tripId: string) => {
     return tripDetails;
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("cargoo_trips")
     .update({ status: nextStatus })
     .eq("id", tripId)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .eq("status", tripDetails.status)
+    .select("id");
+
+  if (isMissingCargooTable(error)) {
+    const { didUpdate, tripDetails: metadataTripDetails } = await updateMetadataTripStatus(tripId, tripDetails.status, nextStatus);
+    if (!metadataTripDetails) {
+      throw new Error("No pudimos recargar el viaje actualizado.");
+    }
+
+    if (didUpdate && nextStatus === "completed" && metadataTripDetails.recurrence !== "once") {
+      await createTrip(buildRecurringTripDraft(metadataTripDetails));
+    }
+
+    return metadataTripDetails;
+  }
 
   const mappedError = mapSupabaseError(error);
   if (mappedError) {
     throw mappedError;
   }
 
-  return getTripById(tripId);
+  const updatedTripDetails = await getTripById(tripId);
+  if (!updatedTripDetails) {
+    throw new Error("No pudimos recargar el viaje actualizado.");
+  }
+
+  if ((data?.length ?? 0) > 0 && nextStatus === "completed" && updatedTripDetails.recurrence !== "once") {
+    await createTrip(buildRecurringTripDraft(updatedTripDetails));
+  }
+
+  return updatedTripDetails;
 };
 
 export const createTrip = async (trip: CreateTripInput) => {
   const user = await requireUser();
   const profile = await ensureProfile(user);
+  const normalizedCoverageMode = normalizeTripCoverageMode(trip.coverageMode);
   const normalizedOrigin = trip.origin.trim();
   const normalizedDestination = trip.destination.trim();
   const normalizedRecurrence = normalizeTripRecurrence(trip.recurrence);
@@ -1516,6 +1799,11 @@ export const createTrip = async (trip: CreateTripInput) => {
     id: `trip-${Date.now()}`,
     origin: normalizedOrigin,
     destination: normalizedDestination,
+    coverageMode: normalizedCoverageMode,
+    originCityId: trip.originCityId ?? null,
+    destinationCityId: trip.destinationCityId ?? null,
+    originCountryCode: trip.originCountryCode ?? null,
+    destinationCountryCode: trip.destinationCountryCode ?? null,
     date: normalizedDate,
     recurrence: normalizedRecurrence,
     vehicleType: normalizedVehicleType,
@@ -1531,6 +1819,11 @@ export const createTrip = async (trip: CreateTripInput) => {
     user_id: user.id,
     origin: normalizedOrigin,
     destination: normalizedDestination,
+    coverage_mode: normalizedCoverageMode,
+    origin_city_id: trip.originCityId ?? null,
+    destination_city_id: trip.destinationCityId ?? null,
+    origin_country_code: trip.originCountryCode ?? null,
+    destination_country_code: trip.destinationCountryCode ?? null,
     trip_date: nextTrip.date,
     recurrence_type: normalizedRecurrence,
     vehicle_type: normalizedVehicleType || null,
@@ -1543,7 +1836,7 @@ export const createTrip = async (trip: CreateTripInput) => {
 
   let insertResult = await supabase.from("cargoo_trips").insert(payload).select("*").single();
 
-  if (isMissingTripVehicleColumn(insertResult.error) || isMissingTripRecurrenceColumn(insertResult.error)) {
+  if (isMissingTripVehicleColumn(insertResult.error) || isMissingTripRecurrenceColumn(insertResult.error) || isMissingTripCoverageColumn(insertResult.error)) {
     let legacyPayload = { ...payload };
 
     if (isMissingTripVehicleColumn(insertResult.error)) {
@@ -1554,6 +1847,18 @@ export const createTrip = async (trip: CreateTripInput) => {
     if (isMissingTripRecurrenceColumn(insertResult.error)) {
       const { recurrence_type: _recurrenceType, ...payloadWithoutRecurrence } = legacyPayload;
       legacyPayload = payloadWithoutRecurrence;
+    }
+
+    if (isMissingTripCoverageColumn(insertResult.error)) {
+      const {
+        coverage_mode: _coverageMode,
+        origin_city_id: _originCityId,
+        destination_city_id: _destinationCityId,
+        origin_country_code: _originCountryCode,
+        destination_country_code: _destinationCountryCode,
+        ...payloadWithoutCoverage
+      } = legacyPayload;
+      legacyPayload = payloadWithoutCoverage;
     }
 
     insertResult = await supabase.from("cargoo_trips").insert(legacyPayload).select("*").single();
@@ -1603,6 +1908,11 @@ export const createTrip = async (trip: CreateTripInput) => {
 
 export const getTripById = async (tripId: string) => {
   const user = await requireUser();
+  const hiddenTripIds = await getHiddenTripIdsForUser(user, [tripId]);
+  if (hiddenTripIds.has(tripId)) {
+    return null;
+  }
+
   const { data, error } = await supabase
     .from("cargoo_trips")
     .select("*")
@@ -1866,10 +2176,12 @@ const getShipmentsByConversationIds = async (conversationIds: string[]) => {
     return new Map<string, ShipmentRow>();
   }
 
+  const user = await requireUser();
   const { data, error } = await supabase
     .from("cargoo_shipments")
     .select("*")
-    .in("conversation_id", conversationIds);
+    .in("conversation_id", conversationIds)
+    .order("created_at", { ascending: false });
 
   if (isMissingCargooTable(error)) {
     markShipmentFeatureUnavailable();
@@ -1882,7 +2194,18 @@ const getShipmentsByConversationIds = async (conversationIds: string[]) => {
   }
 
   markShipmentFeatureAvailable();
-  return new Map((data ?? []).map((shipment) => [shipment.conversation_id, shipment] as const));
+  const hiddenShipmentIds = await getHiddenShipmentIdsForUser(user, (data ?? []).map((shipment) => shipment.id));
+  const shipmentsByConversationId = new Map<string, ShipmentRow>();
+
+  (data ?? []).forEach((shipment) => {
+    if (hiddenShipmentIds.has(shipment.id) || shipmentsByConversationId.has(shipment.conversation_id)) {
+      return;
+    }
+
+    shipmentsByConversationId.set(shipment.conversation_id, shipment);
+  });
+
+  return shipmentsByConversationId;
 };
 
 const buildShipmentSummaries = async (rows: ShipmentRow[]) => {
@@ -1944,7 +2267,9 @@ export const getMyShipments = async () => {
   }
 
   markShipmentFeatureAvailable();
-  return buildShipmentSummaries(data ?? []);
+  const hiddenShipmentIds = await getHiddenShipmentIdsForUser(user, (data ?? []).map((row) => row.id));
+  const visibleRows = (data ?? []).filter((shipment) => !hiddenShipmentIds.has(shipment.id));
+  return buildShipmentSummaries(visibleRows);
 };
 
 export const deleteDeliveredShipment = async (shipmentId: string) => {
@@ -1973,16 +2298,11 @@ export const deleteDeliveredShipment = async (shipmentId: string) => {
     throw new Error("No encontramos ese envío.");
   }
 
-  if (data.status !== "delivered") {
-    throw new Error("Solo puedes eliminar envíos entregados.");
+  if (data.status !== "delivered" && data.status !== "cancelled") {
+    throw new Error("Solo puedes eliminar envíos completados.");
   }
 
-  const { error: deleteError } = await supabase.from("cargoo_shipments").delete().eq("id", shipmentId);
-  const mappedDeleteError = mapSupabaseError(deleteError);
-  if (mappedDeleteError) {
-    throw mappedDeleteError;
-  }
-
+  await hideShipmentForUser(user, shipmentId);
   markShipmentFeatureAvailable();
 };
 
@@ -1991,6 +2311,7 @@ export const getTripShipments = async (tripId: string) => {
     return [] as ShipmentSummary[];
   }
 
+  const user = await requireUser();
   const { data, error } = await supabase
     .from("cargoo_shipments")
     .select("*")
@@ -2008,7 +2329,9 @@ export const getTripShipments = async (tripId: string) => {
   }
 
   markShipmentFeatureAvailable();
-  return buildShipmentSummaries(data ?? []);
+  const hiddenShipmentIds = await getHiddenShipmentIdsForUser(user, (data ?? []).map((row) => row.id));
+  const visibleRows = (data ?? []).filter((shipment) => !hiddenShipmentIds.has(shipment.id));
+  return buildShipmentSummaries(visibleRows);
 };
 
 export const createShipmentRequest = async (conversationId: string) => {
@@ -2667,6 +2990,53 @@ export const getConversations = async () => {
       conversation,
       user.id,
       unreadCountByConversationId[conversation.id] ?? 0,
+      shipmentByConversationId.get(conversation.id) ?? null,
+      avatarUrlByUserId.get(conversation.participant_one_id === user.id ? conversation.participant_two_id : conversation.participant_one_id) ?? "",
+    ),
+  );
+};
+
+export const getTripConversations = async (tripId: string) => {
+  if (isChatFeatureUnavailable()) {
+    return [] as ConversationSummary[];
+  }
+
+  const user = await requireUser();
+  const { data: conversations, error: conversationsError } = await supabase
+    .from("cargoo_conversations")
+    .select("*")
+    .eq("trip_id", tripId)
+    .or(`participant_one_id.eq.${user.id},participant_two_id.eq.${user.id}`)
+    .order("last_message_at", { ascending: false });
+
+  if (isMissingCargooTable(conversationsError)) {
+    markChatFeatureUnavailable();
+    return [] as ConversationSummary[];
+  }
+
+  const mappedConversationsError = mapSupabaseError(conversationsError);
+  if (mappedConversationsError) {
+    throw mappedConversationsError;
+  }
+
+  markChatFeatureAvailable();
+
+  if (!conversations?.length) {
+    return [];
+  }
+
+  const conversationIds = conversations.map((conversation) => conversation.id);
+  const otherUserIds = conversations.map((conversation) =>
+    conversation.participant_one_id === user.id ? conversation.participant_two_id : conversation.participant_one_id,
+  );
+  const shipmentByConversationId = await getShipmentsByConversationIds(conversationIds);
+  const avatarUrlByUserId = await getProfileAvatarUrlsByUserIds(otherUserIds);
+
+  return conversations.map((conversation) =>
+    mapConversationRow(
+      conversation,
+      user.id,
+      0,
       shipmentByConversationId.get(conversation.id) ?? null,
       avatarUrlByUserId.get(conversation.participant_one_id === user.id ? conversation.participant_two_id : conversation.participant_one_id) ?? "",
     ),

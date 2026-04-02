@@ -102,6 +102,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      cargoo_shipment_hidden_states: {
+        Row: {
+          hidden_at: string;
+          shipment_id: string;
+          user_id: string;
+        };
+        Insert: {
+          hidden_at?: string;
+          shipment_id: string;
+          user_id: string;
+        };
+        Update: {
+          hidden_at?: string;
+          shipment_id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      cargoo_trip_hidden_states: {
+        Row: {
+          hidden_at: string;
+          trip_id: string;
+          user_id: string;
+        };
+        Insert: {
+          hidden_at?: string;
+          trip_id: string;
+          user_id: string;
+        };
+        Update: {
+          hidden_at?: string;
+          trip_id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       cargoo_profiles: {
         Row: {
           avatar_url: string | null;
@@ -150,6 +186,8 @@ export type Database = {
       cargoo_shipments: {
         Row: {
           accepted_at: string | null;
+          cancelled_at: string | null;
+          cancelled_by_user_id: string | null;
           conversation_id: string;
           created_at: string | null;
           delivered_at: string | null;
@@ -164,7 +202,7 @@ export type Database = {
           sender_review_comment: string | null;
           sender_review_rating: number | null;
           sender_reviewed_at: string | null;
-          status: "pending" | "accepted" | "delivered";
+          status: "pending" | "accepted" | "delivered" | "cancelled";
           traveler_id: string;
           traveler_name: string;
           trip_id: string;
@@ -172,6 +210,8 @@ export type Database = {
         };
         Insert: {
           accepted_at?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by_user_id?: string | null;
           conversation_id: string;
           created_at?: string | null;
           delivered_at?: string | null;
@@ -186,7 +226,7 @@ export type Database = {
           sender_review_comment?: string | null;
           sender_review_rating?: number | null;
           sender_reviewed_at?: string | null;
-          status?: "pending" | "accepted" | "delivered";
+          status?: "pending" | "accepted" | "delivered" | "cancelled";
           traveler_id: string;
           traveler_name: string;
           trip_id: string;
@@ -194,6 +234,8 @@ export type Database = {
         };
         Update: {
           accepted_at?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by_user_id?: string | null;
           conversation_id?: string;
           created_at?: string | null;
           delivered_at?: string | null;
@@ -208,7 +250,7 @@ export type Database = {
           sender_review_comment?: string | null;
           sender_review_rating?: number | null;
           sender_reviewed_at?: string | null;
-          status?: "pending" | "accepted" | "delivered";
+          status?: "pending" | "accepted" | "delivered" | "cancelled";
           traveler_id?: string;
           traveler_name?: string;
           trip_id?: string;

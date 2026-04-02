@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, CheckCircle2, Clock3, Package, Send, Star, Truck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock3, Package, Send, Star, Truck, XCircle } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -62,6 +62,10 @@ const ConversationPage = () => {
       label: localeMessages.shipmentStatus.delivered,
       className: "border-success/20 bg-success/10 text-success",
     },
+    cancelled: {
+      label: localeMessages.shipmentStatus.cancelled,
+      className: "border-destructive/20 bg-destructive/10 text-destructive",
+    },
   } as const;
 
   const loadConversation = async () => {
@@ -119,6 +123,13 @@ const ConversationPage = () => {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "cargoo_shipments", filter: `conversation_id=eq.${conversationId}` },
+        async () => {
+          await loadConversation();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "cargoo_shipment_hidden_states" },
         async () => {
           await loadConversation();
         },
@@ -364,6 +375,7 @@ const ConversationPage = () => {
               {shipment.status === "pending" ? <Clock3 className="mr-1 h-3.5 w-3.5" /> : null}
               {shipment.status === "accepted" ? <Truck className="mr-1 h-3.5 w-3.5" /> : null}
               {shipment.status === "delivered" ? <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> : null}
+              {shipment.status === "cancelled" ? <XCircle className="mr-1 h-3.5 w-3.5" /> : null}
               {shipmentStatus?.label}
             </span>
           ) : (

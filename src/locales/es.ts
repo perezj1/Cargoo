@@ -330,6 +330,7 @@ export const es = {
     pending: "Por cargar",
     accepted: "En ruta",
     delivered: "Entregado",
+    cancelled: "Cancelado",
   },
   tripStatus: {
     active: "Activo",
@@ -469,8 +470,14 @@ export const es = {
     reuseTrip: "Reutilizar trayecto",
     delete: "Eliminar",
     empty: "No tienes viajes en esta categoría",
-    deletedSuccess: "Viaje completado eliminado.",
-    deleteDialogTitle: "Eliminar viaje completado",
+    cancelAction: "Cancelar viaje",
+    cancelledSuccess: "Viaje cancelado.",
+    deletedSuccess: "Viaje eliminado.",
+    cancelDialogTitle: "Cancelar viaje",
+    cancelDialogDescription:
+      "¿Estás seguro de cancelar el viaje? Se informará a todos los emisores que hayan elegido este viaje que el viaje se ha cancelado y se eliminará de tus viajes activos.",
+    cancelDialogButton: "Cancelar viaje",
+    deleteDialogTitle: "Eliminar viaje",
     deleteDialogDescription:
       "Este viaje se borrará del historial. Si tiene envíos vinculados, también desaparecerán junto con el viaje.",
     deleteDialogButton: "Eliminar viaje",
@@ -490,6 +497,7 @@ export const es = {
     nextCheckpoint: (city: string) => `Siguiente: ${city}`,
     noNextCheckpoint: "Sin siguiente parada",
     tracking: "Seguimiento del trayecto",
+    cancelledBanner: "El transportista ha cancelado el viaje.",
     pendingBanner: "Transporte elegido. Cuando el paquete ya esté cargado, confírmalo desde el chat para activar el seguimiento.",
     deliveredBanner: (rating: number | null) =>
       rating ? `Entregado y valorado con ${rating} estrella(s).` : "Entregado pendiente de valoración.",
@@ -500,8 +508,8 @@ export const es = {
     deleteShipment: "Eliminar envío",
     reviewSaved: "Valoración guardada.",
     packageLoadedSuccess: "Paquete cargado. El seguimiento ya está activo.",
-    deletedSuccess: "Envío entregado eliminado.",
-    deleteDialogTitle: "Eliminar envío entregado",
+    deletedSuccess: "Envío completado eliminado.",
+    deleteDialogTitle: "Eliminar envío completado",
     deleteDialogDescription: "Este envío se quitará de tu historial. La conversación seguirá disponible para ambas personas.",
     deleteDialogButton: "Eliminar envío",
     deleting: "Eliminando...",
