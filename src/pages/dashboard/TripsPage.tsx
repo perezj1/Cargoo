@@ -19,13 +19,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { deleteTrip, getFriendlyErrorMessage, getTrips, type CargooTrip } from "@/lib/cargoo-store";
-import { getTripRouteLabels } from "@/lib/location-catalog";
 import { formatTripScheduleLabel } from "@/lib/trip-schedule";
 
 const TripsPage = () => {
   const navigate = useNavigate();
   const { loading: authLoading, profile, profileLoading } = useAuth();
-  const { intlLocale, locale, messages } = useLocale();
+  const { intlLocale, messages } = useLocale();
   const [tab, setTab] = useState("active");
   const [trips, setTrips] = useState<CargooTrip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,9 +117,6 @@ const TripsPage = () => {
       ) : (
         <div className="space-y-3">
           {filteredTrips.map((trip) => {
-            const routeLabels = getTripRouteLabels(trip, locale, {
-              anyCityInCountry: messages.common.anyCityInCountry,
-            });
             const status = statusConfig[trip.status];
             const isActiveTrip = trip.status === "active";
             const formattedDate = formatTripScheduleLabel({
@@ -137,7 +133,7 @@ const TripsPage = () => {
                 <Link to={`/app/trips/${trip.id}`} className="block">
                   <div className="mb-3 flex items-start justify-between">
                     <div className="min-w-0 flex-1 pr-3">
-                      <RouteInline origin={routeLabels.originLabel} destination={routeLabels.destinationLabel} className="text-sm font-medium" />
+                      <RouteInline origin={trip.origin} destination={trip.destination} className="text-sm font-medium" />
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       {trip.coverageMode === "country_flexible" ? (
